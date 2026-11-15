@@ -2,7 +2,7 @@
 .SYNOPSIS
     Qwen 3.8 27B 고속 호출 스크립트 (실시간 토큰 스트리밍 및 원격 P2P/로컬 2단 폴백)
 .DESCRIPTION
-    1순위: 자택 PC RTX 5070 Ti (Tailscale http://100.111.193.94:11434, qwen3.8:27b)
+    1순위: 환경변수 OLLAMA_REMOTE_HOST 기반 원격 가속 호스트 (qwen3.8:27b)
     2순위: 노트북 로컬 폴백 (http://127.0.0.1:11434, qwen2.5:7b)
 #>
 [CmdletBinding()]
@@ -47,44 +47,47 @@ if ($PromptFile -and (Test-Path -LiteralPath $PromptFile)) {
     exit 1
 }
 
-# 2. 엔드포인트 및 모델 결정 (전역 규칙 준수)
-$primaryUrl = "http://100.111.193.94:11434"
+# 2. 엔드포인트 및 모델 결정 (환경변수 OLLAMA_REMOTE_HOST 우선 적용)
+$remoteHost = $env:OLLAMA_REMOTE_HOST
+$primaryUrl = if ($remoteHost) { "http://${remoteHost}:11434" } else { "" }
 $fallbackUrl = "http://127.0.0.1:11434"
 $targetUrl = ""
 $targetModel = $Model
 
-# 1순위: 자택 PC 원격 엔드포인트 확인
+# 1순위: 원격 가속 엔드포인트 확인 (환경변수 설정 시)
 $remoteOk = $false
-try {
-    $testResult = Test-NetConnection -ComputerName "100.111.193.94" -Port 11434 -WarningAction SilentlyContinue
-    if ($testResult.TcpTestSucceeded) {
-        $healthCheck = Invoke-RestMethod -Uri "$primaryUrl/api/tags" -Method Get -TimeoutSec 3 -ErrorAction Stop
-        $remoteOk = $true
-        $targetUrl = $primaryUrl
-        if (-not $targetModel) { 
-            # 원격 서버 태그 확인 및 매핑
-            $hasExact = $healthCheck.models | Where-Object { $_.name -like "qwen3.8:27b*" }
-            if ($hasExact) {
-                $targetModel = $hasExact[0].name
-            } else {
-                $targetModel = "qwen27b:latest"
+if ($remoteHost) {
+    try {
+        $testResult = Test-NetConnection -ComputerName $remoteHost -Port 11434 -WarningAction SilentlyContinue
+        if ($testResult.TcpTestSucceeded) {
+            $healthCheck = Invoke-RestMethod -Uri "$primaryUrl/api/tags" -Method Get -TimeoutSec 3 -ErrorAction Stop
+            $remoteOk = $true
+            $targetUrl = $primaryUrl
+            if (-not $targetModel) { 
+                # 원격 서버 태그 확인 및 매핑
+                $hasExact = $healthCheck.models | Where-Object { $_.name -like "qwen3.8:27b*" }
+                if ($hasExact) {
+                    $targetModel = $hasExact[0].name
+                } else {
+                    $targetModel = "qwen27b:latest"
+                }
             }
+            if (-not $Quiet) { Write-Host "[ENDPOINT] 1순위 원격 GPU 가속 연결 성공 ($targetUrl, 모델: $targetModel)" -ForegroundColor Green }
         }
-        if (-not $Quiet) { Write-Host "[ENDPOINT] 1순위 자택 RTX 5070 Ti 연결 성공 ($targetUrl, 모델: $targetModel)" -ForegroundColor Green }
+    } catch {
+        $remoteOk = $false
     }
-} catch {
-    $remoteOk = $false
 }
 
-# 2순위: 노트북 로컬 폴백
+# 2순위: 로컬 폴백
 if (-not $remoteOk) {
     try {
         $localCheck = Invoke-RestMethod -Uri "$fallbackUrl/api/tags" -Method Get -TimeoutSec 2 -ErrorAction Stop
         $targetUrl = $fallbackUrl
         if (-not $targetModel) { $targetModel = "qwen2.5:7b" }
-        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK] 1순위 원격 연결 실패. 2순위 로컬 노트북으로 폴백합니다 ($targetUrl, 모델: $targetModel)" }
+        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK] 원격 미설정/연결실패로 로컬 엔드포인트로 폴백합니다 ($targetUrl, 모델: $targetModel)" }
     } catch {
-        Write-Error "Ollama 서버 연결 실패: 원격(100.111.193.94:11434) 및 로컬(127.0.0.1:11434) 모두 응답이 없습니다."
+        Write-Error "Ollama 서버 연결 실패: 원격(<TAILSCALE_OLLAMA_HOST>) 및 로컬(127.0.0.1:11434) 모두 응답이 없습니다."
         exit 2
     }
 }

@@ -1,7 +1,7 @@
 ﻿### [Hermes Audit Execution Metrics v1.1.1]
 | Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
 |---|---|---|---|---|---|---|---|
-| C:\Users\klad3\OneDrive\바탕 화면\IT\프로젝트\SRS작성 및 검수 프로젝트\config/srs_specification_ssot.md | qwen27b:latest (IQ3_M) | 54.99s | 2274 tokens | 1549 tokens | 33.4 tokens/s | stop | 20261115_070114_f0c61c4e |
+| <PROJECT_ROOT>\config/srs_specification_ssot.md | qwen27b:latest (IQ3_M) | 54.99s | 2274 tokens | 1549 tokens | 33.4 tokens/s | stop | 20261115_070114_f0c61c4e |
 
 | Finding ID | Audit Item | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Analysis & Recommendation |
 |---|---|---|---|---|---|

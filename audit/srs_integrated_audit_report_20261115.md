@@ -1,7 +1,10 @@
 ﻿### [Hermes Audit Execution Metrics v1.1.1]
 | Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
 |---|---|---|---|---|---|---|---|
-| C:\Users\klad3\OneDrive\바탕 화면\IT\프로젝트\SRS작성 및 검수 프로젝트\config/srs_specification_ssot.md | qwen27b:latest (IQ3_M) | 54.99s | 2274 tokens | 1549 tokens | 33.4 tokens/s | stop | 20261115_070114_f0c61c4e |
+| <PROJECT_ROOT>\config/srs_specification_ssot.md | qwen27b:latest (IQ3_M) | 54.99s | 2274 tokens | 1549 tokens | 33.4 tokens/s | stop | 20261115_070114_f0c61c4e |
+
+> [!IMPORTANT]
+> **【重要・人によるレビュー正誤表】**: 本レポートの F-001（P0 FAIL 誤検出の却下）および F-003（P1 FAIL 保留・端数処理方針）に対する確定判断と法令根拠は [`audit/F001_F003_human_review_errata.md`](F001_F003_human_review_errata.md) を参照してください。本レポート本文は監査実行時の原本記録として保持されます。
 
 | Finding ID | Audit Item | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Analysis & Recommendation |
 |---|---|---|---|---|---|

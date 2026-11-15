@@ -1,8 +1,8 @@
 ﻿# 🏛️ [멀티에이전트 시스템 장애·예외 해결 통합 원장 (사건 이력 & 인프라 벤치마크)]
 
 > 이 파일은 Antigravity 집필·검수 이력, 인프라 연속성 엔진 벤치마크, 그리고 Codex에서 이어진 모든 문제·원인·해결·검증 상태를 함께 기록하는 **공용 서술 통합 원장**입니다.  
-> 기계 판독용 사건 ID와 수치 원장은 [`logs/enterprise_audit_ledger.csv`](file:///logs/enterprise_audit_ledger.csv)를 사용하고, 이 파일에는 사람에게 필요한 원인·해결·잔여 위험 및 인프라 검증 기준을 영구 보존합니다.  
-> 대시보드([`logs/pipeline_metrics.md`](file:///logs/pipeline_metrics.md))와 1:1로 연결됩니다.
+> 기계 판독용 사건 ID와 수치 원장은 [`logs/enterprise_audit_ledger.csv`](logs/enterprise_audit_ledger.csv)를 사용하고, 이 파일에는 사람에게 필요한 원인·해결·잔여 위험 및 인프라 검증 기준을 영구 보존합니다.  
+> 대시보드([`logs/pipeline_metrics.md`](logs/pipeline_metrics.md))와 1:1로 연결됩니다.
 
 ---
 
@@ -10,7 +10,7 @@
 
 > 📌 **[베이스라인 벤치마크 안내]**:  
 > 수만 줄 규모의 대규모 도메인 텍스트 및 사양서 검증을 위해 로컬 Qwen 27B, C# 결정론적 검사 엔진, Claude 크로스 감사로 구축된 **v1.05 연속성 운영 아키텍처 및 그림자 운영(Shadow Mode) 알고리즘의 최초 실측 벤치마크(기준 성적표)**입니다.  
-> 본 섹션은 '엔진 기본 알고리즘의 신뢰성(9/9 PASS, 불확실성 보존)'을 증명해 둔 불변의 기준점이므로 영구 동결 보존됩니다. (이후 회차별 실제 도메인 사양 무결성 관리는 매 회차 [`audit/DayN_통합_검수리포트.md`](file:///audit/) 및 SSOT에서 실시간 관리됨)
+> 본 섹션은 '엔진 기본 알고리즘의 신뢰성(9/9 PASS, 불확실성 보존)'을 증명해 둔 불변의 기준점이므로 영구 동결 보존됩니다. (이후 회차별 실제 도메인 사양 무결성 관리는 매 회차 [`audit/DayN_통합_검수리포트.md`](audit/) 및 SSOT에서 실시간 관리됨)
 
 ### 🔬 1.1 C# 결정론적 회귀 테스트베드 성적표 (`TestV52Suite_Regression.cs`)
 * **최종 판정**: **9 / 9 PASS (결정론적 100% 무결점 통과)**

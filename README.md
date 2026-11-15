@@ -15,12 +15,12 @@
 本システムは、突如としてゼロから作られたものではありません。  
 数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C# Roslynリンター（783行）、9/9回帰テストスイート、42件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **42件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](file:///logs/incident_history_ledger.md)
+- **42件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
-- **C# Roslyn決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](file:///tools/scripts/VerifySRS_Integrity.cs)
-- **9/9全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](file:///tools/scripts/TestV52Suite_Regression.cs)
-- **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](file:///tools/fixtures/)
-- **モデル別トークン消費・コスト実測原帳（CSV 5種）**: [`logs/`](file:///logs/) (`cloud_api_token_ledger.csv`, `local_token_ledger.csv`, `enterprise_audit_ledger.csv`, `pipeline_metrics.csv`, `evidence_benchmark.csv`)
+- **C# Roslyn決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
+- **9/9全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
+- **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](tools/fixtures/)
+- **モデル別トークン消費・コスト実測原帳（CSV 5種）**: [`logs/`](logs/) (`cloud_api_token_ledger.csv`, `local_token_ledger.csv`, `enterprise_audit_ledger.csv`, `pipeline_metrics.csv`, `evidence_benchmark.csv`)
 
 ---
 
@@ -80,8 +80,9 @@
 │   └── srs_specification_ssot.md     # 単一真実原書（SRS SSOT）
 ├── audit/
 │   ├── kintai_l2_integrity_audit_report.md     # L2技術無欠性交差監査レポート
-│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート
+│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（従量課金保護方針により未実施・注記のみ）
 │   ├── srs_integrated_audit_report_20261115.md # SRS統合多層検証レポート正本
+│   ├── F001_F003_human_review_errata.md        # 人によるレビュー正誤表（労基法37条F-001却下・F-003保留）
 │   ├── srs_integrated_audit_template.md        # 監査レポート標準フォーマット
 │   └── runs/                                   # 実行別マニフェスト・エビデンス束
 ├── logs/

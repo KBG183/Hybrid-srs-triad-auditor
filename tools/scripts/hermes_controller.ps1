@@ -56,7 +56,7 @@ Write-Host "  -> 린터 판정: $linterStatus" -ForegroundColor $(if ($LASTEXITC
 # Step 2. 전역 헤르메스 (Qwen 27B, 자택 RTX 5070 Ti) 메인 감사
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Step 2/4] 전역 헤르메스 메인 감사 (Qwen 27B 원격 가속)..." -ForegroundColor Yellow
-$globalHermesScript = "C:\Users\klad3\.gemini\scripts\audit_with_hermes.ps1"
+$globalHermesScript = Join-Path $env:USERPROFILE ".gemini\scripts\audit_with_hermes.ps1"
 $hermesReportPath = ""
 $hermesOutputText = ""
 
