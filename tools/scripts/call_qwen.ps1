@@ -1,9 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Qwen 3.8 27B 고속 호출 스크립트 (실시간 토큰 스트리밍 및 원격 P2P/로컬 2단 폴백)
+    High-speed invocation script for Qwen 3.8 27B / Qwen 2.5 7B (Token streaming and fallback)
 .DESCRIPTION
-    1순위: 환경변수 OLLAMA_REMOTE_HOST 기반 원격 가속 호스트 (qwen3.8:27b)
-    2순위: 노트북 로컬 폴백 (http://127.0.0.1:11434, qwen2.5:7b)
+    Priority 1: Remote accelerated host via OLLAMA_REMOTE_HOST environment variable
+    Priority 2: Local fallback (http://127.0.0.1:11434, qwen2.5:7b)
 #>
 [CmdletBinding()]
 param(
@@ -14,7 +14,7 @@ param(
     [string]$PromptFile,
 
     [Parameter(Mandatory = $false)]
-    [string]$System = "당신은 고성능 소프트웨어 아키텍트 및 SRS 분석 AI 엔진입니다. 내부 사고 과정(Thinking)을 생략하고 오직 명확하고 논리적인 한국어 산출물만 즉시 출력하세요.",
+    [string]$System = "You are an enterprise software architect and SRS verification AI engine. Provide clear, structured Japanese output directly without internal thinking tags.",
 
     [Parameter(Mandatory = $false)]
     [string]$Model = "",
@@ -36,25 +36,25 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 if (-not (Test-Path $projectRoot)) { $projectRoot = (Get-Location).Path }
 
-# 1. 프롬프트 내용 확보
+# 1. Acquire prompt content
 $finalPrompt = ""
 if ($PromptFile -and (Test-Path -LiteralPath $PromptFile)) {
     $finalPrompt = [System.IO.File]::ReadAllText($PromptFile, [System.Text.Encoding]::UTF8)
 } elseif ($Prompt) {
     $finalPrompt = $Prompt
 } else {
-    Write-Error "프롬프트(-Prompt 또는 -PromptFile)가 제공되지 않았습니다."
+    Write-Error "Prompt (-Prompt or -PromptFile) is required."
     exit 1
 }
 
-# 2. 엔드포인트 및 모델 결정 (환경변수 OLLAMA_REMOTE_HOST 우선 적용)
+# 2. Endpoint and model resolution
 $remoteHost = $env:OLLAMA_REMOTE_HOST
 $primaryUrl = if ($remoteHost) { "http://${remoteHost}:11434" } else { "" }
 $fallbackUrl = "http://127.0.0.1:11434"
 $targetUrl = ""
 $targetModel = $Model
 
-# 1순위: 원격 가속 엔드포인트 확인 (환경변수 설정 시)
+# Priority 1: Remote accelerated host (if OLLAMA_REMOTE_HOST set)
 $remoteOk = $false
 if ($remoteHost) {
     try {
@@ -64,7 +64,6 @@ if ($remoteHost) {
             $remoteOk = $true
             $targetUrl = $primaryUrl
             if (-not $targetModel) { 
-                # 원격 서버 태그 확인 및 매핑
                 $hasExact = $healthCheck.models | Where-Object { $_.name -like "qwen3.8:27b*" }
                 if ($hasExact) {
                     $targetModel = $hasExact[0].name
@@ -72,32 +71,32 @@ if ($remoteHost) {
                     $targetModel = "qwen27b:latest"
                 }
             }
-            if (-not $Quiet) { Write-Host "[ENDPOINT] 1순위 원격 GPU 가속 연결 성공 ($targetUrl, 모델: $targetModel)" -ForegroundColor Green }
+            if (-not $Quiet) { Write-Host "[ENDPOINT] Priority 1 Remote GPU connected ($targetUrl, Model: $targetModel)" -ForegroundColor Green }
         }
     } catch {
         $remoteOk = $false
     }
 }
 
-# 2순위: 로컬 폴백
+# Priority 2: Local fallback
 if (-not $remoteOk) {
     try {
         $localCheck = Invoke-RestMethod -Uri "$fallbackUrl/api/tags" -Method Get -TimeoutSec 2 -ErrorAction Stop
         $targetUrl = $fallbackUrl
         if (-not $targetModel) { $targetModel = "qwen2.5:7b" }
-        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK] 원격 미설정/연결실패로 로컬 엔드포인트로 폴백합니다 ($targetUrl, 모델: $targetModel)" }
+        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK] Remote unavailable. Falling back to local ($targetUrl, Model: $targetModel)" }
     } catch {
-        Write-Error "Ollama 서버 연결 실패: 원격(<TAILSCALE_OLLAMA_HOST>) 및 로컬(127.0.0.1:11434) 모두 응답이 없습니다."
+        Write-Error "Ollama connection failed: Both remote and local endpoints are unreachable."
         exit 2
     }
 }
 
-# 3. 요청 바디 구성 (think: false 기본 적용)
+# 3. Build request body
 $effectiveSystem = $System
 $effectivePrompt = $finalPrompt
 if (-not $Think) {
-    $effectiveSystem = "당신은 고성능 SRS 분석 AI 엔진입니다. <think> 태그나 내부 사고 과정, 영문 혼잣말을 일체 출력하지 마십시오. 오직 요청된 최종 한국어 산출물만 즉시 출력하십시오."
-    $effectivePrompt = $finalPrompt + "`n`n[중요 지시: <think> 추론 과정을 생략하고 즉시 최종 답변만 한국어로 출력하세요.]"
+    $effectiveSystem = "You are an enterprise software architect and SRS verification AI engine. Do not output <think> tags or reasoning. Provide only the final Japanese verification report directly."
+    $effectivePrompt = $finalPrompt + "`n`n[Instruction: Skip internal thinking and provide final verification output directly in Japanese.]"
 }
 
 $requestObj = @{
@@ -167,7 +166,7 @@ try {
     $respStream.Close()
     $webResponse.Close()
 } catch {
-    Write-Error "Ollama 통신 실패 ($targetUrl): $_"
+    Write-Error "Ollama communication failure ($targetUrl): $_"
     exit 3
 } finally {
     $streamWriter.Close()

@@ -17,7 +17,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $exePath = Join-Path $scriptDir "VerifySRS_Integrity.exe"
 $csPath = Join-Path $scriptDir "VerifySRS_Integrity.cs"
 
-# 컴파일 여부 확인 및 필요시 자동 빌드
+# Check compilation status and rebuild if needed
 if (-not (Test-Path $exePath) -or ((Get-Item $csPath).LastWriteTime -gt (Get-Item $exePath).LastWriteTime)) {
     $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) { $csc = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe" }

@@ -18,10 +18,10 @@ Timestamp,TargetDoc,GateStatus,GateReason,TotalChars,NetDiffChars,ProposedFixes,
 2026-11-07 07:27:00,Doc_Day05_Refactored.md,PASS_UPDATE,Dunsan_Origin_Purged_Melodrama_Final,32091,-5124,24,24,100.0%,0,0,0,14.5,45.2,0.48,RTX5070Ti_Local
 2026-11-07 07:37:00,Doc_Day04_Refactored.md,PASS_UPDATE,Dunsan_Origin_ShowDontTell_Deduplicated_Final,42411,+8946,16,16,100.0%,0,0,0,15.2,45.4,0.55,RTX5070Ti_Local
 2026-11-07 07:47:00,Doc_Day04_Ensemble.md,PASS_UPDATE,4Person_Ensemble_POV_Dunsan_MuscularGrip,43627,+1216,24,24,100.0%,0,0,0,15.2,45.4,0.56,RTX5070Ti_Local
-2026-11-07 12:31:00,Day1_변혁의_첫날.md,MIGRATION_PASS,Dunsan_Origin_Bada_NonSmoker_Migration,38467,0,5,5,100.0%,0,6,0,0.0,0.0,0.00,PassThrough_Gemini
-2026-11-07 12:35:00,Day2_각성의_증명.md,MIGRATION_PASS,FSIQ_145_148_08Birth_ShowDontTell_Migration,42276,0,11,11,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
-2026-11-07 12:39:00,Day3_새로운_이름과_안가.md,MIGRATION_PASS,08Birth_Top0.1_ShowDontTell_TrailingMemoPurge,46184,0,8,8,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
-2026-11-07 12:41:00,Day4_첫번째_자유_일상.md,MIGRATION_PASS,FattyLiver_Top0.1_TrailingMemoPurge,42874,0,3,3,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
+2026-11-07 12:31:00,Day1_Transformation_Start.md,MIGRATION_PASS,Dunsan_Origin_Bada_NonSmoker_Migration,38467,0,5,5,100.0%,0,6,0,0.0,0.0,0.00,PassThrough_Gemini
+2026-11-07 12:35:00,Day2_Awakening_Proof.md,MIGRATION_PASS,FSIQ_145_148_08Birth_ShowDontTell_Migration,42276,0,11,11,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
+2026-11-07 12:39:00,Day3_New_Identity.md,MIGRATION_PASS,08Birth_Top0.1_ShowDontTell_TrailingMemoPurge,46184,0,8,8,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
+2026-11-07 12:41:00,Day4_First_Freedom.md,MIGRATION_PASS,FattyLiver_Top0.1_TrailingMemoPurge,42874,0,3,3,100.0%,0,0,0,0.0,0.0,0.00,PassThrough_Gemini
 "2026-11-08 11:53:44","","PASS_NEW","Verified_Clean",48,0,0,0,"100.0%",0,0,0,0.0,0.0,,"RTX5070Ti_Local"
 "2026-11-08 12:17:46","temp_gate_out.md","PASS_NEW","Verified_Clean",48,0,0,0,"100.0%",0,0,0,0.0,0.0,0.00,"RTX5070Ti_Local"
 "2026-11-08 12:18:29","temp_gate_out.md","PASS_NEW","Verified_Clean",48,0,0,0,"100.0%",0,0,0,0.0,0.0,0.00,"RTX5070Ti_Local"

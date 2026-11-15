@@ -238,8 +238,8 @@ namespace SrsIntegrity.Engine
                 }
 
                 // 2-3. Ambiguous Engineering Placeholders (SPEC-002)
-                // e.g. TBD, TODO, 미정, 未定
-                Match placeholder = Regex.Match(line, @"\b(TBD|TODO|FIXME|WIP)\b|(\b미정\b|\b未定\b)");
+                // e.g. TBD, TODO, 未定, 未確定
+                Match placeholder = Regex.Match(line, @"\b(TBD|TODO|FIXME|WIP)\b|(\b未定\b|\b未確定\b)");
                 if (placeholder.Success && !line.Contains("chk_") && !line.Contains("rule"))
                 {
                     result.Findings.Add(new Finding

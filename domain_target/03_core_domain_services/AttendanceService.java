@@ -209,8 +209,8 @@ public class AttendanceService {
             throw new IllegalStateException("指定された勤務日 (" + workDate + ") は既に給与が確定されているため、修正申請できません。");
         }
 
-        // 화면은 직원과 근무일만 전송할 수 있으므로, 기존 완료 근태를 자동으로 수정 대상으로 연결한다.
-        // attendanceId가 없으면 신규 사후 근태로 처리되기 전에 기존 행을 먼저 찾는다.
+        // 画面からはスタッフと勤務日のみ送信されるため、既存の完了勤怠を自動的に修正対象として紐付ける。
+        // attendanceIdが存在しない場合、新規事後勤怠として処理される前に既存レコードを先に検索する。
         if (requestDto.getAttendanceId() == null) {
             AttendanceDto existingForDate = attendanceMapper.findCompletedAttendanceByStaffAndDate(storeStaffId, workDate);
             if (existingForDate != null) {

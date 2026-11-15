@@ -10,17 +10,17 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $csFile = Join-Path $scriptDir "VerifySRS_Deterministic.cs"
 $exeFile = Join-Path $scriptDir "VerifySRS_Deterministic.exe"
 
-# C# 컴파일 (존재하지 않거나 수정되었을 때)
+# C# compilation (when missing or updated)
 $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework64\v4.0.30319\csc.exe")
 if (-not (Test-Path $csc)) {
     $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework\v4.0.30319\csc.exe")
 }
 
 if (-not (Test-Path $exeFile) -or ((Get-Item $csFile).LastWriteTime -gt (Get-Item $exeFile).LastWriteTime)) {
-    Write-Host "[COMPILE] C# 결정론적 린터 컴파일 중..." -ForegroundColor Cyan
+    Write-Host "[COMPILE] Compiling C# Deterministic Linter..." -ForegroundColor Cyan
     & $csc /nologo /out:$exeFile $csFile
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "C# 린터 컴파일 실패"
+        Write-Error "C# linter compilation failed"
         exit 1
     }
 }

@@ -74,7 +74,7 @@ namespace SrsIntegrity.TestBed
         }
     }
 
-    // 직렬화 모호성을 배제한 길이 접두(Length-Prefixed) HMAC 서명기
+    // Length-prefixed HMAC signer preventing serialization ambiguity
     public class CryptographicHumanApproval
     {
         public string ClaimId { get; set; }
@@ -86,7 +86,7 @@ namespace SrsIntegrity.TestBed
         public string ApprovalMethod { get; set; }
         public string ApprovalSignature { get; set; }
 
-        // 구분자 충돌을 원천 방지하는 길이 접두(Length-Prefix) 직렬화
+        // Length-prefixed serialization preventing delimiter collision
         public static string SerializePayload(string claimId, string claimText, string sourceHash, string approverId, string approvedAt)
         {
             StringBuilder sb = new StringBuilder();
@@ -223,7 +223,7 @@ namespace SrsIntegrity.TestBed
             var inj = new StateEntity {
                 EntityId = "INJ_BADA_WRIST",
                 NamespacePrefix = "INJ",
-                CanonicalName = "바다의 손목 염좌 부상",
+                CanonicalName = "Wrist Sprain Injury",
                 Category = "BODY_INJURY",
                 IsWhitelistedFromDormancy = true,
                 LastMentionedSceneIndex = 1
@@ -231,7 +231,7 @@ namespace SrsIntegrity.TestBed
             var equip = new StateEntity {
                 EntityId = "EQUIP_SECURE_PHONE",
                 NamespacePrefix = "EQUIP",
-                CanonicalName = "국가 지급 비화 보안 전화기",
+                CanonicalName = "Government Secure Phone",
                 Category = "KEY_EQUIPMENT",
                 IsWhitelistedFromDormancy = true,
                 LastMentionedSceneIndex = 1
@@ -239,7 +239,7 @@ namespace SrsIntegrity.TestBed
             var sec = new StateEntity {
                 EntityId = "SEC_COVER_STORY",
                 NamespacePrefix = "SEC",
-                CanonicalName = "충남여고 위장 전학 커버스토리 비밀",
+                CanonicalName = "Cover Story Secret",
                 Category = "SECRET_PLOT",
                 IsWhitelistedFromDormancy = true,
                 LastMentionedSceneIndex = 1
@@ -248,7 +248,7 @@ namespace SrsIntegrity.TestBed
             var itemTea = new StateEntity {
                 EntityId = "ITEM_TEA_CUP",
                 NamespacePrefix = "ITEM",
-                CanonicalName = "간호사가 가져다준 보리차 잔",
+                CanonicalName = "Hospital Tea Cup",
                 Category = "GENERAL_ITEM",
                 IsWhitelistedFromDormancy = false,
                 LastMentionedSceneIndex = 1
@@ -256,7 +256,7 @@ namespace SrsIntegrity.TestBed
             var casualThirst = new StateEntity {
                 EntityId = "STATE_THIRST",
                 NamespacePrefix = "STATE",
-                CanonicalName = "통화 직후 일시적 갈증 상태",
+                CanonicalName = "Temporary Thirst State",
                 Category = "CASUAL_STATE",
                 IsWhitelistedFromDormancy = false,
                 LastMentionedSceneIndex = 1
@@ -309,7 +309,7 @@ namespace SrsIntegrity.TestBed
         }
 
         // -------------------------------------------------------------
-        // TEST-02 (개선): 16개 원본 티켓 전수 추적성 검증 추가
+        // TEST-02 (Enhanced): 16 Raw Ticket ID Full Traceability Verification
         // -------------------------------------------------------------
         private static bool RunTest02_Overdue1to1TicketAndFullTraceability()
         {
@@ -318,33 +318,33 @@ namespace SrsIntegrity.TestBed
             List<OverdueTicket> tickets = new List<OverdueTicket>();
             int currentScene = 12;
 
-            // 1) 중복 사안 20개 (4종 x 5회 생성, 각 그룹 첫번째가 표준, 나머지 4개가 병합대상)
+            // 1) 20 duplicate tickets (4 types x 5 instances)
             for (int k = 1; k <= 4; k++)
             {
                 for (int r = 1; r <= 5; r++)
                 {
                     tickets.Add(new OverdueTicket {
                         TicketId = string.Format("DUP_{0}_{1}", k, r),
-                        Subject = string.Format("정기 안가 경호 보안 보고서 제출 건 {0}", k),
-                        Actor = "한주현",
+                        Subject = string.Format("Regular security guard report submission {0}", k),
+                        Actor = "SecurityOfficer",
                         DueSceneIndex = 8,
                         CurrentSceneIndex = currentScene,
                         HasConflict = false,
                         IsSecurityBreachRisk = false,
                         IsRecurring = false,
                         ExpectedPriority = PriorityLevel.P1_HIGH,
-                        DeduplicationKey = string.Format("SEC_REPORT_{0}_한주현", k)
+                        DeduplicationKey = string.Format("SEC_REPORT_{0}_OFFICER", k)
                     });
                 }
             }
 
-            // 2) 독립 사안 15개
+            // 2) 15 independent tickets
             for (int i = 1; i <= 15; i++)
             {
                 tickets.Add(new OverdueTicket {
                     TicketId = string.Format("IND_{0}", i),
-                    Subject = string.Format("개인별 일상 지출 영수증 정리 안건 {0}", i),
-                    Actor = (i % 2 == 0) ? "임세하" : "안미르",
+                    Subject = string.Format("Individual daily expense receipt settlement {0}", i),
+                    Actor = (i % 2 == 0) ? "MemberA" : "MemberB",
                     DueSceneIndex = 10,
                     CurrentSceneIndex = currentScene,
                     HasConflict = false,
@@ -355,7 +355,7 @@ namespace SrsIntegrity.TestBed
                 });
             }
 
-            // 3) 조건상이 사안 5개
+            // 3) 5 conditional tickets
             for (int i = 1; i <= 5; i++)
             {
                 int due = 7 + i;
@@ -365,8 +365,8 @@ namespace SrsIntegrity.TestBed
 
                 tickets.Add(new OverdueTicket {
                     TicketId = string.Format("COND_{0}", i),
-                    Subject = string.Format("충남여고 교복 치수 재측정 약속 (마감 Scene {0})", due),
-                    Actor = "김바다",
+                    Subject = string.Format("Uniform size measurement appointment (Due Scene {0})", due),
+                    Actor = "StudentA",
                     DueSceneIndex = due,
                     CurrentSceneIndex = currentScene,
                     HasConflict = false,
@@ -377,13 +377,13 @@ namespace SrsIntegrity.TestBed
                 });
             }
 
-            // 4) 충돌 사안 5개
+            // 4) 5 conflict tickets
             for (int i = 1; i <= 5; i++)
             {
                 tickets.Add(new OverdueTicket {
                     TicketId = string.Format("CONF_{0}", i),
-                    Subject = string.Format("비인가 외부 통화 시도 및 기한 초과 {0}", i),
-                    Actor = "외부인",
+                    Subject = string.Format("Unauthorized external call attempt and overdue {0}", i),
+                    Actor = "ExternalUser",
                     DueSceneIndex = 5,
                     CurrentSceneIndex = currentScene,
                     HasConflict = true,
@@ -394,13 +394,13 @@ namespace SrsIntegrity.TestBed
                 });
             }
 
-            // 5) 정기 사안 5개
+            // 5) 5 routine tickets
             for (int i = 1; i <= 5; i++)
             {
                 tickets.Add(new OverdueTicket {
                     TicketId = string.Format("REC_{0}", i),
-                    Subject = string.Format("일일 체온 및 혈압 정기 측정 기록 {0}", i),
-                    Actor = "간호사",
+                    Subject = string.Format("Daily routine vitals record {0}", i),
+                    Actor = "Nurse",
                     DueSceneIndex = 11,
                     CurrentSceneIndex = currentScene,
                     HasConflict = false,
@@ -455,15 +455,15 @@ namespace SrsIntegrity.TestBed
                 }
             }
 
-            // 16개 원본 중복 ID 전수 추적성 검증
+            // 16 raw merged IDs full traceability check
             int totalTrackedMergedIds = 0;
             HashSet<string> allMergedIdSet = new HashSet<string>();
 
             for (int k = 1; k <= 4; k++)
             {
-                var key = string.Format("SEC_REPORT_{0}_한주현", k);
+                var key = string.Format("SEC_REPORT_{0}_OFFICER", k);
                 var canon = canonMap[key];
-                // r=2,3,4,5 총 4개가 들어있어야 함
+                // r=2,3,4,5 (4 items per group)
                 totalTrackedMergedIds += canon.MergedTicketIds.Count;
                 foreach (var mid in canon.MergedTicketIds)
                 {
@@ -497,7 +497,7 @@ namespace SrsIntegrity.TestBed
         {
             Console.WriteLine(">>> [TEST-04 (Enhanced)] Hash Offset Basis & Dual-Hash Specification");
 
-            string sceneRawUtf8 = "### [22:15 | 서울 국립중앙의료원]\n바다는 찻잔을 내려놓았다.\n";
+            string sceneRawUtf8 = "### [22:15 | Tokyo Central Hospital]\nTaro put down the teacup.\n";
             byte[] rawBytes = Encoding.UTF8.GetBytes(sceneRawUtf8);
             string rawSourceSha256 = ComputeHash(rawBytes);
 
@@ -523,36 +523,36 @@ namespace SrsIntegrity.TestBed
                 new StateEntity {
                     EntityId = "CHAR_BADA_01",
                     NamespacePrefix = "CHAR",
-                    CanonicalName = "김바다",
-                    Aliases = new List<string> { "김바다", "맏언니" }
+                    CanonicalName = "Yamada Taro",
+                    Aliases = new List<string> { "Yamada Taro", "Taro" }
                 },
                 new StateEntity {
                     EntityId = "CHAR_BADA_02",
                     NamespacePrefix = "CHAR",
-                    CanonicalName = "이바다",
-                    Aliases = new List<string> { "이바다" }
+                    CanonicalName = "Suzuki Taro",
+                    Aliases = new List<string> { "Suzuki Taro" }
                 },
                 new StateEntity {
                     EntityId = "LOC_BADA_REST",
                     NamespacePrefix = "LOC",
-                    CanonicalName = "바다식당",
-                    Aliases = new List<string> { "바다식당" }
+                    CanonicalName = "Taro Diner",
+                    Aliases = new List<string> { "Taro Diner" }
                 },
                 new StateEntity {
                     EntityId = "LOC_BADA_CAFE",
                     NamespacePrefix = "LOC",
-                    CanonicalName = "카페 바다",
-                    Aliases = new List<string> { "카페 바다" }
+                    CanonicalName = "Cafe Taro",
+                    Aliases = new List<string> { "Cafe Taro" }
                 },
                 new StateEntity {
                     EntityId = "ITEM_STAR_OF_SEA",
                     NamespacePrefix = "ITEM",
-                    CanonicalName = "바다의 별 목걸이",
-                    Aliases = new List<string> { "바다의 별" }
+                    CanonicalName = "Star of Taro Necklace",
+                    Aliases = new List<string> { "Star of Taro" }
                 }
             };
 
-            string testText = "김바다는 바다식당에서 나와 카페 바다로 향했고, 이바다가 착용한 바다의 별 목걸이를 보았다.";
+            string testText = "Yamada Taro stepped out of Taro Diner toward Cafe Taro, seeing Suzuki Taro wearing the Star of Taro Necklace.";
 
             List<AliasCandidate> candidates = new List<AliasCandidate>();
             foreach (var ent in entities)
@@ -619,14 +619,14 @@ namespace SrsIntegrity.TestBed
         }
 
         // -------------------------------------------------------------
-        // TEST-06: 길이 접두(Length-Prefixed) HMAC MAC 검증
+        // TEST-06: Length-Prefixed HMAC MAC Verification
         // -------------------------------------------------------------
         private static bool RunTest06_CryptographicApprovalLengthPrefixedMAC()
         {
             Console.WriteLine(">>> [TEST-06] Length-Prefixed HMAC Message Authentication Code (MAC) Gate");
 
             string genuineClaimId = "CLAIM_TRANSFER_AUTH_01";
-            string genuineClaimText = "충남여고 전학 관련 행정 절차 공식 인가 (구분자 | 포함 테스트: A|B|C)";
+            string genuineClaimText = "Administrative procedure official approval (delimiter test: A|B|C)";
             string sourceHash = "3B9F17B4917B0D731E2A9932EA84F45A03145AF0BA36639B7D853A863BEB9160";
             string approverId = "AUTHOR_OFFICIAL_01";
             string approvedAt = "2026-11-09T23:15:00Z";
@@ -637,7 +637,7 @@ namespace SrsIntegrity.TestBed
             var validApproval = new CryptographicHumanApproval {
                 ClaimId = genuineClaimId,
                 ClaimText = genuineClaimText,
-                SourceFile = "Day2_각성의_증명.md",
+                SourceFile = "Day2_Verification_Spec.md",
                 SourceHash = sourceHash,
                 ApproverId = approverId,
                 ApprovedAt = approvedAt,
@@ -650,8 +650,8 @@ namespace SrsIntegrity.TestBed
 
             var tamperedClaim = new CryptographicHumanApproval {
                 ClaimId = genuineClaimId,
-                ClaimText = "충남여고 전학 관련 행정 절차 임의 인가 (구분자 | 포함 테스트: A|B|C)",
-                SourceFile = "Day2_각성의_증명.md",
+                ClaimText = "Administrative procedure forged approval (delimiter test: A|B|C)",
+                SourceFile = "Day2_Verification_Spec.md",
                 SourceHash = sourceHash,
                 ApproverId = approverId,
                 ApprovedAt = approvedAt,
@@ -664,7 +664,7 @@ namespace SrsIntegrity.TestBed
             var tamperedSource = new CryptographicHumanApproval {
                 ClaimId = genuineClaimId,
                 ClaimText = genuineClaimText,
-                SourceFile = "Day2_각성의_증명.md",
+                SourceFile = "Day2_Verification_Spec.md",
                 SourceHash = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
                 ApproverId = approverId,
                 ApprovedAt = approvedAt,
@@ -729,28 +729,28 @@ namespace SrsIntegrity.TestBed
         }
 
         // -------------------------------------------------------------
-        // TEST-08 (신규): DAG 순환 참조 탐지 및 중복 엣지 등록 차단
+        // TEST-08 (New): DAG Cycle Detection and Duplicate Edge Prevention
         // -------------------------------------------------------------
         private static bool RunTest08_DagCycleDetectionAndDuplicateEdges()
         {
             Console.WriteLine(">>> [TEST-08] DAG Cycle Detection (A -> B -> C -> A) & Duplicate Edge Gate");
 
-            // 그래프 구조: 노드 및 인접 리스트 (의존성 그래프)
+            // Graph structure: Node and adjacency list (dependency graph)
             Dictionary<string, List<string>> adj = new Dictionary<string, List<string>>();
             adj["Scene_A"] = new List<string>();
             adj["Scene_B"] = new List<string>();
             adj["Scene_C"] = new List<string>();
 
-            // 엣지 추가 함수 (중복 엣지 차단 및 순환 참조 사전 차단)
+            // Edge addition function with duplicate and cycle checks
             Func<string, string, bool> addDependencyEdge = delegate(string fromScene, string toScene) {
-                // 1. 중복 엣지 검사
+                // 1. Duplicate edge check
                 if (adj[fromScene].Contains(toScene))
                 {
                     Console.WriteLine(string.Format("  - Rejected Duplicate Edge: {0} -> {1}", fromScene, toScene));
                     return false;
                 }
 
-                // 2. 가상 엣지 추가 후 순환 탐지 (DFS 삼색 마킹: 0=White, 1=Gray, 2=Black)
+                // 2. Speculative edge addition followed by cycle detection (DFS 3-color: 0=White, 1=Gray, 2=Black)
                 adj[fromScene].Add(toScene);
 
                 Dictionary<string, int> color = new Dictionary<string, int>();
@@ -759,10 +759,10 @@ namespace SrsIntegrity.TestBed
                 bool hasCycle = false;
                 Func<string, bool> dfs = null;
                 dfs = delegate(string u) {
-                    color[u] = 1; // 방문 중 (Gray)
+                    color[u] = 1; // Visiting (Gray)
                     foreach (var v in adj[u])
                     {
-                        if (color[v] == 1) // Gray 노드를 다시 만나면 순환 발생!
+                        if (color[v] == 1) // Cyclic edge found!
                         {
                             return true;
                         }
@@ -771,7 +771,7 @@ namespace SrsIntegrity.TestBed
                             return true;
                         }
                     }
-                    color[u] = 2; // 방문 완료 (Black)
+                    color[u] = 2; // Visited (Black)
                     return false;
                 };
 
@@ -789,7 +789,7 @@ namespace SrsIntegrity.TestBed
 
                 if (hasCycle)
                 {
-                    // 순환 발생 시 롤백 및 거부
+                    // Rollback and reject on cycle
                     adj[fromScene].Remove(toScene);
                     Console.WriteLine(string.Format("  - Cycle Detected & Edge Rejected: {0} -> {1} (Rollback complete)", fromScene, toScene));
                     return false;
@@ -798,14 +798,14 @@ namespace SrsIntegrity.TestBed
                 return true;
             };
 
-            // 정상적인 순차 의존 관계 추가
+            // Add valid sequential dependencies
             bool e1 = addDependencyEdge("Scene_A", "Scene_B"); // A -> B
             bool e2 = addDependencyEdge("Scene_B", "Scene_C"); // B -> C
 
-            // 1. 중복 엣지 등록 시도 (A -> B 중복)
+            // 1. Attempt duplicate edge addition (A -> B duplicate)
             bool dupRejected = !addDependencyEdge("Scene_A", "Scene_B");
 
-            // 2. 순환 참조 등록 시도 (C -> A 를 추가하면 A -> B -> C -> A 순환 형성!)
+            // 2. Attempt cyclic edge addition (C -> A forms A -> B -> C -> A cycle)
             bool cycleRejected = !addDependencyEdge("Scene_C", "Scene_A");
 
             Console.WriteLine(string.Format("  - Normal Edge A -> B added: {0}", e1));

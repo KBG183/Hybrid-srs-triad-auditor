@@ -1,42 +1,42 @@
 ﻿timestamp,batch_id,module_name,status,defect_type,volume_chars,token_input,token_output,linter_fatal,linter_style,api_cost_saved,notes
-2026-11-04 18:20:00,INC-01,Day1_변혁의_첫날,HARD_BLOCK,HARD_TABOO,12500,2100,1800,2,0,.00,인물 고유 식성(해산물/알코올) 위반 서술 2건 적발로 정본 파일 쓰기 원천 차단
-2026-11-04 19:30:00,INC-02,Day1_변혁의_첫날,HARD_BLOCK,PRONOUN_3RD,11200,2100,1850,0,3,.00,3인칭 번역투 대명사(그녀는) 기계적 검출로 정본 쓰기 차단 및 교정
-2026-11-05 21:15:00,INC-03,Day2_각성의_증명,HARD_BLOCK,HALLUCINATION,2415,1100,850,1,0,.00,배경(안가 주방)에 없는 식기세척기 환각 날조 적발로 로컬 뼈대 즉시 기각
-2026-11-07 00:28:15,INC-04,Day3_새로운_이름과_안가,HARD_BLOCK,GATE-04_FALSE,19,120,45,1,0,.00,AI가 거짓 PASS 선언했으나 C# 린터가 미르 안경 단어 적발해 하드 차단
-2026-11-07 06:30:00,INC-05,Infra_Gateway,INFRA_RESOLVED,INFRA_MOJIBAKE,0,0,0,0,0,.00,파워쉘 5.1 인코딩 버그 및 Qwen 27B 씽킹 무한루프로 타임아웃 발생 -> HttpClient UTF-8 전환 및 180초 확대 정상화
-2026-11-11 08:35:00,INC-06,Day7_파트1_집필,HARD_BLOCK,PIPELINE_BYPASS_TOKEN_WASTE,12879,18500,4200,1,0,.00,로컬 태스크 임의 kill 및 제미나이 독단 대용량 집필(토큰 낭비) 및 미르 금기어(안경) 은폐 적발 -> GEMINI.md 제7조 독단 집필 영구 금지 조항 제정
-2026-11-11 08:48:00,INC-07,Day7_파트1_검수,HARD_BLOCK,HARD_TABOO_SEAFOOD,12879,18500,4200,1,0,.00,바다 계란국 조리 서술 중 해산물 식재료(멸치 다시마 육수) 삽입 적발 -> C# 린터 TABOO-101 실시간 탐지로 채소 육수 즉각 교정 완료
-2026-11-11 20:30:15,INC-08,Day7_원고_확장,INFRA_RESOLVED,FILE_HANDLE_LOCK,29053,3200,2800,0,0,.00,파워쉘 인라인 파이프라인 동시 읽기/쓰기로 파일 락 발생 -> .NET 네이티브 WriteAllText로 원자적 쓰기 전환 정상화
-2026-11-11 20:36:55,INC-09,Day7_최종_검수,HARD_BLOCK,DECIMAL_WEIGHT_OVERBLOCK,35567,4100,3900,1,0,.00,신체 수치 소수점(45.1kg) C# 린터 기계적 FATAL 차단 -> '가녀린 체중' 교정 및 린터 문맥 예외 필터 필요성 도출 등록
-2026-11-11 20:43:30,INC-10,Linter_Engine_Upgrade,PRODUCTION_PASS,CONTEXT_FILTER_DEPLOYED,0,0,0,0,0,.00,VerifyHumanize.cs에 대화문 및 체중계/의료측정 문맥 예외 필터 탑재 완료 -> 정상 측정 장면 FATAL 오적발 영구 해소
-2026-11-07 12:41:00,Module-04,데이터 파이프라인 가이드,PRODUCTION_PASS,NONE,33286,4120,3850,0,0,$0.45,서브시스템 상태 전이 격리 및 불필요 인라인 메모 소탕 완료
-2026-11-07 12:39:00,Module-03,보안 및 환경 설정 지침서,PRODUCTION_PASS,NONE,35828,4350,4100,0,0,$0.48,엔티티 메타데이터 매핑 및 격리 샌드박스 파라미터 정합
-2026-11-07 12:35:00,Module-02,시스템 요구사항 정의서,PRODUCTION_PASS,NONE,42276,4800,4650,0,0,$0.56,성능 벤치마크 지표 표준화 및 정량 묘사 정제 완료
-2026-11-07 12:31:00,Module-01,기반 아키텍처 명세서,PRODUCTION_PASS,NONE,38469,4500,4200,0,0,$0.50,인프라 기본 환경 파라미터 고정 및 속성 격리 완료
-2026-11-07 07:47:00,Module-04-Pilot,데이터 파이프라인 가이드 (초안),PRODUCTION_PASS,NONE,43627,5100,4800,0,0,$0.58,분산 처리 컴포넌트 4종 시점 재배치 및 부하 분산 로직 보강
-2026-11-07 07:27:00,Module-05-Pilot,성능 검증 및 정밀 감사록 (초안),PRODUCTION_PASS,NONE,32091,3900,3600,0,0,$0.43,테스트 환경 파라미터 고정 및 비필수 디버그 로그 슬림화
-2026-11-07 00:28:15,Gate-Test-04,게이트웨이 무결점 검증,HARD_BLOCK,FALSE_REPORTING_FRAUD,19,120,45,1,0,$0.00,AI 임의 정상 판정을 C# 린터가 비인가 예약어 탐지해 물리 차단
-2026-11-07 00:28:10,Gate-Test-03,게이트웨이 무결점 검증,HARD_BLOCK,SYNTAX_MARKER_MISSING,0,95,10,1,0,$0.00,필수 아키텍처 스키마 마커 누락으로 파일 쓰기 원천 차단
-2026-11-07 00:28:05,Gate-Test-02,게이트웨이 무결점 검증,PRODUCTION_PASS,NONE,68,110,68,0,0,$0.00,무결점 클린 기술 문서 텍스트 게이트웨이 정상 통과 검증
-2026-11-07 00:28:01,Gate-Test-01,게이트웨이 무결점 검증,HARD_BLOCK,SCHEMA_CONSTRAINT_VIOLATION,0,105,25,1,0,$0.00,보안 정책 위반 초안의 정본 저장 시도 원천 차단
-2026-11-06 23:40:00,Module-06-S1,운영 자동화 표준 매뉴얼 (섹션 1),PRODUCTION_PASS,NONE,1939,1250,980,0,0,$0.03,런타임 실행 환경 세팅 및 아키텍처 의존성 주입 완료
-2026-11-06 23:12:00,Module-06-Pilot,운영 자동화 표준 매뉴얼 (파일럿),HARD_BLOCK,AI_SELF_REPORTING_BIAS,19,850,210,1,0,$0.00,AI 허위 판정 시도를 C# 네이티브 린터가 프로세스 레벨에서 차단
-2026-11-06 22:15:00,Module-06-Draft,운영 자동화 표준 매뉴얼 (초안),HARD_BLOCK,UNDEFINED_RESOURCE_HALLUCINATION,2415,1100,850,1,0,$0.00,사전 미정의 외부 인터페이스 참조 환각 적발로 뼈대 즉시 기각
-2026-11-05 23:10:00,Module-05,성능 검증 및 정밀 감사록 (초판),PRODUCTION_PASS,NONE,29708,3800,3500,0,0,$0.39,1차 엔터프라이즈 정합성 통합 감사 통과
-2026-11-04 21:50:00,Module-04,데이터 파이프라인 가이드 (초판),PRODUCTION_PASS,NONE,33465,4200,3900,0,0,$0.44,1차 엔터프라이즈 정합성 통합 감사 통과
-2026-11-04 19:30:00,Module-04-P1,데이터 파이프라인 가이드 (파트 1),HARD_BLOCK,STYLE_GUIDE_VIOLATION,11200,2100,1850,0,3,$0.00,기술 문서 스타일에 맞지 않는 번역투 3인칭 대명사 기계적 적발 차단
-2026-11-12 00:00:00,CODEX-13,Day7 Scene3 continuity pilot,PARTIAL,CONTINUITY_MISMATCH,720,0,0,0,0,$0.00,정본은 세하가 호출하지만 비정본 파일럿은 바다가 호출; 원본 증거 보존 후 교정 재검증 필요
-2026-11-12 00:00:00,CODEX-14,Day7 Scene3 corrected continuity pilot,PARTIAL,PREREQUISITE_CONTEXT_MISSING,720,0,0,2,0,$0.00,호출 주체 교정 후 연속성 및 Humanize 통과; 독립 파일럿의 Day6 선행 문맥 부재로 PROMOTE 차단
-2026-11-12 00:00:00,CODEX-15,Day6 full-context prerequisite gate,RESOLVED,PREREQ_HEADER_MAPPING,0,0,0,0,0,$0.00,5번 이후 씬 기본 헤더 및 시간 범위 정규식 보완 후 실제 Day6와 전체 번들 PROMOTE PASS
-2026-11-12 00:00:00,CODEX-16,Day7 full read-only audit,PARTIAL,DAY7_LENGTH_GATE_AND_PARSER_SCOPE,28602,0,0,1,5,$0.00,Humanize FATAL 0; SSOT Day7 분량 FATAL 1; prereq 결과는 Day6 ID 하드코딩으로 범위 제한
-2026-11-12 00:00:00,CODEX-17,Day7 scope-aware prerequisite gate,RESOLVED_WITH_SCOPE_RETEST,DAY_ID_HARDCODING,28602,0,0,0,0,$0.00,파일명 기반 DayN 매핑과 이전 정본 문맥 로딩 후 실제 Day7 PROMOTE PASS; scratch 독립 파일럿은 계속 차단
-2026-11-12 00:00:00,CODEX-18,Day7 warning and length review,PARTIAL,AUTHOR_REVIEW_REQUIRED,28602,0,0,1,5,$0.00,분량 5398자 부족; WARNING 5건 중 3건 부분 문자열 오탐 1건 허용 회피 1건 직접 섭취 해석 가능성으로 작가 검토
-2026-11-12 00:00:00,CODEX-19,Day7 scene structure audit,PASS,STRUCTURE_AND_TRANSITIONS_ALIGNED,28602,0,0,0,0,$0.00,콘티·정본 11씬 일치; 시간 공백·겹침 없음; 모든 씬 개별 1800자 하한 통과
-2026-11-12 00:00:00,CODEX-20,Day7 cast continuity audit,PASS,CAST_PRESENCE_AND_INFORMATION_FLOW_ALIGNED,28602,0,0,0,0,$0.00,네 주인공 11씬 전원 등장; 지원 인물 등장 위치와 정보 흐름 정적 대조 통과
-2026-11-12 00:00:00,CODEX-21,Day7 line113 taboo options and length decision,PARTIAL,AUTHOR_APPROVAL_REQUIRED,28602,0,0,0,1,$0.00,대체안 A/B/C 비교; B만 후보 WARNING 0; 정본 수정과 5398자 증보는 작가 승인 전 보류
-2026-11-12 00:00:00,CODEX-22,Day7 three-stage canon expansion,RESOLVED,SSOT_METRIC_RESYNCED,34105,0,0,0,5,$0.00,작가 승인 후 콘티 기준 3단계 증보; 대시보드 34105자 재동기화; 최종 SSOT FATAL 0
-2026-11-12 00:00:00,CODEX-23,Day7 final SSOT retest,PASS_WITH_WARN,AUTHOR_DECISION_BACKLOG,34105,0,0,0,5,$0.00,대시보드 수치 재동기화 후 SSOT FATAL 0; Day4·5·6·7 분량 WARNING 4와 후보 경고 5는 백로그
-2026-11-12 00:00:00,CODEX-24,Read-only sync and 146 obligation audit,PARTIAL,NOT_VERIFIED_EXTERNAL_AND_SECURITY,0,0,0,0,0,$0.00,17개 상위 ID만 확인; 146 하위 원장·Windows 보안 구현 미확인; iCloud/GDrive 스크립트 파괴적 동작과 CLI 부재 확인; 런타임 미실행
-2026-11-12 00:00:00,CODEX-25,Safe sync preview backup gate,RESOLVED_FOR_SAFE_PREVIEW,EXTERNAL_APPLY_NOT_TESTED,0,0,0,0,0,$0.00,Preview·로컬 백업·확인 스위치 차단 검증; 외부 적용은 gdrive CLI 부재와 승인 대기 때문에 미실행
-2026-11-12 00:00:00,CODEX-26,iCloud local-to-remote apply,PASS_WITH_WARN,ICLOUD_SYNCED_GDRIVE_NOT_TESTED,0,0,0,0,0,$0.00,권한 상승 후 삭제 없는 안전 적용 성공; 핵심 3파일 SHA-256 일치; iCloud 전용 파일 보존; GDrive CLI 부재
-2026-11-12 00:00:00,CODEX-27,Google Drive safe upload after read-only inventory,PASS_WITH_WARN,GDRIVE_SAFE_UPLOAD_NO_DELETE,0,0,0,0,0,$0.00,Drive 대상·하위 폴더 읽기 전용 대조 후 로컬 최신본 교체·누락 파일 신규 업로드; 삭제·이동·휴지통 없음; 도구 중복본은 보존
+2026-11-04 18:20:00,INC-01,Day1_Transformation_Start,HARD_BLOCK,HARD_TABOO,12500,2100,1800,2,0,.00,人物固有の嗜好（魚介類・アルコール）違反記述2件の検知による正本ファイル書き込み遮断
+2026-11-04 19:30:00,INC-02,Day1_Transformation_Start,HARD_BLOCK,PRONOUN_3RD,11200,2100,1850,0,3,.00,3人称代名詞（彼女）の機械的検出による正本書き込み遮断および自動補正
+2026-11-05 21:15:00,INC-03,Day2_Awakening_Proof,HARD_BLOCK,HALLUCINATION,2415,1100,850,1,0,.00,背景（セーフハウス厨房）に存在しない食洗機のハルシネーション捏造検知によるローカル骨子即時却下
+2026-11-07 00:28:15,INC-04,Day3_New_Identity,HARD_BLOCK,GATE-04_FALSE,19,120,45,1,0,.00,AIによる虚偽PASS宣言をC#リンターが未許可語彙検知により物理遮断
+2026-11-07 06:30:00,INC-05,Infra_Gateway,INFRA_RESOLVED,INFRA_MOJIBAKE,0,0,0,0,0,.00,PowerShell 5.1エンコーディングバグおよび思考ループによるタイムアウト -> HttpClient UTF-8移行および180秒拡大により正常化
+2026-11-11 08:35:00,INC-06,Day7_Part1_Draft,HARD_BLOCK,PIPELINE_BYPASS_TOKEN_WASTE,12879,18500,4200,1,0,.00,ローカルタスク任意killおよび独断大量執筆によるトークン浪費の検知 -> GEMINI.md運用規約に独断執筆永久禁止条項を制定
+2026-11-11 08:48:00,INC-07,Day7_Part1_Audit,HARD_BLOCK,HARD_TABOO_SEAFOOD,12879,18500,4200,1,0,.00,スープ調理描写中の魚介類（煮干し昆布出汁）混入検知 -> C#リンターTABOO-101リアルタイム検知により野菜出汁へ即時補正
+2026-11-11 20:30:15,INC-08,Day7_Draft_Expand,INFRA_RESOLVED,FILE_HANDLE_LOCK,29053,3200,2800,0,0,.00,PowerShellインラインパイプライン同時読み書きによるファイルロック発生 -> .NETネイティブWriteAllTextによるアトミック書き込み移行で正常化
+2026-11-11 20:36:55,INC-09,Day7_Final_Audit,HARD_BLOCK,DECIMAL_WEIGHT_OVERBLOCK,35567,4100,3900,1,0,.00,身体数値小数点のC#リンター機械的FATAL過剰遮断 -> 表現修正およびリンター文脈例外フィルター必要性の導出・登録
+2026-11-11 20:43:30,INC-10,Linter_Engine_Upgrade,PRODUCTION_PASS,CONTEXT_FILTER_DEPLOYED,0,0,0,0,0,.00,VerifyHumanize.csへの会話文および医療計測文脈例外フィルター搭載完了 -> 正常計測場面でのFATAL誤検知を恒久解消
+2026-11-07 12:41:00,Module-04,Data_Pipeline_Guide,PRODUCTION_PASS,NONE,33286,4120,3850,0,0,$0.45,サブシステム状態遷移隔離および不要インラインメモ掃討完了
+2026-11-07 12:39:00,Module-03,Security_Config_Guide,PRODUCTION_PASS,NONE,35828,4350,4100,0,0,$0.48,エンティティメタデータマッピングおよび隔離サンドボックスパラメータ整合
+2026-11-07 12:35:00,Module-02,System_Requirements_Spec,PRODUCTION_PASS,NONE,42276,4800,4650,0,0,$0.56,性能ベンチマーク指標標準化および定量記述精査完了
+2026-11-07 12:31:00,Module-01,Base_Architecture_Spec,PRODUCTION_PASS,NONE,38469,4500,4200,0,0,$0.50,インフラ基本環境パラメータ固定および属性隔離完了
+2026-11-07 07:47:00,Module-04-Pilot,Data_Pipeline_Guide_Draft,PRODUCTION_PASS,NONE,43627,5100,4800,0,0,$0.58,分散処理コンポーネント4種の時点再配置および負荷分散ロジック補強
+2026-11-07 07:27:00,Module-05-Pilot,Performance_Audit_Log_Draft,PRODUCTION_PASS,NONE,32091,3900,3600,0,0,$0.43,テスト環境パラメータ固定および非必須デバッグログスリム化
+2026-11-07 00:28:15,Gate-Test-04,Gateway_Integrity_Check,HARD_BLOCK,FALSE_REPORTING_FRAUD,19,120,45,1,0,$0.00,AIによる虚偽の正常判定をC#リンターが未認可予約語検知により物理遮断
+2026-11-07 00:28:10,Gate-Test-03,Gateway_Integrity_Check,HARD_BLOCK,SYNTAX_MARKER_MISSING,0,95,10,1,0,$0.00,必須アーキテクチャスキーママーカー欠落によるファイル書き込み遮断
+2026-11-07 00:28:05,Gate-Test-02,Gateway_Integrity_Check,PRODUCTION_PASS,NONE,68,110,68,0,0,$0.00,無欠陥クリーン技術ドキュメントテキストのゲートウェイ正常通過検証
+2026-11-07 00:28:01,Gate-Test-01,Gateway_Integrity_Check,HARD_BLOCK,SCHEMA_CONSTRAINT_VIOLATION,0,105,25,1,0,$0.00,セキュリティポリシー違反ドラフトの正本保存試行を物理遮断
+2026-11-06 23:40:00,Module-06-S1,Operation_Manual_Section1,PRODUCTION_PASS,NONE,1939,1250,980,0,0,$0.03,ランタイム実行環境設定およびアーキテクチャ依存性注入完了
+2026-11-06 23:12:00,Module-06-Pilot,Operation_Manual_Pilot,HARD_BLOCK,AI_SELF_REPORTING_BIAS,19,850,210,1,0,$0.00,AI虚偽自己判定試行をC#ネイティブリンターがプロセスレベルで遮断
+2026-11-06 22:15:00,Module-06-Draft,Operation_Manual_Draft,HARD_BLOCK,UNDEFINED_RESOURCE_HALLUCINATION,2415,1100,850,1,0,$0.00,事前未定義の外部インターフェース参照ハルシネーション検知により即時却下
+2026-11-05 23:10:00,Module-05,Performance_Audit_Log_Initial,PRODUCTION_PASS,NONE,29708,3800,3500,0,0,$0.39,第1次エンタープライズ整合性統合監査通過
+2026-11-04 21:50:00,Module-04,Data_Pipeline_Guide_Initial,PRODUCTION_PASS,NONE,33465,4200,3900,0,0,$0.44,第1次エンタープライズ整合性統合監査通過
+2026-11-04 19:30:00,Module-04-P1,Data_Pipeline_Guide_Part1,HARD_BLOCK,STYLE_GUIDE_VIOLATION,11200,2100,1850,0,3,$0.00,技術文書スタイルに適合しない翻訳調3人称代名詞の機械的検知・遮断
+2026-11-12 00:00:00,CODEX-13,Day7 Scene3 continuity pilot,PARTIAL,CONTINUITY_MISMATCH,720,0,0,0,0,$0.00,正本と非正本パイロットの呼び出し主体不整合検知; 原本証跡保存後の補正再検証
+2026-11-12 00:00:00,CODEX-14,Day7 Scene3 corrected continuity pilot,PARTIAL,PREREQUISITE_CONTEXT_MISSING,720,0,0,2,0,$0.00,呼び出し主体補正後に連続性通過; 独立パイロットのDay6先行コンテキスト不在によりPROMOTE遮断
+2026-11-12 00:00:00,CODEX-15,Day6 full-context prerequisite gate,RESOLVED,PREREQ_HEADER_MAPPING,0,0,0,0,0,$0.00,シーン基本ヘッダーおよび時間範囲正規表現補完後に実Day6と全体バンドルPROMOTE PASS
+2026-11-12 00:00:00,CODEX-16,Day7 full read-only audit,PARTIAL,DAY7_LENGTH_GATE_AND_PARSER_SCOPE,28602,0,0,1,5,$0.00,Humanize FATAL 0; SSOT Day7分量FATAL 1; prereq結果はDay6 ID指定により範囲制限
+2026-11-12 00:00:00,CODEX-17,Day7 scope-aware prerequisite gate,RESOLVED_WITH_SCOPE_RETEST,DAY_ID_HARDCODING,28602,0,0,0,0,$0.00,ファイル名準拠DayNマッピングおよび前正本コンテキスト読込後に実Day7 PROMOTE PASS; scratch独立パイロットは継続遮断
+2026-11-12 00:00:00,CODEX-18,Day7 warning and length review,PARTIAL,AUTHOR_REVIEW_REQUIRED,28602,0,0,1,5,$0.00,分量5398文字不足; WARNING 5件中3件部分文字列誤検知1件許容回避1件直接摂取解釈可能性のため人間レビュー
+2026-11-12 00:00:00,CODEX-19,Day7 scene structure audit,PASS,STRUCTURE_AND_TRANSITIONS_ALIGNED,28602,0,0,0,0,$0.00,コンテ・正本11シーン一致; 時間空白・重複なし; 全シーン個別1800文字下限通過
+2026-11-12 00:00:00,CODEX-20,Day7 cast continuity audit,PASS,CAST_PRESENCE_AND_INFORMATION_FLOW_ALIGNED,28602,0,0,0,0,$0.00,主要登場人物11シーン全員登場; 支援人物登場位置と情報フロー静的対照通過
+2026-11-12 00:00:00,CODEX-21,Day7 line113 taboo options and length decision,PARTIAL,AUTHOR_APPROVAL_REQUIRED,28602,0,0,0,1,$0.00,代替案A/B/C比較; Bのみ候補WARNING 0; 正本修正および5398文字増補は人間承認前に保留
+2026-11-12 00:00:00,CODEX-22,Day7 three-stage canon expansion,RESOLVED,SSOT_METRIC_RESYNCED,34105,0,0,0,5,$0.00,人間承認後にコンテ基準3段階増補; ダッシュボード34105文字再同期; 最終SSOT FATAL 0
+2026-11-12 00:00:00,CODEX-23,Day7 final SSOT retest,PASS_WITH_WARN,AUTHOR_DECISION_BACKLOG,34105,0,0,0,5,$0.00,ダッシュボード数値再同期後にSSOT FATAL 0; Day4/5/6/7分量WARNING 4と候補警告5はバックログ
+2026-11-12 00:00:00,CODEX-24,Read-only sync and 146 obligation audit,PARTIAL,NOT_VERIFIED_EXTERNAL_AND_SECURITY,0,0,0,0,0,$0.00,17件の上位IDのみ確認; 146下位台帳・Windowsセキュリティ実装未確認; iCloud/GDriveスクリプト破壊的動作とCLI不在確認; ランタイム未実行
+2026-11-12 00:00:00,CODEX-25,Safe sync preview backup gate,RESOLVED_FOR_SAFE_PREVIEW,EXTERNAL_APPLY_NOT_TESTED,0,0,0,0,0,$0.00,Preview・ローカルバックアップ・確認スイッチ遮断検証; 外部適用はgdrive CLI不在および承認待機のため未実行
+2026-11-12 00:00:00,CODEX-26,iCloud local-to-remote apply,PASS_WITH_WARN,ICLOUD_SYNCED_GDRIVE_NOT_TESTED,0,0,0,0,0,$0.00,権限昇格後に削除なしの安全適用成功; 中核3ファイルSHA-256一致; iCloud専用ファイル保持; GDrive CLI不在
+2026-11-12 00:00:00,CODEX-27,Google Drive safe upload after read-only inventory,PASS_WITH_WARN,GDRIVE_SAFE_UPLOAD_NO_DELETE,0,0,0,0,0,$0.00,Drive対象・サブフォルダ読取専用対照後にローカル最新版置換・欠落ファイル新規アップロード; 削除・移動・ゴミ箱なし; ツール重複版は保持

@@ -425,9 +425,9 @@ flowchart TD
   - indModBreaksByRequestIds（一括IN句クエリ）およびO(1)インメモリマッピングへ即時リファクタリングを断行し、2次再監査にて完全PASS（解消確認）を獲得。
 - **勤務時間帯の重複防御（R-03 / Overlapping Detection）の実装**:
   - 申請時および承認時の両段階において、同一従業員の他勤務記録との時間帯重複（countOverlappingAttendances）を厳格に検証・遮断。
-- **給与確定衝突防御及び悲観적・楽観的並行制御（CAS UPDATE & SELECT ... FOR UPDATE）**:
+- **給与確定衝突防御及び悲観的・楽観的並行制御（CAS UPDATE & SELECT ... FOR UPDATE）**:
   - 当該勤務日の月給与が既に確定（CONFIRMED/PAID）している場合は申請・承認を409 Conflict遮断。
-  - 審査処理開始時にstore_staff行を悲観적ロックし、さらに更新ステータスに対するCAS（条件付きUPDATE: WHERE status = 'PENDING' / 'SUBMITTED'）を導入し二重承認・競合を完全排除。
+  - 審査処理開始時にstore_staff行を悲観的ロックし、さらに更新ステータスに対するCAS（条件付きUPDATE: WHERE status = 'PENDING' / 'SUBMITTED'）を導入し二重承認・競合を完全排除。
 - **機密情報の徹底防御（P0 Security Hardening）**:
   - パスワードハッシュを含まないMemberResponseDtoを新設し、MemberDtoに@JsonIgnoreを付与してAPIレスポンスからの認証情報漏洩を遮断。
   - StoreAuthorizationServiceを構築し、店舗リソース操作時の所有権検証を強制（IDOR対策）。
@@ -533,7 +533,7 @@ flowchart TD
   - `PayrollService.java`（497行、店舗名取得および読取一貫性readOnlyトランザクション適用）
   - `PayrollApiController.java`（122行、対象年月正規表現検証およびRFC 5987エンコーディングダウンロード）
   - `PayrollMapper.java` / `PayrollMapper.xml`（店舗名取得 `findStoreNameById` クエリ）
-- **단위 테스트 코드**:
+- **単体テストコード**:
   - `PayrollExcelExporterTest.java`（162行、4テストケース全数通過）
 - **統合監査バンドル**:
   - `docs/audit_bundles/day9_payroll_excel_bundle.md`（215行、上流計算エンジン `PayrollCalculator` およびController・Service・TestのE2E統合バンドル）
@@ -558,7 +558,7 @@ flowchart TD
   - **指摘内容 (What)**: Controllerの `@RequestParam String yearMonth` に形式チェックがなく、不正文字列流入時にパース例外またはHTTP 500エラーを誘発するリスク。
   - **潜在リスク (Why Dangerous)**: 不正パラメータによるサーバー例外発生および破損シートのダウンロードによるユーザー体験毀損。
   - **是正措置 (How Fixed)**: `PayrollApiController` に `^\d{4}-(0[1-9]|1[0-2])$` 正規表現ガードを追加し、違反時は `IllegalArgumentException`（400 Bad Request）で即時遮断。
-  - **재검수 확인 (Re-Audit)**: 2次再検収にてF-006公式 **PASS** 獲得。
+  - **再監査確認 (Re-Audit)**: 2次再検収にてF-006公式 **PASS** 獲得。
 - **F-007 & F-008 (P1, P2 / Resource & Performance): SXSSFWorkbookメモリリーク防止およびディスクフラッシュ**:
   - **指摘内容 (What)**: 大量データ生成時のJVM Heap OOM防止およびディスク一時ファイル（Temp XML）の残留リスク検証。
   - **是正措置 (How Fixed)**: `ROW_ACCESS_WINDOW_SIZE = 100` によりメモリ常駐行を制限し、`finally` ブロックにて `workbook.dispose()` および `close()` を強制実行して一時ファイルを100%自動消去。

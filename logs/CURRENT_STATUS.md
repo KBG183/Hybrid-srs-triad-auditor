@@ -1,20 +1,29 @@
-﻿# 📍 SRS 프로젝트 현재 진행 상태 총괄
+﻿# 📍 KINTAI 品質検証パイプライン 統括ステータス台帳
 
-최종 업데이트: 2026-11-15 (4각 AI 하이브리드 편대 & 린터 전원 가동 완료)
+最終更新: 2026-11-16（多層AI交差検証・確定論的リンター稼働中）
 
-## 1. 현재 마일스톤
-- **현재 단계**: 1단계 - 4각 AI 하이브리드(Google + OpenAI + Anthropic + Local Qwen) 및 전역 헤르메스 컨트롤러 인프라 완비
-- **진화 원장 관리**: `logs/incident_history_ledger.md` (전수 변경 및 결함 해결 이력 100% 영구 기록 중)
-- **활성 작업**: KINTAI 실증 도메인 기반 정밀 SRS SSOT 작성 및 4중 교차 검수 착수 대기
-- **최신 헬스체크 판정**: `ALL_ENGINES_ONLINE` (PASS)
+---
 
-## 2. 통합 아키텍처 및 4각 파이프라인 가동 현황
-1. **총괄 오케스트레이터**: Antigravity (Google Gemini Engine - 전체 제어 및 SSOT 원장 관리)
-2. **고속 초안/분석기**: 로컬 Qwen 27B (`call_qwen.ps1` - 자택 PC RTX 5070 Ti `http://<TAILSCALE_OLLAMA_HOST>:11434` 연결 완료)
-3. **기능/경계 교차 감사관**: OpenAI Codex CLI (`call_codex.ps1` - `gpt-5.6-luna`, 읽기 전용 격리 샌드박스 검증 완료)
-4. **비즈니스 심층 교차 감사관**: Anthropic Claude (`call_claude.ps1` - `claude-sonnet-5-5`, 소요 3.14s 통신 검증 완료)
-5. **결정론적 하드게이트**: C# Roslyn 린터 (`VerifySRS_Deterministic.exe`, .NET Framework 컴파일 및 PASS 검증 완료)
+## 1. 現在のマイルストーン
 
-## 3. 실증 레퍼런스 도메인 (`domain_target/`)
-- **타겟 도메인**: 점주-알바 일본 근태 및 급여 정산 시스템 (KINTAI)
-- **자산**: MySQL 8.4 DDL, 노동법 37조 계산 엔진, 비관적 락 급여 확정 서비스, API DTO, JUnit 5 테스트
+- **プロジェクト位置づけ**: 本リポジトリは、アルバイト勤怠・給与SaaS「KINTAI」の労働基準法計算・並行性制御を担保するための独立品質検証パイプラインです。
+- **現行フェーズ**: 多層AIハイブリッド（Google Gemini + OpenAI Codex + Anthropic Claude + ローカルQwen 27B）および確定論的C#リンター環境の稼働確認完了
+- **障害・再発防止台帳**: `logs/incident_history_ledger.md`（実運用中の課題と恒久対策を記録）
+- **最新ヘルスチェック判定**: `ALL_ENGINES_ONLINE` (PASS)
+
+---
+
+## 2. 検証パイプラインの構成
+
+1. **統括オーケストレーター**: Antigravity (Google Gemini Engine — ワークスペース調整・SSOT管理)
+2. **高速文脈分析器**: ローカル Qwen 27B (`call_qwen.ps1` — RTX 5070 Ti P2Pリモートアクセラレーション)
+3. **機能・境界交差監査官**: OpenAI Codex CLI (`call_codex.ps1` — 読み取り専用サンドボックス、自動ルーティング機能付き)
+4. **労務・法令深層監査官**: Anthropic Claude (`call_claude.ps1` — 従量課金保護ポリシー準拠、ユーザー明示指示時のみ稼働)
+5. **確定論的ハードゲート**: C# Roslyn リンター (`VerifySRS_Integrity.exe`, `TestV52Suite_Regression.exe` — 94/94 回帰テスト全件PASS)
+
+---
+
+## 3. 実証対象ドメイン (`domain_target/`)
+
+- **対象プロダクト**: 店長・アルバイト向け勤怠・シフト・給与管理SaaS（KINTAI）
+- **主要検証資産**: MySQL 8.4 DDL、労働基準法第37条割増賃金計算エンジン、InnoDB悲観的ロックによる二重打刻防止・デッドロック解消サービス、JUnit 5統合テスト

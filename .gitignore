@@ -1,5 +1,6 @@
 # Temporary & Runtime Scratch
 scratch/
+docs/audit_runs/
 *.log
 *.tmp
 
@@ -13,7 +14,11 @@ obj/
 Thumbs.db
 Desktop.ini
 
-# Developer Local Only (Korean Mirror Docs - Excluded from Remote Git)
-*_KO.md
-*이식가이드.md
+# Developer Local Only (Korean Mirror Docs & Working Drafts - Excluded from Remote Git)
+*_KO*
+*_ko*
+*移植*
+*_migration_guide.md
+*移植ガイド.md
+*.exe
 

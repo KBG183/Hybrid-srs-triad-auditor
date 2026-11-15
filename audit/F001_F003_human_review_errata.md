@@ -1,6 +1,6 @@
 # 統合監査指摘（F-001 / F-003）に対する人によるレビュー正誤表 (Human Review Errata)
 
-> **文書ステータス**: 확정 (Confirmed)  
+> **文書ステータス**: 確定 (Confirmed)  
 > **作成日**: 2026-11-15  
 > **対象監査レポート**: `audit/srs_integrated_audit_report_20261115.md`  
 > **適用リポジトリ**: `KBG183/Hybrid-srs-triad-auditor`, `KBG183/kintai-management`
