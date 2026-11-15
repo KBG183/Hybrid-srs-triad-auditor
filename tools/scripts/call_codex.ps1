@@ -67,7 +67,29 @@ if ($ContextFile -and (Test-Path $ContextFile)) {
 }
 [System.IO.File]::WriteAllText($promptFile, $finalPrompt, [System.Text.Encoding]::UTF8)
 
-# 3. 인수 구성
+# 3. 모델 결정 및 자동 라우팅 (Luna vs Terra)
+$effectiveModel = $Model
+if (-not $effectiveModel) {
+    # 프롬프트 및 컨텍스트 스캔 기반 난이도 자동 감지
+    $combinedText = "$Prompt $contextContent"
+    $deepKeywords = @("Labor", "노동법", "37조", "Statutory", "Lock", "Pessimistic", "Race", "비관적", "동시성", "DDL", "Security", "IDOR", "법률", "단수", "회계", "P0", "P1")
+    $matched = $false
+    foreach ($kw in $deepKeywords) {
+        if ($combinedText -match [regex]::Escape($kw)) {
+            $matched = $true
+            break
+        }
+    }
+    if ($matched) {
+        $effectiveModel = "gpt-5.6-terra"
+        Write-Host "[MODEL AUTO-ROUTING] 고난도 법률/동시성/보안 키워드 감지 -> gpt-5.6-terra 자동 할당" -ForegroundColor Yellow
+    } else {
+        $effectiveModel = "gpt-5.6-luna"
+        Write-Host "[MODEL AUTO-ROUTING] 일반 검수/경량 작업 감지 -> gpt-5.6-luna 자동 할당 (토큰 절약)" -ForegroundColor Green
+    }
+}
+
+# 4. 인수 구성
 $execArgs = @(
     "exec",
     "--skip-git-repo-check",
@@ -75,10 +97,10 @@ $execArgs = @(
     "--cd", $workspaceDir,
     "--ephemeral",
     "--color", "never",
-    "-o", $outLastMsg
+    "-o", $outLastMsg,
+    "--model", $effectiveModel,
+    "-"
 )
-if ($Model) { $execArgs += @("--model", $Model) }
-$execArgs += "-"
 
 # 4. 실행 (Out-File 기반 무출력 파일 스트리밍: 화면에 대량 덤프 없이 파일로만 기록)
 Write-Host "[CODEX START] 코덱스 프로세스 시작 (토큰 절약 파일 포인터 모드)" -ForegroundColor Cyan
