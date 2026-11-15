@@ -1,0 +1,19 @@
+# Temporary & Runtime Scratch
+scratch/
+*.log
+*.tmp
+
+# Visual Studio & IDE artifacts
+.vs/
+.idea/
+bin/
+obj/
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+
+# Developer Local Only (Korean Mirror Docs - Excluded from Remote Git)
+*_KO.md
+*이식가이드.md
+

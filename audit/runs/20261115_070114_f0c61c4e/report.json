@@ -1,0 +1,70 @@
+﻿{
+    "run_id":  "20261115_070114_f0c61c4e",
+    "generated_at":  "2026-11-15T16:02:09.8803513+09:00",
+    "findings":  [
+                     {
+                         "finding_id":  "F-001",
+                         "audit_item":  "Japanese Labor Standards Act Art 37: Night Work Definition",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "REQ-LABOR-002: \"Night work (22:00~05:00): +25% extra pay.\"",
+                         "analysis":  "**Critical Legal/Logic Error**: The specification defines Night Work as `22:00 ~ 05:00`. Under Japanese Labor Standards Act Article 37, Night Work is strictly defined as **22:00 to 06:00** (the next day). By excluding the 05:00–06:00 window, the system will underpay employees for 1 hour of night work per night. This is a direct violation of the law and the audit checklist. **Recommendation**: Change the night work window to `22:00 ~ 06:00` in all logic and tests."
+                     },
+                     {
+                         "finding_id":  "F-002",
+                         "audit_item":  "Japanese Labor Standards Act Art 37: Overtime Threshold",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "REQ-LABOR-001: \"1 day legal standard 8 hours (480 minutes)\"",
+                         "analysis":  "**Ambiguity in \"Daily\" vs \"Weekly\"**: Japanese law calculates overtime based on the **weekly** total (40 hours) or daily total (8 hours) *if* the workweek is defined. However, standard practice often aggregates weekly. If this system calculates per-day independently without considering the weekly total, it may misclassify hours if an employee works 9 hours one day and 7 hours the next (Total 16h \u003c 40h weekly, but 1h \u003e 8h daily). The spec assumes a strict 8h/day cap. **Recommendation**: Clarify if the system operates on a strict 8h/day cap or a 40h/week cap. If 8h/day is the business rule, ensure it aligns with the specific employment contract terms, as statutory overtime is typically weekly-based unless specified otherwise."
+                     },
+                     {
+                         "finding_id":  "F-003",
+                         "audit_item":  "Payroll Math \u0026 Rounding: Floor vs. Half-Up",
+                         "severity":  "P1",
+                         "verdict":  "FAIL",
+                         "evidence":  "REQ-LABOR-001/002/003: `Math.floor(...)`",
+                         "analysis":  "**Rounding Mode Mismatch**: The audit checklist explicitly requires checking `RoundingMode.HALF_UP` to prevent 1-yen discrepancies. The specification mandates `Math.floor` (truncation). In Japanese payroll, standard practice is often rounding to the nearest yen (HALF_UP) or specific company policy. Using `Floor` systematically underpays employees by up to 0.99 yen per calculation line. If the requirement is strict legal compliance, verify if \"Floor\" is the intended business rule. If the goal is standard financial accuracy, `HALF_UP` is preferred. **Recommendation**: Confirm business requirement. If standard financial rounding is intended, change `Math.floor` to `Math.round` or `BigDecimal` with `RoundingMode.HALF_UP`."
+                     },
+                     {
+                         "finding_id":  "F-004",
+                         "audit_item":  "Concurrency \u0026 Security: Pessimistic Locking Scope",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "REQ-LABOR-004: \"Pessimistic Lock ... on settlement table\"",
+                         "analysis":  "**Lock Granularity \u0026 IDOR Risk**: The spec mentions locking the \"settlement table\" for a `storeId` and `targetMonth`. It does not explicitly mention locking the underlying `shift_schedule` or `store_staff` records that feed into this calculation. If a clock-in/out event occurs *during* the settlement transaction, the lock on the settlement record alone may not prevent race conditions on the source data. Additionally, the spec lacks explicit mention of verifying that the `storeId` belongs to the authenticated user (IDOR check). **Recommendation**: 1. Ensure `SELECT ... FOR UPDATE` is applied to the specific `store_staff` or `shift_schedule` rows being aggregated, not just the summary record. 2. Explicitly add a security check: `Assert current_user.store_id == request.store_id` to prevent IDOR."
+                     },
+                     {
+                         "finding_id":  "F-005",
+                         "audit_item":  "Exception Handling: Null/Negative Hour Edge Cases",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "REQ-LABOR-001: \"hourlyWage \u003c= 0 ... replace with 1280\"",
+                         "analysis":  "**Missing Validation for Time Paradoxs**: The spec handles `hourlyWage \u003c= 0` but does not explicitly define behavior for `clockOutAt \u003c clockInAt` (negative duration) or `clockInAt` in the future. While `IllegalStateException` is mentioned for missing `clockOutAt`, it does not cover logical time inversions. **Recommendation**: Add explicit validation: `if (clockOutAt.isBefore(clockInAt)) throw new IllegalArgumentException(\"Clock out cannot be before clock in\")`. Also, handle `DateTimeParseException` explicitly in the input parsing layer."
+                     },
+                     {
+                         "finding_id":  "F-006",
+                         "audit_item":  "Break Time Deduction Logic",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "REQ-LABOR-002: \"Break time ... deducted specifically from night work hours\"",
+                         "analysis":  "**Complexity of Overlapping Breaks**: The spec states breaks are deducted from night hours. However, it does not specify how to handle a break that *spans* the night boundary (e.g., 21:30–22:30) or a break that is entirely within night hours but exceeds the night shift duration. The logic \"intersection of break and night window\" is implied but not explicitly defined as a set operation. **Recommendation**: Explicitly define the algorithm: `NightWorkMinutes = TotalNightWindowMinutes - (BreakMinutes ∩ NightWindow)`. Ensure that if a break extends beyond the shift, it is clipped to the shift boundaries before deduction."
+                     },
+                     {
+                         "finding_id":  "F-007",
+                         "audit_item":  "Technology Stack Consistency",
+                         "severity":  "Info",
+                         "verdict":  "N/A",
+                         "evidence":  "Document Title: \"C# Linter\", \"JUnit 5\"",
+                         "analysis":  "**Stack Confusion**: The document mentions \"C# Linter\" in DoD but \"JUnit 5\" (Java) in REQ-LABOR-001. This indicates a copy-paste error or mixed technology stack. The audit checklist assumes Spring Boot (Java). **Recommendation**: Standardize the technology stack references. If using Spring Boot, remove references to C# and ensure JUnit 5/Mockito are the primary testing frameworks."
+                     },
+                     {
+                         "finding_id":  "F-008",
+                         "audit_item":  "Transaction Isolation Level",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "REQ-LABOR-004: \"Transaction ... isolation level\"",
+                         "analysis":  "**Isolation Level Not Specified**: The spec mentions `@Transactional` and pessimistic locking but does not specify the `IsolationLevel` (e.g., `READ_COMMITTED`, `SERIALIZABLE`). For financial settlements, `READ_COMMITTED` is usually sufficient with pessimistic locks, but `SERIALIZABLE` might be required if there are complex read-write dependencies. **Recommendation**: Explicitly define the `@Transactional(isolation = Isolation.READ_COMMITTED)` (or appropriate level) in the specification to ensure consistent behavior across different database vendors (MySQL vs PostgreSQL)."
+                     }
+                 ]
+}
