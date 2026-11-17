@@ -2,7 +2,7 @@
 
 > **ステータス**: `NOT_EXECUTED` (本文未作成 / 実行保留)  
 > **最終確認日**: 2026-11-15  
-> **担当監査官**: Anthropic Claude 3.5 Sonnet / 3.7 Sonnet (予定)
+> **担当監査官**: Anthropic Claude 5.5 (予定)
 
 ---
 
@@ -11,7 +11,7 @@
 本プロジェクトの最上位運営憲法（`GEMINI.md` 第4節「変更権限および承認ワークフロー - 従量課金API費用保護原則」）に基づき、**Anthropic Claude (`call_claude.ps1`) による多層・深層監査は従量課金保護対象**として厳格に管理されています。
 
 - ユーザーからの明示的な指示（「Claude呼出」「L3監査実施」）がない限り、自動バッチやパイプラインによる無断実行をFail-Closed方針により禁止しています。
-- 本リポジトリの継続的検証は、無償かつ高速な確定論的リンター（`VerifySRS_Integrity.exe`）、回帰テストスイート（`TestV52Suite_Regression.exe`）、およびOpenAI Codex CLI（`call_codex.ps1`）、リモートQwen 27B（`call_qwen.ps1`）によって担保されています。
+- 本リポジトリの継続的検証は、無償かつ高速な確定論的リンター（`VerifySRS_Integrity.cs`）、回帰テストスイート（`TestV52Suite_Regression.cs`）、およびOpenAI Codex CLI（`call_codex.ps1`）、リモートQwen 27B（`call_qwen.ps1`）によって担保されています。
 
 ---
 
@@ -26,7 +26,7 @@
    - `config/srs_specification_ssot.md`
    - `domain_target/01_specifications_and_rtm/portfolio_audit_evidence.md`
 3. **回帰テスト検証コード**:
-   - `tools/scripts/TestV52Suite_Regression.cs` (全94件の回帰テスト PASS)
+   - `tools/scripts/TestV52Suite_Regression.cs` (全9件の回帰テスト PASS)
 
 ---
 

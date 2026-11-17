@@ -65,14 +65,18 @@ if (Test-Path $globalHermesScript) {
     $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
     if (Test-Path $hermesReportCandidate) {
         $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
+        $qwenStatus = "COMPLETED"
         Write-Host "  -> Qwen 27B Main Audit Completed" -ForegroundColor Green
     } else {
         $hermesOutputText = "Qwen audit report file was not generated."
+        $qwenStatus = "FAIL (Report Not Generated)"
         Write-Warning "  -> Qwen result report missing"
     }
 } else {
     $hermesOutputText = "Global Hermes script ($globalHermesScript) not found."
-    Write-Warning "  -> Global Hermes script not found"
+    $qwenStatus = "FAIL (Script Missing)"
+    Write-Error "  -> Global Hermes script not found: Fail-Closed enforcement"
+    exit 2
 }
 
 # -------------------------------------------------------------------------
@@ -82,18 +86,21 @@ Write-Host "`n>>> [Step 3/4] OpenAI Codex CLI Technical / Code Cross-Audit..." -
 $codexScript = Join-Path $scriptDir "call_codex.ps1"
 $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
 $codexOutputText = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
-Write-Host "  -> Codex Cross-Audit Completed" -ForegroundColor Green
+$codexStatus = if ($LASTEXITCODE -eq 0 -or $codexOutputText) { "COMPLETED" } else { "FAIL (Execution Error)" }
+Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
 
 # -------------------------------------------------------------------------
 # Step 4. Anthropic Claude Sonnet 5.5 (Explicit User Request Only)
 # -------------------------------------------------------------------------
 $claudeOutputText = "Claude invocation skipped (Cost protection policy: user explicit request required)."
+$claudeStatus = "NOT_EXECUTED (オンデマンド費用保護)"
 if ($IncludeClaude) {
     Write-Host "`n>>> [Step 4/4] Claude Sonnet 5.5 Deep Business / Legal Audit (User Approved)..." -ForegroundColor Magenta
     $claudeScript = Join-Path $scriptDir "call_claude.ps1"
     $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
     $claudeOutputText = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
-    Write-Host "  -> Claude 5.5 Deep Audit Completed" -ForegroundColor Green
+    $claudeStatus = if ($LASTEXITCODE -eq 0) { "COMPLETED" } else { "FAIL (API Error)" }
+    Write-Host "  -> Claude 5.5 Deep Audit Completed ($claudeStatus)" -ForegroundColor Green
 } else {
     Write-Host "`n>>> [Step 4/4] Claude 5.5 Audit Skipped (Cost Protection Policy: On-demand only)" -ForegroundColor DarkGray
 }
@@ -116,10 +123,10 @@ $masterReport = @"
 
 | 検証階層 | 検証エンジン / モデル | 担当領域 | 最終判定 |
 |---|---|---|---|
-| **Step 0: ハードゲート** | C# Roslyn Deterministic Linter | 禁止文字、未確定記号、正規表現整合性 | **$linterStatus** |
-| **Step 1: 主幹検証** | Qwen 27B (ローカルGPU RTX 5070 Ti) | ドメイン完全性・構造整合性・文脈検証 | **COMPLETED** |
-| **Step 2: 技術交差検証** | OpenAI Codex CLI (GPT-5.6) | DDL制約、DTO整合性、排他ロック境界条件 | **COMPLETED** |
-| **Step 3: 法規深層検証** | Anthropic Claude (Sonnet 5.5) | 労働基準法第37条、端数処理、労使協定整合性 | **COMPLETED** |
+| **Step 0: ハードゲート** | C# Deterministic Linter | 禁止文字、未確定記号、正規表現整合性 | **$linterStatus** |
+| **Step 1: 主幹検証** | Qwen 27B (ローカルGPU RTX 5070 Ti) | ドメイン完全性・構造整合性・文脈検証 | **$qwenStatus** |
+| **Step 2: 技術交差検証** | OpenAI Codex CLI (GPT-5.6) | DDL制約、DTO整合性、排他ロック境界条件 | **$codexStatus** |
+| **Step 3: 法規深層検証** | Anthropic Claude (Sonnet 5.5) | 労働基準法第37条、端数処理、労使協定整合性 | **$claudeStatus** |
 
 ---
 
@@ -155,10 +162,10 @@ $summaryTable = @"
 
 | 検証フェーズ | エンジン / モデル | 判定 | 出力レポート |
 |---|---|---|---|
-| Step 0: ハードゲート | C# Roslyn Linter | $linterStatus | $OutputFile |
-| Step 1: 主幹検証 | Qwen 27B (ローカルGPU) | COMPLETED | $OutputFile |
-| Step 2: 技術交差 | OpenAI Codex CLI | COMPLETED | $OutputFile |
-| Step 3: 法規深層 | Claude Sonnet 5.5 | $(if ($IncludeClaude) { 'COMPLETED' } else { 'SKIPPED (オンデマンド保護)' }) | $OutputFile |
+| Step 0: ハードゲート | C# Deterministic Linter | $linterStatus | $OutputFile |
+| Step 1: 主幹検証 | Qwen 27B (ローカルGPU) | $qwenStatus | $OutputFile |
+| Step 2: 技術交差 | OpenAI Codex CLI | $codexStatus | $OutputFile |
+| Step 3: 法規深層 | Claude Sonnet 5.5 | $claudeStatus | $OutputFile |
 
 >>> [統合検証完了] 詳細レポート: $OutputFile
 "@
