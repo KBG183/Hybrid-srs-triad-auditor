@@ -168,6 +168,8 @@ namespace SrsIntegrity.TestBed
             bool pass06 = RunTest06_CryptographicApprovalLengthPrefixedMAC();
             bool pass07 = RunTest07_StaleDependencyPropagationDAG();
             bool pass08 = RunTest08_DagCycleDetectionAndDuplicateEdges();
+            bool pass09 = RunTest09_PlaceholderBypassDefense();
+            bool pass10 = RunTest10_ReportEncodingAndMojibakePrevention();
 
             Console.WriteLine("\n=================================================================");
             Console.WriteLine("  FINAL REGRESSION TESTBED RESULTS SUMMARY");
@@ -181,13 +183,16 @@ namespace SrsIntegrity.TestBed
             Console.WriteLine(string.Format("TEST-06 (Length-Prefixed HMAC MAC Integrity Gate):   {0}", pass06 ? "PASS" : "FAIL"));
             Console.WriteLine(string.Format("TEST-07 (STALE Cascade DAG Dependency Invalidation): {0}", pass07 ? "PASS" : "FAIL"));
             Console.WriteLine(string.Format("TEST-08 (DAG Cycle Detection & Duplicate Edge Gate):{0}", pass08 ? "PASS" : "FAIL"));
+            Console.WriteLine(string.Format("TEST-09 (SPEC-002 Placeholder Bypass Defense Gate): {0}", pass09 ? "PASS" : "FAIL"));
+            Console.WriteLine(string.Format("TEST-10 (Report UTF-8 & Mojibake Prevention Gate):   {0}", pass10 ? "PASS" : "FAIL"));
             Console.WriteLine("=================================================================");
 
             int total = (passArith ? 1 : 0) + (pass01 ? 1 : 0) + (pass02 ? 1 : 0) + (pass03 ? 1 : 0) +
-                        (pass04 ? 1 : 0) + (pass05 ? 1 : 0) + (pass06 ? 1 : 0) + (pass07 ? 1 : 0) + (pass08 ? 1 : 0);
-            Console.WriteLine(string.Format("TOTAL SUITE SCORE: {0} / 9 Passed", total));
+                        (pass04 ? 1 : 0) + (pass05 ? 1 : 0) + (pass06 ? 1 : 0) + (pass07 ? 1 : 0) + (pass08 ? 1 : 0) +
+                        (pass09 ? 1 : 0) + (pass10 ? 1 : 0);
+            Console.WriteLine(string.Format("TOTAL SUITE SCORE: {0} / 11 Passed", total));
 
-            if (total == 9)
+            if (total == 11)
             {
                 Console.WriteLine("ALL REGRESSION & BOUNDARY TEST CASES DETERMINISTICALLY PASSED.");
                 Environment.Exit(0);
@@ -815,6 +820,98 @@ namespace SrsIntegrity.TestBed
 
             bool success = e1 && e2 && dupRejected && cycleRejected;
             Console.WriteLine(string.Format("  [TEST-08 RESULT] {0}\n", success ? "PASS" : "FAIL"));
+            return success;
+        }
+
+        // TEST-09: SPEC-002 Placeholder Detection & Bypass Guard
+        private static bool RunTest09_PlaceholderBypassDefense()
+        {
+            Console.WriteLine(">>> [TEST-09] SPEC-002 Placeholder Bypass Prevention & Token Boundary Gate");
+            
+            Regex placeholderRegex = new Regex(@"\b(TBD|TODO|FIXME|WIP)\b|(未定|未確定|追って決定)");
+
+            // Case A: chk_ with TODO (should NOT be bypassed)
+            string lineA = "- **処理**: `chk_store_cutoff` is verified. TODO: check range.";
+            Match matchA = placeholderRegex.Match(lineA);
+            bool isRuleRowA = lineA.TrimStart().StartsWith("|") && (lineA.Contains("SPEC-002") || lineA.Contains("RULE-FMT-02"));
+            bool detectedA = matchA.Success && !isRuleRowA;
+
+            // Case B: chk_ with 未定 (should NOT be bypassed)
+            string lineB = "- **入力**: `chk_status` code. 判定基準は未定である。";
+            Match matchB = placeholderRegex.Match(lineB);
+            bool isRuleRowB = lineB.TrimStart().StartsWith("|") && (lineB.Contains("SPEC-002") || lineB.Contains("RULE-FMT-02"));
+            bool detectedB = matchB.Success && !isRuleRowB;
+
+            // Case C: Markdown table rule definition (SHOULD be exempt)
+            string lineC = "| SPEC-002 | Unfinalized placeholder (TODO, TBD, 未定) prohibited |";
+            Match matchC = placeholderRegex.Match(lineC);
+            bool isRuleRowC = lineC.TrimStart().StartsWith("|") && (lineC.Contains("SPEC-002") || lineC.Contains("RULE-FMT-02"));
+            bool detectedC = matchC.Success && !isRuleRowC;
+
+            // Case D: Clean specification line
+            string lineD = "3. `pay_cutoff_day` が `1 ~ 28` または `99` の許容範囲内であることをチェック制約（`chk_store_cutoff`）に適合させる。";
+            Match matchD = placeholderRegex.Match(lineD);
+            bool isRuleRowD = lineD.TrimStart().StartsWith("|") && (lineD.Contains("SPEC-002") || lineD.Contains("RULE-FMT-02"));
+            bool detectedD = matchD.Success && !isRuleRowD;
+
+            Console.WriteLine(string.Format("  - chk_ with TODO detected: {0}", detectedA));
+            Console.WriteLine(string.Format("  - chk_ with 未定 detected: {0}", detectedB));
+            Console.WriteLine(string.Format("  - Table rule definition exempted: {0}", !detectedC));
+            Console.WriteLine(string.Format("  - Clean spec line passed without false positive: {0}", !detectedD));
+
+            bool success = detectedA && detectedB && (!detectedC) && (!detectedD);
+            Console.WriteLine(string.Format("  [TEST-09 RESULT] {0}\n", success ? "PASS" : "FAIL"));
+            return success;
+        }
+
+        // TEST-10: Report Output Encoding & Mojibake Prevention
+        private static bool RunTest10_ReportEncodingAndMojibakePrevention()
+        {
+            Console.WriteLine(">>> [TEST-10] Report Output Encoding & ISO-8859-1 Mojibake Prevention Gate");
+
+            string auditDir = @"audit";
+            if (!Directory.Exists(auditDir))
+            {
+                auditDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\audit");
+            }
+
+            bool allClean = true;
+            if (Directory.Exists(auditDir))
+            {
+                string[] reports = Directory.GetFiles(auditDir, "*.md");
+                foreach (string report in reports)
+                {
+                    byte[] bytes = File.ReadAllBytes(report);
+                    UTF8Encoding strictUtf8 = new UTF8Encoding(false, true);
+                    string text;
+                    try
+                    {
+                        text = strictUtf8.GetString(bytes);
+                    }
+                    catch (DecoderFallbackException)
+                    {
+                        Console.WriteLine(string.Format("  [FATAL] Non-UTF8 bytes detected in: {0}", Path.GetFileName(report)));
+                        allClean = false;
+                        continue;
+                    }
+
+                    Regex mojibakePattern = new Regex(@"ç[›œ]|æ[Ÿº]|å[Š´]|ã[ƒ‚]");
+                    Match m = mojibakePattern.Match(text);
+                    if (m.Success)
+                    {
+                        Console.WriteLine(string.Format("  [FATAL] Mojibake pattern '{0}' detected in: {1}", m.Value, Path.GetFileName(report)));
+                        allClean = false;
+                    }
+                    else
+                    {
+                        Console.WriteLine(string.Format("  - Verified clean UTF-8 integrity: {0}", Path.GetFileName(report)));
+                    }
+                }
+            }
+
+            Console.WriteLine(string.Format("  - All audit reports free of mojibake and encoding corruption: {0}", allClean));
+            bool success = allClean;
+            Console.WriteLine(string.Format("  [TEST-10 RESULT] {0}\n", success ? "PASS" : "FAIL"));
             return success;
         }
 

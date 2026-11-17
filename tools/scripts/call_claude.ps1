@@ -100,7 +100,15 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 try {
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 
-    $response = Invoke-RestMethod -Uri "https://api.anthropic.com/v1/messages" -Method Post -Headers $headers -Body ([System.Text.Encoding]::UTF8.GetBytes($requestJson)) -TimeoutSec 120
+    # Windows PowerShell 5.1 Invoke-RestMethod falls back to Latin-1 without explicit charset in Content-Type.
+    # We read RawContentStream directly with UTF-8 StreamReader to guarantee lossless CJK decoding.
+    $reqBytes = [System.Text.Encoding]::UTF8.GetBytes($requestJson)
+    $webResponse = Invoke-WebRequest -Uri "https://api.anthropic.com/v1/messages" -Method Post -Headers $headers -Body $reqBytes -TimeoutSec 120 -UseBasicParsing
+    
+    $rawStream = $webResponse.RawContentStream
+    $streamReader = New-Object System.IO.StreamReader($rawStream, [System.Text.Encoding]::UTF8)
+    $rawJson = $streamReader.ReadToEnd()
+    $response = $rawJson | ConvertFrom-Json
 
     $sw.Stop()
 

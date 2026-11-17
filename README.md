@@ -16,12 +16,12 @@
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
 本システムは、突如としてゼロから作られたものではありません。  
-数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity 434行 ＋ VerifySRS_Deterministic 169行）、9/9回帰テストスイート、21件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
+数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity 435行 ＋ VerifySRS_Deterministic 169行）、11/11回帰テストスイート、23件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **21件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **23件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
 - **C#決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
-- **9/9全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
+- **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
 - **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](tools/fixtures/)
 - **モデル別トークン消費・コスト実測原帳（CSV 5種）**: [`logs/`](logs/) (`cloud_api_token_ledger.csv`, `local_token_ledger.csv`, `enterprise_audit_ledger.csv`, `pipeline_metrics.csv`, `evidence_benchmark.csv`)
 
@@ -134,7 +134,7 @@ flowchart TD
 │   └── runs/                                   # 実行別マニフェスト・エビデンス束
 ├── logs/
 │   ├── CURRENT_STATUS.md             # プロジェクト統括ステータス台帳
-│   ├── incident_history_ledger.md    # 18件実障害インシデント・耐障害性解決台帳 (21.7KB実物)
+│   ├── incident_history_ledger.md    # 23件実障害インシデント・耐障害性解決台帳 (実物)
 │   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス
 │   ├── cloud_api_token_ledger.csv    # クラウドAPI消費トークン・コスト実測原帳
 │   ├── local_token_ledger.csv        # ローカルGPU推論速度・トークン実測原帳
@@ -143,13 +143,13 @@ flowchart TD
 │   └── evidence_benchmark.csv        # 決定論的検証ベンチマークデータ
 ├── tools/
 │   ├── scripts/                      # 実行スクリプトおよび決定論的エンジン
-│   │   ├── hermes_controller.ps1     # 4核統合コントローラー（Linter -> Qwen -> Codex -> Claude）
+│   │   ├── hermes_controller.ps1     # 4核統合コントローラー（Linter -> Qwen -> Codex -> Claude、-UseCache増分対応）
 │   │   ├── call_qwen.ps1             # 自社RTX 5070 Tiリモート高速化ラッパー
 │   │   ├── call_codex.ps1            # Codex CLIサンドボックスラッパー（トークン保護）
 │   │   ├── call_claude.ps1           # Claude 5.5 API呼び出しラッパー
 │   │   ├── VerifySRS_Integrity.cs    # C#決定論的静的解析エンジン（テキスト無欠性・ヒューマンエラー遮断）
 │   │   ├── VerifySRS_Deterministic.cs# C#決定論的リンターソース（Windows標準 csc.exeでビルド）
-│   │   ├── TestV52Suite_Regression.cs# 9/9決定論的回帰テストスイート
+│   │   ├── TestV52Suite_Regression.cs# 11/11決定論的回帰テストスイート
 │   │   ├── verify_srs.ps1            # リンター検証スクリプト
 │   │   └── verify_integrity.ps1      # テキスト無欠性検証スクリプト
 │   ├── rules/                        # ガバナンス運用規律

@@ -10,7 +10,7 @@
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
 * **Claude 深層法規監査**: `ONLINE`（Anthropic Claude Sonnet 5.5 労基法第37条・不変性深層検証）
-* **最終検証ゲート**: `VERIFIED`（9/9 C#決定論的回帰テスト全件PASS達成）
+* **最終検証ゲート**: `VERIFIED`（11/11 C#決定論的回帰テスト全件PASS達成）
 
 ---
 
@@ -29,5 +29,5 @@
 ---
 
 ## 3. 監査・障害対応履歴
-* **実運用障害・再発防止台帳**: [`logs/incident_history_ledger.md`](incident_history_ledger.md)（全21件の技術課題・恒久対策を記録）
+* **実運用障害・再発防止台帳**: [`logs/incident_history_ledger.md`](incident_history_ledger.md)（全23件の技術課題・恒久対策を記録）
 * **トークン・コスト数値原帳**: [`logs/enterprise_audit_ledger.csv`](enterprise_audit_ledger.csv)

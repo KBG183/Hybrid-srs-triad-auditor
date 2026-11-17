@@ -14,7 +14,10 @@ param(
     [string]$OutputFile = "",
 
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeClaude = $true
+    [switch]$IncludeClaude = $true,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$UseCache = $false
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -37,9 +40,16 @@ if (-not $OutputFile) {
     $OutputFile = Join-Path $projectRoot "audit\HERMES_Audit_${targetFileName}_${timestampStr}.md"
 }
 
+$targetFileHash = (Get-FileHash -Path $resolvedTarget -Algorithm SHA256).Hash
+$cacheDir = Join-Path $projectRoot "scratch\cache"
+if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null }
+
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host " [HERMES CONTROLLER] Multi-Layer Quality Verification Pipeline" -ForegroundColor Cyan
-Write-Host " Target File: $targetFileName" -ForegroundColor Cyan
+Write-Host " Target File: $targetFileName (SHA256: $($targetFileHash.Substring(0, 12))...)" -ForegroundColor Cyan
+if ($UseCache) {
+    Write-Host " Cache Mode : ENABLED (Incremental Smart Checkpoint)" -ForegroundColor Magenta
+}
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------------------------
@@ -63,54 +73,72 @@ Write-Host "  -> Linter Verdict: $linterStatus" -ForegroundColor Green
 # Step 2. Local Qwen 27B (RTX 5070 Ti) Main Architectural Audit
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Step 2/4] Local Qwen 27B Main Architectural Audit..." -ForegroundColor Yellow
-$globalHermesScript = Join-Path $env:USERPROFILE ".gemini\scripts\audit_with_hermes.ps1"
-$hermesReportPath = ""
-$hermesOutputText = ""
+$qwenCacheFile = Join-Path $cacheDir "qwen_${targetFileName}_${targetFileHash}.md"
 
-if (Test-Path $globalHermesScript) {
-    $hermesTempDir = Join-Path $projectRoot "scratch\hermes_run_${timestampStr}"
-    if (-not (Test-Path $hermesTempDir)) { New-Item -ItemType Directory -Path $hermesTempDir -Force | Out-Null }
-    $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
-    & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir -OutputFile $hermesReportCandidate | Out-Null
-    if (Test-Path $hermesReportCandidate) {
-        $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
-        $qwenStatus = "COMPLETED"
-        Write-Host "  -> Qwen 27B Main Audit Completed" -ForegroundColor Green
-    } else {
-        $hermesOutputText = "Qwen audit report file was not generated."
-        $qwenStatus = "FAIL (Report Not Generated)"
-        Write-Warning "  -> Qwen result report missing"
-    }
+if ($UseCache -and (Test-Path $qwenCacheFile)) {
+    $hermesOutputText = [System.IO.File]::ReadAllText($qwenCacheFile, [System.Text.Encoding]::UTF8)
+    $qwenStatus = "COMPLETED (CACHE HIT)"
+    Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Qwen audit result (0ms, 0 tokens)." -ForegroundColor Cyan
 } else {
-    $hermesOutputText = "Global Hermes script ($globalHermesScript) not found."
-    $qwenStatus = "FAIL (Script Missing)"
-    Write-Error "  -> Global Hermes script not found: Fail-Closed enforcement"
-    exit 2
+    $globalHermesScript = Join-Path $env:USERPROFILE ".gemini\scripts\audit_with_hermes.ps1"
+    $hermesReportPath = ""
+    $hermesOutputText = ""
+
+    if (Test-Path $globalHermesScript) {
+        $hermesTempDir = Join-Path $projectRoot "scratch\hermes_run_${timestampStr}"
+        if (-not (Test-Path $hermesTempDir)) { New-Item -ItemType Directory -Path $hermesTempDir -Force | Out-Null }
+        $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
+        & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir -OutputFile $hermesReportCandidate | Out-Null
+        if (Test-Path $hermesReportCandidate) {
+            $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
+            $qwenStatus = "COMPLETED"
+            [System.IO.File]::WriteAllText($qwenCacheFile, $hermesOutputText, [System.Text.Encoding]::UTF8)
+            Write-Host "  -> Qwen 27B Main Audit Completed" -ForegroundColor Green
+        } else {
+            $hermesOutputText = "Qwen audit report file was not generated."
+            $qwenStatus = "FAIL (Report Not Generated)"
+            Write-Warning "  -> Qwen result report missing"
+        }
+    } else {
+        $hermesOutputText = "Global Hermes script ($globalHermesScript) not found."
+        $qwenStatus = "FAIL (Script Missing)"
+        Write-Error "  -> Global Hermes script not found: Fail-Closed enforcement"
+        exit 2
+    }
 }
 
 # -------------------------------------------------------------------------
 # Step 3. OpenAI Codex CLI Read-Only Sandbox Cross-Audit
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Step 3/4] OpenAI Codex CLI Technical / Code Cross-Audit..." -ForegroundColor Yellow
-$codexScript = Join-Path $scriptDir "call_codex.ps1"
-$codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
-$codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
-$codexExitCode = $LASTEXITCODE
+$codexCacheFile = Join-Path $cacheDir "codex_${targetFileName}_${targetFileHash}.txt"
 
-$codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
-if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
-    $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
-    if ($codexContent.Length -gt 0) {
-        $codexOutputText = $codexContent
-        $codexStatus = "COMPLETED"
-        Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
-    } else {
-        $codexStatus = "FAIL (Empty Output)"
-        Write-Warning "  -> Codex Cross-Audit produced empty output"
-    }
+if ($UseCache -and (Test-Path $codexCacheFile)) {
+    $codexOutputText = [System.IO.File]::ReadAllText($codexCacheFile, [System.Text.Encoding]::UTF8)
+    $codexStatus = "COMPLETED (CACHE HIT)"
+    Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Codex audit result (0 tokens consumed)." -ForegroundColor Cyan
 } else {
-    $codexStatus = "FAIL (Execution Error, ExitCode: $codexExitCode)"
-    Write-Warning "  -> Codex Cross-Audit Failed ($codexStatus)"
+    $codexScript = Join-Path $scriptDir "call_codex.ps1"
+    $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
+    $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
+    $codexExitCode = $LASTEXITCODE
+
+    $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
+    if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
+        $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
+        if ($codexContent.Length -gt 0) {
+            $codexOutputText = $codexContent
+            $codexStatus = "COMPLETED"
+            [System.IO.File]::WriteAllText($codexCacheFile, $codexOutputText, [System.Text.Encoding]::UTF8)
+            Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
+        } else {
+            $codexStatus = "FAIL (Empty Output)"
+            Write-Warning "  -> Codex Cross-Audit produced empty output"
+        }
+    } else {
+        $codexStatus = "FAIL (Execution Error, ExitCode: $codexExitCode)"
+        Write-Warning "  -> Codex Cross-Audit Failed ($codexStatus)"
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -120,25 +148,34 @@ $claudeOutputText = "Claude invocation skipped (Cost protection policy: user exp
 $claudeStatus = "NOT_EXECUTED (オンデマンド費用保護)"
 if ($IncludeClaude) {
     Write-Host "`n>>> [Step 4/4] Claude Sonnet 5.5 Deep Business / Legal Audit (User Approved)..." -ForegroundColor Magenta
-    $claudeScript = Join-Path $scriptDir "call_claude.ps1"
-    $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
-    $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
-    $claudeExitCode = $LASTEXITCODE
-    
-    $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
-    if ($claudeExitCode -eq 0 -and (Test-Path $claudeLogFile)) {
-        $claudeBody = [System.IO.File]::ReadAllText($claudeLogFile, [System.Text.Encoding]::UTF8).Trim()
-        if ($claudeBody.Length -gt 0) {
-            $claudeOutputText = $claudeBody
-            $claudeStatus = "COMPLETED"
-            Write-Host "  -> Claude 5.5 Deep Audit Completed ($claudeStatus)" -ForegroundColor Green
-        } else {
-            $claudeStatus = "FAIL (Empty Output)"
-            Write-Warning "  -> Claude audit log empty"
-        }
+    $claudeCacheFile = Join-Path $cacheDir "claude_${targetFileName}_${targetFileHash}.txt"
+
+    if ($UseCache -and (Test-Path $claudeCacheFile)) {
+        $claudeOutputText = [System.IO.File]::ReadAllText($claudeCacheFile, [System.Text.Encoding]::UTF8)
+        $claudeStatus = "COMPLETED (CACHE HIT)"
+        Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Claude audit result (0 API cost)." -ForegroundColor Cyan
     } else {
-        $claudeStatus = "FAIL (API Error, ExitCode: $claudeExitCode)"
-        Write-Warning "  -> Claude audit failed ($claudeStatus)"
+        $claudeScript = Join-Path $scriptDir "call_claude.ps1"
+        $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
+        $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
+        $claudeExitCode = $LASTEXITCODE
+        
+        $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
+        if ($claudeExitCode -eq 0 -and (Test-Path $claudeLogFile)) {
+            $claudeBody = [System.IO.File]::ReadAllText($claudeLogFile, [System.Text.Encoding]::UTF8).Trim()
+            if ($claudeBody.Length -gt 0) {
+                $claudeOutputText = $claudeBody
+                $claudeStatus = "COMPLETED"
+                [System.IO.File]::WriteAllText($claudeCacheFile, $claudeOutputText, [System.Text.Encoding]::UTF8)
+                Write-Host "  -> Claude 5.5 Deep Audit Completed ($claudeStatus)" -ForegroundColor Green
+            } else {
+                $claudeStatus = "FAIL (Empty Output)"
+                Write-Warning "  -> Claude audit log empty"
+            }
+        } else {
+            $claudeStatus = "FAIL (API Error, ExitCode: $claudeExitCode)"
+            Write-Warning "  -> Claude audit failed ($claudeStatus)"
+        }
     }
 } else {
     Write-Host "`n>>> [Step 4/4] Claude 5.5 Audit Skipped (Cost Protection Policy: On-demand only)" -ForegroundColor DarkGray
@@ -206,8 +243,15 @@ $summaryTable = @"
 | Step 2: 技術交差 | OpenAI Codex CLI | $codexStatus | $OutputFile |
 | Step 3: 法規深層 | Claude Sonnet 5.5 | $claudeStatus | $OutputFile |
 
->>> [統合検証完了] 詳細レポート: $OutputFile
+>>> [統合検証レポート出力完了]: $OutputFile
 "@
 
 Write-Output $summaryTable
+
+$hasExecutionFailure = ($qwenStatus -like "FAIL*") -or ($codexStatus -like "FAIL*") -or ($claudeStatus -like "FAIL*")
+if ($hasExecutionFailure) {
+    Write-Error "[HERMES FAIL-CLOSED] One or more multi-agent verification stages failed during execution. Pipeline aborted with code 1."
+    exit 1
+}
+
 return $OutputFile

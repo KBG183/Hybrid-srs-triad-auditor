@@ -12,7 +12,7 @@
 > 大規模ドメイン要件定義書（SRS）および関連コードの客観的検証を担保するため、ローカルQwen 27B、C#決定論的検査エンジン、Codex/Claude交差検証によって構築された検証アーキテクチャの初期実測ベンチマークです。
 
 ### 1.1 C# 決定論的回帰テストスイート実績 (`TestV52Suite_Regression.cs`)
-* **最終判定**: **9 / 9 PASS (決定論的 100% 通過)**
+* **最終判定**: **11 / 11 PASS (決定論的 100% 通過)**
 * **検証エンジン**: `tools/scripts/TestV52Suite_Regression.cs`
 
 | 検証ID | 検証対象 | 核心的検証内容 | 実測結果 | 判定 |
@@ -26,10 +26,32 @@
 | **TEST-06** | 長さ接頭辞 HMAC MAC | デリミタ衝突を防ぐ長さ接頭辞（`length:value;`）シリアライズおよび共通鍵による完全性検証、改ざん主張の即時拒否 | 改ざん主張および仕様バージョン再利用100%遮断 | **PASS** |
 | **TEST-07** | STALE 有向非巡回グラフ | 仕様ブロック間の状態依存グラフ構築、原典修正時に従属ブロックのみを無効化し独立ブロックは `VALID` 保持 | 選択的無効化および不要な再監査の排除 | **PASS** |
 | **TEST-08** | 巡回参照・重複遮断 | `A ➔ B ➔ C ➔ A` 巡回参照試行および重複エッジ登録を深さ優先探索（DFS）3色マーキングで事前検知・ロールバック | 巡回および重複エッジ100%遮断 | **PASS** |
+| **TEST-09** | プレースホルダー迂回遮断 | `chk_` などの変数名を含む行であっても `TODO`/`未定` を確実に検知し、マークダウン規約定義テーブル行のみを構造的例外として認める境界検査 | 迂回試行検知・誤検知0件確認 | **PASS** |
+| **TEST-10** | 出力文字コード・文字化け遮断 | 生成された監査リポート（.md）のUTF-8厳格デコードおよびISO-8859-1混入による特有の文字化けバイトパターンの機械的検知 | 全リポート完全性確認・文字化け0件 | **PASS** |
 
 ---
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
+
+### 2026-11-17 — INCIDENT-61 — 多層交差検証品質判定（FAIL/REJECT）と台帳ステータス（PRODUCTION_PASS）間の不整合是正および全段Fail-Closed化
+
+- **問題**: 4層統合監査（BATCH-08）においてQwen P0指摘（2件）、Codex要修正（FAIL）、Claude不承認（REJECT）が報告されていたにもかかわらず、台帳（CSV）に「パイプライン実行成功」に起因する `PRODUCTION_PASS` が誤って記録され、監査リポートとの間に判定矛盾が発生していた。また、Codex/Claude実行失敗時にコントローラーが警告のみを出力して正常終了（`exit 0`）するFail-Openの懸念が存在した。
+- **原因**: 「監査パイプラインのプロセス実行正常性（Pipeline Execution Success）」と「監査対象仕様書の品質適合性（Specification Quality Verdict）」の定義混同、およびプロセス終了コード伝播処理の不足。
+- **恒久対策**:
+  1. `enterprise_audit_ledger.csv` における `BATCH-08` のステータスを `AUDIT_FINDINGS_REPORTED`（欠陥検知・改訂課題確定）へ即時是正。
+  2. `hermes_controller.ps1` において、実行対象の各検証エンジン（Qwen, Codex, Claude）で実行時エラーまたは空出力が発生した場合、詳細リポートを出力した上で最終的に終了コード1（Fail-Closed）を返却するよう制御を厳格化。あわせて部分再試行時の重複トークン浪費を防止するため、対象ファイルのSHA-256ハッシュ照合に基づくスマート増分キャッシュ（`-UseCache`）をコントローラーに実装。
+- **状態**: `RESOLVED`
+
+### 2026-11-17 — INCIDENT-60 — PowerShell 5.1 Latin-1 HTTP デコードによるClaude監査リポート文字化けの検知およびRawContentStream直接読取への刷新
+
+- **問題**: `audit/HERMES_Audit_...md` 内の Claude 5.5 監査セクションが `# ç›£æŸ»å ±å‘Šæ›¸...` のように文字化け（Mojibake）して記録され、法規監査結果が閲覧不能となった。
+- **原因**: Windows PowerShell 5.1 の `Invoke-RestMethod` は、HTTP レスポンスの `Content-Type` に `charset=utf-8` が明示されていない場合（Anthropic APIは `application/json` を返却）、既定値として ISO-8859-1（Latin-1）を適用して文字列デコードを行うため、UTF-8マルチバイト文字が破損して格納された。
+- **恒久対策**:
+  1. `tools/scripts/call_claude.ps1` において `Invoke-RestMethod` を廃止し、`Invoke-WebRequest -UseBasicParsing` を採用。
+  2. レスポンスの `RawContentStream` から `[System.Text.Encoding]::UTF8` を明示した `StreamReader` を用いて直接生バイトからデコードする無損失UTF-8ストリーミングパイプラインへ改修。
+  3. 既存の破損リポートに対してLatin-1バイト再マッピングによるUTF-8復元スクリプトを実行し、正常な日本語法規監査文面を完全回復。
+  4. 回帰テストスイートに `TEST-10`（リポート文字コード・文字化け自動検査）を組み込み、恒久的に監視。
+- **状態**: `RESOLVED`
 
 ### 2026-11-17 — INCIDENT-59 — C#リンターのCJK単語境界未検知・UTF-8自動置換およびハードゲートFail-Openの恒久是正 (C-3, H-6~H-8)
 
