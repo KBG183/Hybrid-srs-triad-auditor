@@ -133,16 +133,20 @@ Apache POIによるExcel出力
 - 検証記録で使用したMySQLはローカルの26.7.0 Innovation
 - MySQL 8.4 Testcontainersは未検証
 
-### 分離デモDBを準備する
+### データベースの初期化 (Database Setup)
 
-運用DBを使わず、デモ用の新しいDBを作成します。
+デモおよび検証用のデータベースを作成し、同梱の DDL/DML スクリプトを実行して初期データを投入します。
 
-```powershell
-$env:KINTAI_DB_PASSWORD = "<ローカルMySQLパスワード>"
-.\scripts\prepare_local_demo_db.ps1
+```bash
+# データベース作成
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS kintai_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# スキーマおよび初期データの投入
+mysql -u root -p kintai_db < domain_target/02_database_schema_ssot/schema.sql
+mysql -u root -p kintai_db < domain_target/02_database_schema_ssot/data.sql
 ```
 
-スクリプトが出力するDB接続設定を使ってアプリを起動してください。詳しい画面操作と期待結果は、[日本語デモガイド](docs/final-portfolio/demo_guide_ja.md)を参照してください。
+設定完了後、`src/main/resources/application.properties` の接続情報を確認してアプリケーションを起動してください。詳しい画面操作と期待結果は、[日本語デモガイド](docs/final-portfolio/demo_guide_ja.md)を参照してください。
 
 ## 検証資料
 

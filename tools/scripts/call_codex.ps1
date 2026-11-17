@@ -93,6 +93,7 @@ if (-not $effectiveModel) {
 $execArgs = @(
     "exec",
     "--skip-git-repo-check",
+    "--ignore-user-config",
     "--sandbox", "read-only",
     "--cd", $workspaceDir,
     "--ephemeral",
