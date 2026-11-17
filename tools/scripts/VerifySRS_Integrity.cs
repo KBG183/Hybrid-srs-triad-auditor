@@ -178,17 +178,36 @@ namespace SrsIntegrity.Engine
             // =========================================================================
             // PHASE 2: Spec Syntax & Quality Rules (Line-by-Line)
             // =========================================================================
-            string[] lines;
+            // Strict UTF-8 decoder that throws DecoderFallbackException on any invalid byte sequence
+            UTF8Encoding strictUtf8 = new UTF8Encoding(false, true);
+            string fullText;
             try
             {
-                lines = File.ReadAllLines(filePath, Encoding.UTF8);
+                fullText = strictUtf8.GetString(rawBytes);
+            }
+            catch (DecoderFallbackException ex)
+            {
+                Console.WriteLine(string.Format("[FATAL] [TEXT-004] Invalid non-UTF-8 byte sequence detected: {0}", ex.Message));
+                result.Findings.Add(new Finding
+                {
+                    RuleId = "TEXT-004",
+                    Severity = "FATAL",
+                    LineNumber = 1,
+                    ColumnNumber = 1,
+                    Message = "Invalid non-UTF-8 byte sequence detected (Encoding integrity violated).",
+                    ContextSnippet = ex.Message
+                });
+                result.ExitCode = 2;
+                return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(string.Format("[EXECUTION ERROR] UTF-8 ReadAllLines failed: {0}", ex.Message));
+                Console.WriteLine(string.Format("[EXECUTION ERROR] UTF-8 decoding failed: {0}", ex.Message));
                 result.ExitCode = 3;
                 return result;
             }
+
+            string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             int consecutiveBlankLines = 0;
             Dictionary<string, int> headingTracker = new Dictionary<string, int>();
@@ -238,9 +257,9 @@ namespace SrsIntegrity.Engine
                 }
 
                 // 2-3. Ambiguous Engineering Placeholders (SPEC-002)
-                // e.g. TBD, TODO, 未定, 未確定
-                Match placeholder = Regex.Match(line, @"\b(TBD|TODO|FIXME|WIP)\b|(\b未定\b|\b未確定\b)");
-                if (placeholder.Success && !line.Contains("chk_") && !line.Contains("rule"))
+                // e.g. TBD, TODO, 未定, 未確定, 追って決定
+                Match placeholder = Regex.Match(line, @"\b(TBD|TODO|FIXME|WIP)\b|(未定|未確定|追って決定)");
+                if (placeholder.Success && !line.Contains("chk_") && !line.Contains("SPEC-002") && !line.Contains("RULE-FMT-02"))
                 {
                     result.Findings.Add(new Finding
                     {

@@ -32,6 +32,9 @@ if (Test-Path $verifyScript) {
         Write-Error "GATE_BLOCKED: Deterministic linter verification failed. Canonical write rejected."
         exit $LASTEXITCODE
     }
+} else {
+    Write-Error "GATE_BLOCKED: Verifier script missing ($verifyScript). Fail-Closed enforcement."
+    exit 2
 }
 
 Write-Host ">>> [GATE PASS] All hard-gate verifications passed. Canonical write approved." -ForegroundColor Green

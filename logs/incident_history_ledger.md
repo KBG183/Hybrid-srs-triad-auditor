@@ -31,6 +31,42 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-17 — INCIDENT-59 — C#リンターのCJK単語境界未検知・UTF-8自動置換およびハードゲートFail-Openの恒久是正 (C-3, H-6~H-8)
+
+- **問題**: 
+  1. C#リンターがFAILを返してもコントローラーが処理を中断せずリポートを発行するFail-Open状態が存在した (C-3)。
+  2. `\b未定\b` などの正規表現がCJK（日本語）単語境界でマッチせず、未確定記述を59件検知漏れしていた (H-7)。
+  3. `Encoding.UTF8` が不正バイトを例外なく `U+FFFD` へ自動置換するため、非UTF-8ファイルを誤通過させていた (H-8)。
+  4. IDOR検査で全角括弧やスネークケースをすり抜ける脆弱性があった (H-6)。
+- **原因**: .NET正規表現のCJK境界仕様の考慮不足、デコーダー例外（`throwOnInvalidBytes: true`）の未指定、およびスクリプト終了コード監視の不徹底。
+- **恒久対策**:
+  1. `hermes_controller.ps1` において Step 1 が非0終了時は即時 `exit $LASTEXITCODE` でパイプラインをFail-Closed遮断。
+  2. CJKキーワードから `\b` 境界を完全撤廃し、`SPEC-002` の不適切な文字列除外（`rule`）を構造化例外へ刷新。
+  3. `new UTF8Encoding(false, true)` を適用し、不正バイト検知時は `DecoderFallbackException` を送出して即時拒否。
+  4. IDOR正規表現を全角・半角・スネークケース対応へ汎用化。`TestV52Suite_Regression.cs` 全9件PASSを実証。
+- **状態**: `RESOLVED`
+
+### 2026-11-17 — INCIDENT-58 — Anthropic API エンタープライズ専用モデル識別子不整合による404エラーおよび即時復旧
+
+- **問題**: `call_claude.ps1` のモデル名を `claude-3-5-sonnet-20241022` へ変更したところ、Anthropic APIより 404 Not Found エラーが返却され監査が失敗。
+- **原因**: 当該利用環境のAPIゲートウェイにおいて公開名と社内モデルIDのルーティングが異なっており、実体は `claude-sonnet-5-5` が有効な識別子であったこと。
+- **恒久対策**:
+  1. `/v1/models` エンドポイントへの動的クエリにより、有効なモデルID（`claude-sonnet-5-5`）を実測確認。
+  2. デフォルトモデルIDを `claude-sonnet-5-5` へ復元し、単独呼出（1.52秒、In 75 / Out 4トークン）および統合パイプラインでの `COMPLETED` 正常復旧を実証。
+- **状態**: `RESOLVED`
+
+### 2026-11-17 — INCIDENT-57 — .NET ProcessStartInfoにおけるCP949バイト歪曲および空白パス引数分離によるCodex CLI失敗の解決
+
+- **問題**: `call_codex.ps1` 実行時に引数分離エラー（`unexpected argument found`）および `Failed to read prompt from stdin: input is not valid UTF-8` が発生し、終了コード1で失敗。
+- **原因**: 
+  1. 空白を含む作業ディレクトリパス（空白区切りフォルダー名）が `ProcessStartInfo.Arguments` で適切に二重引用符エスケープされていなかった。
+  2. .NET Framework 4.x の `Process.StandardInput` はOS既定のANSI（CP949）でエンコードされるため、日本語・韓国語プロンプトが破損してCLIへ伝達された。
+- **恒久対策**:
+  1. 空白を含む引数を自動判定して引用符で囲む `$escapedArgs` 処理を追加。
+  2. `StandardInput.Write(string)` を廃止し、`[System.IO.File]::ReadAllBytes()` で取得したUTF-8生バイトを `$proc.StandardInput.BaseStream.Write()` で直接パイプストリーミングする無損失UTF-8パイプラインを確立。
+  3. 単独実行で `gpt-5.6-terra` による 41.1秒、2,334文字の監査リポート生成（`SUCCESS`）および統合コントローラーでの正常完了を実証。
+- **状態**: `RESOLVED`
+
 ### 2026-11-17 — INCIDENT-56 — PowerShell構文例外後のバックグラウンドタスク無応答およびプロセス残留の防止
 
 - **問題**: 診断コマンドの非同期呼び出し時における標準入力待ちやサブシェル変数展開エラーにより、バックグラウンドタスクが残留・無応答化する現象が発生。

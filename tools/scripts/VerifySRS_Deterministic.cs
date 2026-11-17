@@ -52,7 +52,7 @@ public class VerifySRS
         // =========================================================================
         // 2. [RULE-FMT-02] Unfinalized Placeholders (TODO, TBD, 未定)
         // =========================================================================
-        var todoMatches = Regex.Matches(text, @"(?i)\b(TODO|TBD|FIXME)\b|(\b未定\b|\b未確定\b|\b追って決定\b)");
+        var todoMatches = Regex.Matches(text, @"(?i)\b(TODO|TBD|FIXME)\b|(未定|未確定|追って決定)");
         foreach (Match m in todoMatches)
         {
             Console.WriteLine(string.Format("[WARNING] [RULE-FMT-02] Unfinalized placeholder detected: '{0}' at index {1}", m.Value, m.Index));
@@ -105,14 +105,36 @@ public class VerifySRS
                 {
                     string inputContent = inputMatch.Groups[1].Value;
                     // Check if raw parameter declares ownerId or memberId as client input (excluding explanatory notes)
-                    var idMatches = Regex.Matches(inputContent, @"`\s*(ownerId|memberId)\s*`\s*\((.*?)\)");
-                    foreach (Match idm in idMatches)
+                    string[] inputLines = inputContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                    foreach (string rawLine in inputLines)
                     {
-                        string desc = idm.Groups[2].Value;
-                        if (!desc.Contains("リクエストパラメータから一切受け取らず") && !desc.Contains("SecurityContext") && !desc.Contains("完全禁止"))
+                        string line = rawLine.Trim();
+                        if (string.IsNullOrEmpty(line)) continue;
+
+                        var idMatch = Regex.Match(line, @"(?i)\b(owner_?id|member_?id)\b");
+                        if (idMatch.Success)
                         {
-                            Console.WriteLine(string.Format("[FATAL] [RULE-SEC-04] Insecure Direct Object Reference (IDOR) risk in '{0}': Client-supplied parameter '{1}' detected.", reqId, idm.Value));
-                            fatalCount++;
+                            bool isSafe = line.Contains("リクエストパラメータから一切受け取らず") ||
+                                          line.Contains("SecurityContext") ||
+                                          line.Contains("完全禁止") ||
+                                          line.Contains("JWT") ||
+                                          line.Contains("クライアント指定不可") ||
+                                          line.Contains("セッションから取得");
+
+                            bool isDangerous = line.Contains("受け取る") ||
+                                               line.Contains("受け付ける") ||
+                                               line.Contains("クライアント") ||
+                                               line.Contains("パラメータ") ||
+                                               line.Contains("リクエスト") ||
+                                               line.Contains("入力") ||
+                                               line.Contains("必須") ||
+                                               line.Contains("任意");
+
+                            if (!isSafe && isDangerous)
+                            {
+                                Console.WriteLine(string.Format("[FATAL] [RULE-SEC-04] Insecure Direct Object Reference (IDOR) risk in '{0}': Client-supplied parameter '{1}' detected in line: {2}", reqId, idMatch.Value, line));
+                                fatalCount++;
+                            }
                         }
                     }
                 }

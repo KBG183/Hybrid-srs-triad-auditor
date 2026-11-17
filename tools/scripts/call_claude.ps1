@@ -23,7 +23,7 @@ param(
     [string]$Model = "claude-sonnet-5-5",
 
     [Parameter(Mandatory = $false)]
-    [int]$MaxTokens = 4096,
+    [int]$MaxTokens = 8192,
 
     [Parameter(Mandatory = $false)]
     [switch]$Quiet
@@ -81,7 +81,7 @@ $requestBody = @{
 }
 $requestJson = $requestBody | ConvertTo-Json -Depth 5
 
-$scratchDir = Join-Path $projectRoot "scratch"
+$scratchDir = Join-Path $projectRoot "scratch\test_runs"
 if (-not (Test-Path $scratchDir)) { New-Item -ItemType Directory -Path $scratchDir -Force | Out-Null }
 $liveLog = Join-Path $scratchDir "claude_live.log"
 
@@ -123,6 +123,10 @@ try {
     }
 
     [System.IO.File]::WriteAllText($liveLog, $outputText, [System.Text.Encoding]::UTF8)
+
+    if ($response.stop_reason -eq "max_tokens") {
+        Write-Warning "[CLAUDE WARNING] Output truncated due to max_tokens limit ($MaxTokens)."
+    }
 
     $inputTokens = if ($response.usage -and $response.usage.input_tokens) { $response.usage.input_tokens } else { 0 }
     $outputTokens = if ($response.usage -and $response.usage.output_tokens) { $response.usage.output_tokens } else { 0 }

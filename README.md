@@ -16,9 +16,9 @@
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
 本システムは、突如としてゼロから作られたものではありません。  
-数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity 415行 ＋ VerifySRS_Deterministic 147行）、9/9回帰テストスイート、18件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
+数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity 434行 ＋ VerifySRS_Deterministic 169行）、9/9回帰テストスイート、21件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **18件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **21件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
 - **C#決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
 - **9/9全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)

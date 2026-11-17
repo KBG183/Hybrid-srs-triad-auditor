@@ -103,13 +103,49 @@ $execArgs = @(
     "-"
 )
 
-# 5. Execute with silent file stream
-Write-Host "[CODEX START] Starting Codex CLI process (File stream mode)" -ForegroundColor Cyan
+# 5. Execute with silent file stream and timeout enforcement
+Write-Host "[CODEX START] Starting Codex CLI process (File stream mode, Timeout: ${TimeoutSeconds}s)" -ForegroundColor Cyan
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
-Get-Content $promptFile -Raw -Encoding UTF8 | & $codexExe.FullName $execArgs 2>&1 | Out-File -FilePath $liveLog -Encoding UTF8
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = $codexExe.FullName
+$escapedArgs = $execArgs | ForEach-Object {
+    if ($_ -match '\s' -and -not ($_ -match '^".*"$')) { "`"$_`"" } else { $_ }
+}
+$psi.Arguments = ($escapedArgs -join " ")
+$psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+$psi.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+$psi.UseShellExecute = $false
+$psi.RedirectStandardInput = $true
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+$psi.CreateNoWindow = $true
 
-$exitCode = $LASTEXITCODE
+$proc = [System.Diagnostics.Process]::Start($psi)
+$promptBytes = [System.IO.File]::ReadAllBytes($promptFile)
+$proc.StandardInput.BaseStream.Write($promptBytes, 0, $promptBytes.Length)
+$proc.StandardInput.BaseStream.Flush()
+$proc.StandardInput.Close()
+
+$stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+$stderrTask = $proc.StandardError.ReadToEndAsync()
+
+$timeoutMs = $TimeoutSeconds * 1000
+$completed = $proc.WaitForExit($timeoutMs)
+
+if (-not $completed) {
+    try { $proc.Kill() } catch {}
+    $sw.Stop()
+    Write-Error "[CODEX TIMEOUT] Codex process exceeded timeout of ${TimeoutSeconds}s and was killed."
+    exit 124
+}
+
+$stdout = $stdoutTask.Result
+$stderr = $stderrTask.Result
+$allLogs = $stdout + "`n" + $stderr
+[System.IO.File]::WriteAllText($liveLog, $allLogs, [System.Text.Encoding]::UTF8)
+
+$exitCode = $proc.ExitCode
 $sw.Stop()
 
 # Verify last message
@@ -118,7 +154,7 @@ if (Test-Path $outLastMsg) {
     $lastMsg = [System.IO.File]::ReadAllText($outLastMsg, [System.Text.Encoding]::UTF8).Trim()
 }
 
-if ($exitCode -eq 0 -and $lastMsg) {
+if ($exitCode -eq 0 -and (-not [string]::IsNullOrWhiteSpace($lastMsg))) {
     $elapsedSec = $sw.Elapsed.TotalSeconds.ToString('F1')
     $msgLength = $lastMsg.Length
     $summary = "[CODEX SUMMARY] Status: SUCCESS | Elapsed: ${elapsedSec}s | Length: ${msgLength} chars | File: $outLastMsg"
@@ -126,9 +162,12 @@ if ($exitCode -eq 0 -and $lastMsg) {
     if ($VerboseOutput) {
         Write-Output $lastMsg
     }
+    exit 0
 } else {
-    Write-Warning "[CODEX FAILED] Exit code: $exitCode | Log: $liveLog"
+    Write-Error "[CODEX FAILED] Exit code: $exitCode | LastMsgEmpty: $([string]::IsNullOrWhiteSpace($lastMsg)) | Log: $liveLog"
     if ($exitCode -ne 0) {
         exit $exitCode
+    } else {
+        exit 3 # Fail-Closed on empty output
     }
 }

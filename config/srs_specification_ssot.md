@@ -65,15 +65,15 @@
 - **処理**:
   1. `email` の一意性を小文字正規化の上、`member` テーブル上で照合する。
   2. パスワード強度をバリデーションし、BCryptハッシュアルゴリズム（ストレングス10以上）で不可逆暗号化する。
-  3. 一般登録API（`POST /api/v1/auth/register`）は強制的に `role = 'ROLE_STAFF'`、`is_active = TRUE` で初期化する。
-  4. オーナー登録は専用の保護された登録エンドポイント（`POST /api/v1/auth/owner-register`）でのみ限定発行し、任意のロール自己昇格（P0脆弱性）を原初から遮断する。
-  5. API認可において、全リソースアクセスは `SecurityContextHolder.getContext().getAuthentication()` の認証Principal IDに限定照会し、他者ID偽造（IDOR脆弱性）を排除する。
+  3. 会員登録処理において、クライアントからのロール指定は受け付けず、サーバー側で強制的に `role = 'ROLE_STAFF'`、`is_active = TRUE` で初期化する。
+  4. オーナーアカウント発行は管理権限を持つ専用フローに限定し、任意のロール自己昇格（P0脆弱性）を原初から遮断する。
+  5. 認可において、全リソースアクセスは `SecurityContextHolder.getContext().getAuthentication()` の認証Principal IDに限定照会し、他者ID偽造（IDOR脆弱性）を排除する。
 - **出力**:
   - `memberId` (会員PK, BIGINT)
   - `assignedRole` (付与確定ロール, VARCHAR(20))
 - **例外処理**:
-  - 重複メールアドレスが存在する場合、`DuplicateResourceException`（HTTP 409 Conflict）を送出する。
-  - 不正なパスワード書式は `MethodArgumentNotValidException`（HTTP 400）を返却する。
+  - 重複メールアドレスが存在する場合、`IllegalStateException`（重複リソース例外, HTTP 400）を送出する。
+  - 不正な入力パラメータ・パスワード書式は `MethodArgumentNotValidException`（HTTP 400）を返却する。
 - **完了基準 (DoD)**:
   - 一般登録リクエストで `role: "ROLE_OWNER"` を送信しても無視され、`ROLE_STAFF` で登録されること。
   - データベース上にパスワード平文が一切保存されないこと。
@@ -95,7 +95,7 @@
   1. **スタッフ申請時**: `inviteCode` より対象店舗を特定し、複合ユニーク制約（`uq_store_member`）を検証の上、`employment_status = 'PENDING'` で `store_staff` を初期生成する。
   2. **オーナー承認時**: ログインオーナーが当該店舗の正当な所有者（`store.owner_id == principal.id`）であることを検証する。
   3. オーナーが入力した時給・交通費を初期契約として `store_staff_contract_history` に新規作成し、ステータスを `'PENDING' → 'ACTIVE'` へ昇格させる。
-  4. **多店舗アクセス制御**: 店舗スコープを持つすべてのAPI（打刻・シフト・給与）において、`@PreAuthorize("@storeAuth.canAccess(#storeId)")` を適用し、他店舗スタッフおよび無関係な第三者オーナーのアクセスをHTTP 403で遮断する。
+  4. **多店舗アクセス制御**: 店舗スコープを持つすべての処理（打刻・シフト・給与）において、認証ユーザーの店舗所属権限（`store_staff` / `store.owner_id`）を厳格に照合し、他店舗スタッフおよび無関係な第三者オーナーのアクセスをHTTP 403で遮断する。
   5. **雇用状態遷移マシン**:
      - `PENDING → ACTIVE` (オーナー承認)
      - `ACTIVE → RESIGNED` (退職処理: 以後の打刻・シフト申請を即時遮断、確定済み給与の監査閲覧権限のみ維持)
@@ -104,7 +104,7 @@
   - `storeStaffId` (店舗スタッフ所属PK, BIGINT)
   - `employmentStatus` (雇用確定ステータス, `'ACTIVE'` / `'RESIGNED'`)
 - **例外処理**:
-  - 無効な招待コードは `EntityNotFoundException`（HTTP 404）を送出する。
+  - 無効な招待コードは `IllegalArgumentException`（HTTP 400）を送出する。
   - オーナー以外のユーザーが承認APIを呼び出した場合、`AccessDeniedException`（HTTP 403）を送出する。
 - **完了基準 (DoD)**:
   - スタッフが自身の時給・交通費を改ざん申請できないこと。

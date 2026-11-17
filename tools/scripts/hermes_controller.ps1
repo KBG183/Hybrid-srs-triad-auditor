@@ -14,7 +14,7 @@ param(
     [string]$OutputFile = "",
 
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeClaude
+    [switch]$IncludeClaude = $true
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -43,13 +43,21 @@ Write-Host " Target File: $targetFileName" -ForegroundColor Cyan
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------------------------
-# Step 1. C# Roslyn Deterministic Linter Hard-Gate
+# Step 1. C# Deterministic Linter Hard-Gate
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Step 1/4] C# Deterministic Linter Hard-Gate Verification..." -ForegroundColor Yellow
 $linterScript = Join-Path $scriptDir "verify_srs.ps1"
 $linterOutput = & powershell -ExecutionPolicy Bypass -File $linterScript -TargetFile $resolvedTarget 2>&1
-$linterStatus = if ($LASTEXITCODE -eq 0) { "PASS" } else { "FAIL (Hard-Gate Blocked)" }
-Write-Host "  -> Linter Verdict: $linterStatus" -ForegroundColor $(if ($LASTEXITCODE -eq 0) { "Green" } else { "Red" })
+$linterExitCode = $LASTEXITCODE
+
+if ($linterExitCode -ne 0) {
+    Write-Host "  -> Linter Verdict: FAIL (ExitCode: $linterExitCode - Hard-Gate Blocked)" -ForegroundColor Red
+    Write-Error "  -> Deterministic Hard-Gate violated! Aborting multi-layer verification immediately (Fail-Closed)."
+    exit $linterExitCode
+}
+
+$linterStatus = "PASS"
+Write-Host "  -> Linter Verdict: $linterStatus" -ForegroundColor Green
 
 # -------------------------------------------------------------------------
 # Step 2. Local Qwen 27B (RTX 5070 Ti) Main Architectural Audit
@@ -61,8 +69,9 @@ $hermesOutputText = ""
 
 if (Test-Path $globalHermesScript) {
     $hermesTempDir = Join-Path $projectRoot "scratch\hermes_run_${timestampStr}"
-    & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir | Out-Null
+    if (-not (Test-Path $hermesTempDir)) { New-Item -ItemType Directory -Path $hermesTempDir -Force | Out-Null }
     $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
+    & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir -OutputFile $hermesReportCandidate | Out-Null
     if (Test-Path $hermesReportCandidate) {
         $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
         $qwenStatus = "COMPLETED"
@@ -85,9 +94,24 @@ if (Test-Path $globalHermesScript) {
 Write-Host "`n>>> [Step 3/4] OpenAI Codex CLI Technical / Code Cross-Audit..." -ForegroundColor Yellow
 $codexScript = Join-Path $scriptDir "call_codex.ps1"
 $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
-$codexOutputText = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
-$codexStatus = if ($LASTEXITCODE -eq 0 -or $codexOutputText) { "COMPLETED" } else { "FAIL (Execution Error)" }
-Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
+$codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
+$codexExitCode = $LASTEXITCODE
+
+$codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
+if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
+    $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
+    if ($codexContent.Length -gt 0) {
+        $codexOutputText = $codexContent
+        $codexStatus = "COMPLETED"
+        Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
+    } else {
+        $codexStatus = "FAIL (Empty Output)"
+        Write-Warning "  -> Codex Cross-Audit produced empty output"
+    }
+} else {
+    $codexStatus = "FAIL (Execution Error, ExitCode: $codexExitCode)"
+    Write-Warning "  -> Codex Cross-Audit Failed ($codexStatus)"
+}
 
 # -------------------------------------------------------------------------
 # Step 4. Anthropic Claude Sonnet 5.5 (Explicit User Request Only)
@@ -98,9 +122,24 @@ if ($IncludeClaude) {
     Write-Host "`n>>> [Step 4/4] Claude Sonnet 5.5 Deep Business / Legal Audit (User Approved)..." -ForegroundColor Magenta
     $claudeScript = Join-Path $scriptDir "call_claude.ps1"
     $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
-    $claudeOutputText = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
-    $claudeStatus = if ($LASTEXITCODE -eq 0) { "COMPLETED" } else { "FAIL (API Error)" }
-    Write-Host "  -> Claude 5.5 Deep Audit Completed ($claudeStatus)" -ForegroundColor Green
+    $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
+    $claudeExitCode = $LASTEXITCODE
+    
+    $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
+    if ($claudeExitCode -eq 0 -and (Test-Path $claudeLogFile)) {
+        $claudeBody = [System.IO.File]::ReadAllText($claudeLogFile, [System.Text.Encoding]::UTF8).Trim()
+        if ($claudeBody.Length -gt 0) {
+            $claudeOutputText = $claudeBody
+            $claudeStatus = "COMPLETED"
+            Write-Host "  -> Claude 5.5 Deep Audit Completed ($claudeStatus)" -ForegroundColor Green
+        } else {
+            $claudeStatus = "FAIL (Empty Output)"
+            Write-Warning "  -> Claude audit log empty"
+        }
+    } else {
+        $claudeStatus = "FAIL (API Error, ExitCode: $claudeExitCode)"
+        Write-Warning "  -> Claude audit failed ($claudeStatus)"
+    }
 } else {
     Write-Host "`n>>> [Step 4/4] Claude 5.5 Audit Skipped (Cost Protection Policy: On-demand only)" -ForegroundColor DarkGray
 }
