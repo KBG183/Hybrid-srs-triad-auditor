@@ -210,6 +210,7 @@ namespace SrsIntegrity.Engine
             string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
             // 2-0. CSV Column Cardinality & Structure Gate (Rule: CSV-001)
+            // RFC 4180 State Machine Parser: Preserves quoted commas and handles escaped quotes
             if (filePath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
                 int expectedCols = -1;
@@ -217,12 +218,12 @@ namespace SrsIntegrity.Engine
                 {
                     string row = lines[c].Trim();
                     if (string.IsNullOrEmpty(row)) continue;
-                    string[] cols = row.Split(',');
+                    List<string> cols = ParseCsvRow(row);
                     if (expectedCols == -1)
                     {
-                        expectedCols = cols.Length;
+                        expectedCols = cols.Count;
                     }
-                    else if (cols.Length != expectedCols)
+                    else if (cols.Count != expectedCols)
                     {
                         result.Findings.Add(new Finding
                         {
@@ -230,7 +231,7 @@ namespace SrsIntegrity.Engine
                             Severity = "FATAL",
                             LineNumber = c + 1,
                             ColumnNumber = 1,
-                            Message = string.Format("CSV Column Cardinality mismatch. Expected {0} columns based on header, but row has {1} columns.", expectedCols, cols.Length),
+                            Message = string.Format("CSV Column Cardinality mismatch. Expected {0} columns based on header, but row has {1} columns.", expectedCols, cols.Count),
                             ContextSnippet = row.Length > 60 ? row.Substring(0, 60) + "..." : row
                         });
                     }
@@ -464,6 +465,43 @@ namespace SrsIntegrity.Engine
             {
                 seen[clean] = lineNum;
             }
+        }
+
+        private static List<string> ParseCsvRow(string row)
+        {
+            List<string> columns = new List<string>();
+            if (row == null) return columns;
+
+            StringBuilder current = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < row.Length; i++)
+            {
+                char c = row[i];
+                if (c == '\"')
+                {
+                    if (inQuotes && i + 1 < row.Length && row[i + 1] == '\"')
+                    {
+                        current.Append('\"');
+                        i++; // Skip escaped quote
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    columns.Add(current.ToString());
+                    current.Length = 0;
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            columns.Add(current.ToString());
+            return columns;
         }
 
         private static List<byte[]> SplitBytesIntoLines(byte[] bytes)

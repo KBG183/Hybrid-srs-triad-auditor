@@ -17,7 +17,11 @@ param(
     [switch]$IncludeClaude = $true,
 
     [Parameter(Mandatory = $false)]
-    [switch]$UseCache = $false
+    [switch]$UseCache = $false,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("Independent", "CrossExam")]
+    [string]$AuditMode = "Independent"
 )
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -53,12 +57,20 @@ if ($UseCache) {
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------------------------
-# Step 1. C# Deterministic Linter Hard-Gate
+# Step 1. Deterministic Linter Hard-Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Step 1/4] C# Deterministic Linter Hard-Gate Verification..." -ForegroundColor Yellow
-$linterScript = Join-Path $scriptDir "verify_srs.ps1"
-$linterOutput = & powershell -ExecutionPolicy Bypass -File $linterScript -TargetFile $resolvedTarget 2>&1
-$linterExitCode = $LASTEXITCODE
+Write-Host "`n>>> [Step 1/4] Deterministic Linter Hard-Gate Verification..." -ForegroundColor Yellow
+$targetExt = [System.IO.Path]::GetExtension($resolvedTarget).ToLower()
+
+if ($targetExt -eq ".md") {
+    $linterScript = Join-Path $scriptDir "verify_srs.ps1"
+    $linterOutput = & powershell -ExecutionPolicy Bypass -File $linterScript -TargetFile $resolvedTarget 2>&1
+    $linterExitCode = $LASTEXITCODE
+} else {
+    $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+    $linterOutput = & $integrityExe $resolvedTarget 2>&1
+    $linterExitCode = $LASTEXITCODE
+}
 
 if ($linterExitCode -ne 0) {
     Write-Host "  -> Linter Verdict: FAIL (ExitCode: $linterExitCode - Hard-Gate Blocked)" -ForegroundColor Red
@@ -121,8 +133,23 @@ if ($UseCache -and (Test-Path $codexCacheFile)) {
     $codexScript = Join-Path $scriptDir "call_codex.ps1"
     $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
     if (Test-Path $codexLastMsgFile) { Remove-Item $codexLastMsgFile -Force -ErrorAction SilentlyContinue }
-    $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
-    $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
+    
+    if ($AuditMode -eq "CrossExam") {
+        $codexPrompt = @"
+You are the OpenAI Codex Principal Security Auditor in Cross-Examination Mode.
+Analyze the target defense system alongside the preliminary vulnerability findings reported by Local Qwen 27B below.
+Attempt to discover implementation loopholes, bypass techniques, and race conditions that could defeat the defense gates.
+
+[Preliminary Qwen 27B Findings]:
+$hermesOutputText
+"@
+    } else {
+        $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
+    }
+    
+    $codexPromptFile = Join-Path $projectRoot "scratch\test_runs\crossexam_codex_prompt.txt"
+    [System.IO.File]::WriteAllText($codexPromptFile, $codexPrompt, [System.Text.Encoding]::UTF8)
+    $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -PromptFile $codexPromptFile -ContextFile $resolvedTarget
     $codexExitCode = $LASTEXITCODE
 
     if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
@@ -159,8 +186,26 @@ if ($IncludeClaude) {
         $claudeScript = Join-Path $scriptDir "call_claude.ps1"
         $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
         if (Test-Path $claudeLogFile) { Remove-Item $claudeLogFile -Force -ErrorAction SilentlyContinue }
-        $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
-        $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
+
+        if ($AuditMode -eq "CrossExam") {
+            $claudePrompt = @"
+You are the Principal Regulatory & Defense Architect in Cross-Examination Mode (Claude Sonnet 5.5).
+Critically evaluate the target defense system against the attack vectors and bypass analyses raised by Qwen 27B and Codex below.
+Determine whether the defense barriers successfully seal these vulnerabilities, analyze any unaddressed residual risks, and provide a definitive Verdict (PASS / REJECT).
+
+[Qwen 27B Attack Vectors]:
+$hermesOutputText
+
+[OpenAI Codex Bypass Analysis]:
+$codexOutputText
+"@
+        } else {
+            $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
+        }
+        
+        $claudePromptFile = Join-Path $projectRoot "scratch\test_runs\crossexam_claude_prompt.txt"
+        [System.IO.File]::WriteAllText($claudePromptFile, $claudePrompt, [System.Text.Encoding]::UTF8)
+        $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -PromptFile $claudePromptFile -ContextFile $resolvedTarget
         $claudeExitCode = $LASTEXITCODE
         
         if ($claudeExitCode -eq 0 -and (Test-Path $claudeLogFile)) {
@@ -235,6 +280,12 @@ $claudeOutputText
 "@
 
 [System.IO.File]::WriteAllText($OutputFile, $masterReport, [System.Text.Encoding]::UTF8)
+
+# Automated Dashboard Synchronization Hook (Single Source of Truth)
+$syncScript = Join-Path $scriptDir "sync_dashboard.ps1"
+if (Test-Path $syncScript) {
+    & powershell -ExecutionPolicy Bypass -File $syncScript | Out-Null
+}
 
 $summaryTable = @"
 

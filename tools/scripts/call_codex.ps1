@@ -6,8 +6,11 @@
     to stdout, preventing context token waste.
 #>
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
-    [string]$Prompt,
+    [Parameter(Mandatory = $false, Position = 0)]
+    [string]$Prompt = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$PromptFile = "",
 
     [Parameter(Mandatory = $false)]
     [string]$ContextFile = "",
@@ -60,6 +63,9 @@ if (-not $codexExe) {
 }
 
 # 2. Build full prompt
+if ($PromptFile -and (Test-Path $PromptFile)) {
+    $Prompt = [System.IO.File]::ReadAllText($PromptFile, [System.Text.Encoding]::UTF8)
+}
 $finalPrompt = $Prompt
 $contextContent = ""
 if ($ContextFile -and (Test-Path $ContextFile)) {

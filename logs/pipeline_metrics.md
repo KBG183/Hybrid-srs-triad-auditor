@@ -1,4 +1,4 @@
-﻿# 📊 多層パイプライン検証メトリクス ＆ 監査ダッシュボード
+# 📊 多層パイプライン検証メトリクス ＆ 監査ダッシュボード
 
 最終更新: 2026-11-18 | システムバージョン: v1.02
 
@@ -6,7 +6,7 @@
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
 * **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全8要件
-* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-08 準拠: Qwen P0・Codex/Claude指摘に伴う改訂待機中）
+* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-08 準拠: 4層完全統合検証実行（C#リンターPASS・Qwen27B P0検知・Codex要修正・Claude5.5不承認による改訂課題確定））
 * **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` v1.1 ＋ `VerifySRS_Integrity.cs` v2.0 Fail-Closed 0.05秒検証）
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
