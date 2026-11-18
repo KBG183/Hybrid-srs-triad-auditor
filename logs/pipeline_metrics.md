@@ -8,7 +8,7 @@
 * **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全12要件
 * **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-11 準拠: 4層交差検証実行（C#リンターPASS・Qwen27B完了・Codex指摘・Claude5.5により法定休日除外およびEXCLUDE排他制約P0課題是正確定））
 * **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
-* **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
+* **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-6.2 Astra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
 * **Claude 深層法規監査**: `ONLINE`（Anthropic Claude Sonnet 5.5 労基法第37条・不変性深層検証）
 * **最終検証ゲート**: `ACTIVE`（C#決定論的回帰テストスイート連動）

@@ -1,12 +1,12 @@
 # Architecture Specification: Hybrid Token-Balancing Pipeline (Plan A)
-Document Version: v1.1 (Approved Post-4-Way Audit)
-Audited By: Local Qwen 3.8 27B, OpenAI Codex (gpt-5.6-terra), Anthropic Claude (claude-sonnet-5-5)
+Document Version: v1.2 (Upgraded to OpenAI Codex 6.2 Flagship)
+Audited By: Local Qwen 3.8 27B, OpenAI Codex (gpt-6.2-astra / gpt-6.2-sol), Anthropic Claude (claude-sonnet-5-5)
 
 ---
 
 ## 1. Executive Summary & Purpose
-This specification formalizes the **Token-Balancing Pipeline v1.1**, resolving all blockers identified during the 4-way cross-audit (TB-01~03, CT-01~06, LC-01~02, AUDIT-005).
-The objective is to shift ~50% of generative token burden from Antigravity (Gemini) to subscribed OpenAI Codex (`gpt-5.6-terra`), while preventing token-ping-pong overhead, process hangs, and legal compliance drift.
+This specification formalizes the **Token-Balancing Pipeline v1.2**, resolving all blockers identified during the 4-way cross-audit (TB-01~03, CT-01~06, LC-01~02, AUDIT-005).
+The objective is to shift ~50% of generative token burden from Antigravity (Gemini) to subscribed OpenAI Codex (`gpt-6.2-astra` for deep reasoning, `gpt-6.2-sol` for fast track), while preventing token-ping-pong overhead, process hangs, and legal compliance drift.
 
 ---
 
@@ -17,7 +17,7 @@ sequenceDiagram
     autonumber
     actor User as User
     participant AGY as Antigravity (Orchestrator)
-    participant CDX as OpenAI Codex (gpt-5.6-terra)
+    participant CDX as OpenAI Codex (gpt-6.2-astra / gpt-6.2-sol)
     participant LINT as Roslyn Deterministic Linter
     participant FS as Local Filesystem (Atomic Workspace)
 

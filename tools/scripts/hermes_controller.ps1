@@ -281,7 +281,7 @@ $masterReport = @"
 |---|---|---|---|
 | **Step 0: ハードゲート** | C# Deterministic Linter | 禁止文字、未確定記号、正規表現整合性 | **$linterStatus** |
 | **Step 1: 主幹検証** | Qwen 27B (ローカルGPU RTX 5070 Ti) | ドメイン完全性・構造整合性・文脈検証 | **$qwenStatus** |
-| **Step 2: 技術交差検証** | OpenAI Codex CLI (GPT-5.6) | DDL制約、DTO整合性、排他ロック境界条件 | **$codexStatus** |
+| **Step 2: 技術交差検証** | OpenAI Codex CLI (GPT-6.2) | DDL制約、DTO整合性、排他ロック境界条件 | **$codexStatus** |
 | **Step 3: 法規深層検証** | Anthropic Claude (Sonnet 5.5) | 労働基準法第37条、端数処理、労使協定整合性 | **$claudeStatus** |
 
 ---

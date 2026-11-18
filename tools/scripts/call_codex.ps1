@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     OpenAI Codex CLI Standard Invocation Wrapper (Token-Saving File Stream Mode)
 .DESCRIPTION
@@ -74,7 +74,7 @@ if ($ContextFile -and (Test-Path $ContextFile)) {
 }
 [System.IO.File]::WriteAllText($tempPromptTarget, $finalPrompt, [System.Text.Encoding]::UTF8)
 
-# 3. Model Auto-Routing (Luna vs Terra)
+# 3. Model Auto-Routing (Fast Sol vs Deep Astra)
 $effectiveModel = $Model
 if (-not $effectiveModel) {
     $combinedText = "$Prompt $contextContent"
@@ -87,11 +87,11 @@ if (-not $effectiveModel) {
         }
     }
     if ($matched) {
-        $effectiveModel = "gpt-5.6-terra"
-        Write-Host "[MODEL AUTO-ROUTING] Deep domain keywords detected -> routing to gpt-5.6-terra" -ForegroundColor Yellow
+        $effectiveModel = "gpt-6.2-astra"
+        Write-Host "[MODEL AUTO-ROUTING] Deep domain keywords detected -> routing to gpt-6.2-astra (Flagship Reasoning)" -ForegroundColor Yellow
     } else {
-        $effectiveModel = "gpt-5.6-luna"
-        Write-Host "[MODEL AUTO-ROUTING] Standard verification -> routing to gpt-5.6-luna (Token-Saving)" -ForegroundColor Green
+        $effectiveModel = "gpt-6.2-sol"
+        Write-Host "[MODEL AUTO-ROUTING] Standard verification -> routing to gpt-6.2-sol (Fast Track)" -ForegroundColor Green
     }
 }
 

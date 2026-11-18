@@ -19,7 +19,7 @@ Day 2において確立された「シフト調停（Slice 2）」および「�
 | **P0** | **BL-DAY3-001** | 30秒回転型TOTP QR打刻およびGPSジオフェンシング（代理打刻遮断） | Slice 3 (`REQ-ATTEND-001`) | Codex / Claude |
 | **P0** | **BL-DAY3-002** | 打刻状態遷移機械および実労働・休憩区間代数検証 | Slice 3 (`REQ-ATTEND-002`) | Qwen / Linter |
 | **P0** | **BL-DAY3-003** | 満18歳未満（年少者）深夜労働・時間外労働遮断ガード | 認可・労基法 (`REQ-STORE-002`) | Claude 5.5 |
-| **P1** | **BL-DAY3-004** | 最低賃金改定日履歴マスタおよび自動補正・アラート統制 | 労基法算定 (`REQ-LABOR-001`) | Codex Terra |
+| **P1** | **BL-DAY3-004** | 最低賃金改定日履歴マスタおよび自動補正・アラート統制 | 労基法算定 (`REQ-LABOR-001`) | Codex Astra |
 | **P1** | **BL-DAY3-005** | 打刻事後修正の二者承認フローおよび不変監査ログ | Slice 3 (`REQ-ATTEND-003`) | Deterministic |
 
 ---

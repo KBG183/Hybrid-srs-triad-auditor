@@ -149,55 +149,35 @@ foreach ($req in $reqList) {
     $matrixRows += "| $id | $title | $linterVerdict | $qwenVerdict | $codexVerdict | $claudeVerdict | $finalVerdict |"
 }
 
-<# Step 4. Render pipeline_metrics.md #>
+<# Step 4. Render pipeline_metrics.md via UTF-8 Template #>
+$templatePath = Join-Path $projectRoot "tools\templates\pipeline_metrics_template.md"
+if (-not (Test-Path $templatePath)) {
+    Write-Error "Metrics template file not found: $templatePath"
+    exit 1
+}
+
 $today = (Get-Date).ToString("yyyy-MM-dd")
 $matrixTableText = $matrixRows -join "`n"
-$b = [char]96 # Backtick character
 
-$metricsTemplate = @"
-# 📊 多層パイプライン検証メトリクス ＆ 監査ダッシュボード
-
-最終更新: $today | システムバージョン: v1.02
-
----
-
-## 🚦 1. パイプライン総合稼働状態 (Summary)
-* **確定要件定義**: 単一真実原書（${b}config/srs_specification_ssot.md${b}）全${totalReqCount}要件
-* **最新統合監査判定**: ${b}$lastStatus${b}（${b}enterprise_audit_ledger.csv${b} $lastBatchId 準拠: $lastNotes）
-* **C# 決定論的リンター**: ${b}ONLINE${b}（${b}VerifySRS_Deterministic.cs${b} ＋ ${b}VerifySRS_Integrity.cs${b} Fail-Closed 確定論的構文・無欠性検証）
-* **Codex 独立交差監査**: ${b}ONLINE${b}（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
-* **ローカル Qwen 27B**: ${b}ONLINE${b}（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
-* **Claude 深層法規監査**: ${b}ONLINE${b}（Anthropic Claude Sonnet 5.5 労基法第37条・不変性深層検証）
-* **最終検証ゲート**: ${b}ACTIVE${b}（C#決定論的回帰テストスイート連動）
-
----
-
-## 2. 要件完全性検証スコア (SSOT 全${totalReqCount}要件 - $lastBatchId 4層交差監査連動)
-| ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-$matrixTableText
-
----
-
-## 3. 監査・障害対応履歴
-* **実運用障害・再発防止台帳**: [${b}logs/incident_history_ledger.md${b}](incident_history_ledger.md)（全23件の技術課題・恒久対策を記録）
-* **監査実行台帳**: [${b}logs/enterprise_audit_ledger.csv${b}](enterprise_audit_ledger.csv)
-* **クラウドトークン消費台帳**: [${b}logs/cloud_api_token_ledger.csv${b}](cloud_api_token_ledger.csv)
-"@
+$templateContent = [System.IO.File]::ReadAllText($templatePath, [System.Text.Encoding]::UTF8)
+$renderedMetrics = $templateContent.Replace("{{TODAY}}", $today)
+$renderedMetrics = $renderedMetrics.Replace("{{TOTAL_REQ_COUNT}}", $totalReqCount.ToString())
+$renderedMetrics = $renderedMetrics.Replace("{{LAST_STATUS}}", $lastStatus)
+$renderedMetrics = $renderedMetrics.Replace("{{LAST_BATCH_ID}}", $lastBatchId)
+$renderedMetrics = $renderedMetrics.Replace("{{LAST_NOTES}}", $lastNotes)
+$renderedMetrics = $renderedMetrics.Replace("{{MATRIX_TABLE}}", $matrixTableText)
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($metricsPath, $metricsTemplate, $utf8NoBom)
-Write-Host "  -> Successfully re-rendered: $MetricsFile (All $totalReqCount requirements synchronized)" -ForegroundColor Green
+[System.IO.File]::WriteAllText($metricsPath, $renderedMetrics, $utf8NoBom)
+Write-Host "  -> Successfully re-rendered: $MetricsFile (All $totalReqCount requirements synchronized via template)" -ForegroundColor Green
 
 <# Step 5. Synchronize CURRENT_STATUS.md #>
 if (Test-Path $statusPath) {
     $statusContent = [System.IO.File]::ReadAllText($statusPath, [System.Text.Encoding]::UTF8)
-    $newHealth = "- **最新ヘルスチェック判定**: ``$lastStatus``（``enterprise_audit_ledger.csv`` $lastBatchId 準拠: $lastNotes）"
-    $statusUpdated = [System.Text.RegularExpressions.Regex]::Replace(
-        $statusContent,
-        "- \*\*最新ヘルスチェック判定\*\*:.+",
-        $newHealth
-    )
+    $healthPrefix = [System.Text.Encoding]::UTF8.GetString(@(0x2D, 0x20, 0x2A, 0x2A, 0xE6, 0x9C, 0x80, 0xE6, 0x96, 0xB0, 0xE3, 0x83, 0x98, 0xE3, 0x83, 0xAB, 0xE3, 0x82, 0xB9, 0xE3, 0x83, 0x81, 0xE3, 0x82, 0xA7, 0xE3, 0x83, 0x83, 0xE3, 0x82, 0xAF, 0xE5, 0x88, 0xA4, 0xE5, 0xAE, 0x9A, 0x2A, 0x2A, 0x3A, 0x20))
+    $newHealth = $healthPrefix + "``$lastStatus`` (enterprise_audit_ledger.csv ${lastBatchId}: $lastNotes)"
+    $pattern = '(?m)^- \*\*[^\r\n]+?\*\*:.+$'
+    $statusUpdated = [System.Text.RegularExpressions.Regex]::Replace($statusContent, $pattern, $newHealth)
     [System.IO.File]::WriteAllText($statusPath, $statusUpdated, $utf8NoBom)
     Write-Host "  -> Successfully synchronized: $StatusFile" -ForegroundColor Green
 }

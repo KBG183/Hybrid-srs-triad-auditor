@@ -466,6 +466,69 @@ namespace SrsIntegrity.Engine
             }
 
             // =========================================================================
+            // PHASE 4: External Finding Queue Fail-Closed Gate (GEMINI.md Rule 9)
+            // =========================================================================
+            if (File.Exists(filePath) && Path.GetFileName(filePath).Equals("srs_specification_ssot.md", StringComparison.OrdinalIgnoreCase))
+            {
+                string targetDir = Path.GetDirectoryName(Path.GetFullPath(filePath));
+                string projectRoot = Path.GetDirectoryName(targetDir); // config -> project root
+                if (!string.IsNullOrEmpty(projectRoot))
+                {
+                    string pendingQueuePath = Path.Combine(projectRoot, "scratch", "pending_findings.json");
+                    if (File.Exists(pendingQueuePath))
+                    {
+                        try
+                        {
+                            string queueJson = File.ReadAllText(pendingQueuePath, Encoding.UTF8);
+                            Match countMatch = Regex.Match(queueJson, @"""declared_count""\s*:\s*(\d+)");
+                            int declaredCount = countMatch.Success ? int.Parse(countMatch.Groups[1].Value) : -1;
+
+                            MatchCollection findingMatches = Regex.Matches(queueJson, @"""id""\s*:\s*""([^""]+)""");
+                            int actualCount = findingMatches.Count;
+
+                            if (declaredCount >= 0 && declaredCount != actualCount)
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "PROC-001",
+                                    Severity = "FATAL",
+                                    LineNumber = 1,
+                                    ColumnNumber = 1,
+                                    Message = string.Format("Finding queue count mismatch: declared_count={0} but actual findings={1}.", declaredCount, actualCount),
+                                    ContextSnippet = pendingQueuePath
+                                });
+                            }
+
+                            if (Regex.IsMatch(queueJson, @"""status""\s*:\s*""PENDING""", RegexOptions.IgnoreCase))
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "PROC-002",
+                                    Severity = "FATAL",
+                                    LineNumber = 1,
+                                    ColumnNumber = 1,
+                                    Message = "Unresolved findings remaining in scratch/pending_findings.json. All items must reach RESOLVED before commit.",
+                                    ContextSnippet = pendingQueuePath
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Findings.Add(new Finding
+                            {
+                                RuleId = "PROC-003",
+                                Severity = "FATAL",
+                                LineNumber = 1,
+                                ColumnNumber = 1,
+                                Message = "Failed to parse scratch/pending_findings.json: " + ex.Message,
+                                ContextSnippet = pendingQueuePath
+                            });
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
             // Evaluation & Console Output
             // =========================================================================
             int fatalCount = 0;

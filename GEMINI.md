@@ -1,4 +1,4 @@
-﻿# KINTAI 品質検証パイプライン 運用規約 v1.03
+# KINTAI 品質検証パイプライン 運用規約 v1.03
 
 施行日: 2026-11-17 (改定: 2026-11-18)  
 適用対象: アルバイト勤怠・給与管理SaaS（KINTAI）の詳細要件定義書（SRS）作成および多層AIハイブリッド交差検証システム
@@ -47,8 +47,8 @@
   - `codex.exe` 等のバイナリ直接実行を禁止し、無出力ファイルストリーミングラッパー（`tools/scripts/call_codex.ps1`）を介して実行する。
   - 大量ログはファイルへ出力し、画面（stdout）への出力流出を遮断してコンテキストトークンを保護する。
   - **難易度別自動ルーティング**:
-    - `gpt-5.6-luna`: 単純な構文チェック、高速ファイル検索、ビルド確認。
-    - `gpt-5.6-terra`: 労働基準法計算、端数処理、悲観的ロック並行性、重要度P0/P1判定。
+    - `gpt-6.2-sol`: 単純な構文チェック、高速ファイル検索、ビルド確認。
+    - `gpt-6.2-astra`: 労働基準法計算、端数処理、悲観的ロック並行性、重要度P0/P1判定。
 - **検証済み監査標準の適用 (INCIDENT-44)**:
   - 監査・静的検収は、ハートビート監視を備えた検証済みスクリプト（`hermes_controller.ps1` / `call_codex.ps1`）を標準インターフェースとして使用する。
   - 標準入力をパイプラインで接続したままプロセスが無応答（Hang）に陥る独断のバックグラウンド実行を防止する。
@@ -100,4 +100,16 @@
      - `[トークン平準化遵守]`: 生成トークン平準化（Plan A: Codex 約50%分担）準拠の明示
 2. **Heavy TrackにおけるCodex初案自動生成の強制**:
    - 新規要件・DDL・排他制御を含む設計（Heavy Track）において、Antigravity（Gemini）が直接初案を長文生成する単独執筆（便宜主義）を厳禁とする。
-   - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-5.6-terra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS_Deterministic.exe`）の検証を通過した後にのみ SSOT へ統合する。
+   - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS_Deterministic.exe`）の検証を通過した後にのみ SSOT へ統合する。
+
+---
+
+## 9. 外部指摘の記憶外在化および 1-Shot 是正バッチ規約 (External Finding Queue & 1-Shot Remediation Policy)
+
+1. **発動条件と宣言件数の義務化**:
+   - 外部監査またはユーザーから2件以上の欠陥指摘、あるいはSSOT中核要件（労働法第37条・並行性排他制御・認可）の論理的欠陥指摘を受領した際、エージェントはコード修正に先行して直ちに `scratch/pending_findings.json` を発行し、総指摘件数（`declared_count`）および全件を `PENDING` として物理キューイングする。
+2. **登録漏れ・自己承認の遮断 (Fail-Closed Gate)**:
+   - キュー内の `declared_count` と実際の配列要素数が合致しない場合、または1件でも `PENDING` が残存している場合、コミット提案およびコミット実行をFail-Closedで遮断する。
+   - `RESOLVED` へのステータス変更時は、必ず `evidence`（修正ファイル、該当行番号、変更内容、リンター/テスト結果）の物理的紐付けを義務付ける。
+3. **1-Shot 是正バッチによる履歴集約**:
+   - 指摘事項に対する小刻みな個別パッチコミットを厳禁とし、キュー内の全項目が `RESOLVED` に達し、二重リンターおよびローカル監査を通過した段階で、単一の Conventional Commit（1-Shot）として完全集約して同期する。
