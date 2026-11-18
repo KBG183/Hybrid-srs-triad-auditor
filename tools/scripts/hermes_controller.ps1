@@ -119,11 +119,12 @@ if ($UseCache -and (Test-Path $codexCacheFile)) {
     Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Codex audit result (0 tokens consumed)." -ForegroundColor Cyan
 } else {
     $codexScript = Join-Path $scriptDir "call_codex.ps1"
+    $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
+    if (Test-Path $codexLastMsgFile) { Remove-Item $codexLastMsgFile -Force -ErrorAction SilentlyContinue }
     $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
     $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -Prompt $codexPrompt -ContextFile $resolvedTarget
     $codexExitCode = $LASTEXITCODE
 
-    $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
     if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
         $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
         if ($codexContent.Length -gt 0) {
@@ -156,11 +157,12 @@ if ($IncludeClaude) {
         Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Claude audit result (0 API cost)." -ForegroundColor Cyan
     } else {
         $claudeScript = Join-Path $scriptDir "call_claude.ps1"
+        $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
+        if (Test-Path $claudeLogFile) { Remove-Item $claudeLogFile -Force -ErrorAction SilentlyContinue }
         $claudePrompt = "You are the Principal Regulatory & Business Logic Auditor (Claude Sonnet 5.5). Audit the specification for Japanese Labor Standards Act Article 37 compliance, rounding conventions, and immutability invariants. Output findings table."
         $claudeSummary = & powershell -ExecutionPolicy Bypass -File $claudeScript -Prompt $claudePrompt -ContextFile $resolvedTarget
         $claudeExitCode = $LASTEXITCODE
         
-        $claudeLogFile = Join-Path $projectRoot "scratch\test_runs\claude_live.log"
         if ($claudeExitCode -eq 0 -and (Test-Path $claudeLogFile)) {
             $claudeBody = [System.IO.File]::ReadAllText($claudeLogFile, [System.Text.Encoding]::UTF8).Trim()
             if ($claudeBody.Length -gt 0) {
