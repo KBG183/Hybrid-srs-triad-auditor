@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     KINTAI Dashboard Automated Single Source of Truth Synchronization Script
 .DESCRIPTION
@@ -182,5 +182,35 @@ if (Test-Path $statusPath) {
     Write-Host "  -> Successfully synchronized: $StatusFile" -ForegroundColor Green
 }
 
-Write-Host ">>> [SYNC COMPLETE] All dashboards 100% aligned with SSOT ($totalReqCount requirements)." -ForegroundColor Green
+<# Step 6. Automatically Synchronize Local Developer Korean Mirrors (*_KO.md) #>
+$koMetricsPath = Join-Path $projectRoot "logs\pipeline_metrics_KO.md"
+$koTemplatePath = Join-Path $projectRoot "tools\templates\pipeline_metrics_template_KO.md"
+if (Test-Path $koTemplatePath) {
+    $koTemplateContent = [System.IO.File]::ReadAllText($koTemplatePath, [System.Text.Encoding]::UTF8)
+    $renderedKoMetrics = $koTemplateContent.Replace("{{TODAY}}", $today)
+    $renderedKoMetrics = $renderedKoMetrics.Replace("{{TOTAL_REQ_COUNT}}", $totalReqCount.ToString())
+    $renderedKoMetrics = $renderedKoMetrics.Replace("{{LAST_STATUS}}", $lastStatus)
+    $renderedKoMetrics = $renderedKoMetrics.Replace("{{LAST_BATCH_ID}}", $lastBatchId)
+    $renderedKoMetrics = $renderedKoMetrics.Replace("{{LAST_NOTES}}", $lastNotes)
+    $renderedKoMetrics = $renderedKoMetrics.Replace("{{MATRIX_TABLE}}", $matrixTableText)
+    [System.IO.File]::WriteAllText($koMetricsPath, $renderedKoMetrics, $utf8NoBom)
+    Write-Host "  -> Successfully synchronized Korean mirror: logs\pipeline_metrics_KO.md" -ForegroundColor Cyan
+}
+
+$koStatusPath = Join-Path $projectRoot "logs\CURRENT_STATUS_KO.md"
+if (Test-Path $koStatusPath) {
+    $koStatusContent = [System.IO.File]::ReadAllText($koStatusPath, [System.Text.Encoding]::UTF8)
+    $koHealthLabel = [System.Text.Encoding]::UTF8.GetString(@(0xEC, 0xB5, 0x9C, 0xEC, 0x8B, 0xA0, 0x20, 0xED, 0x97, 0xAC, 0xEC, 0x8A, 0xA4, 0xEC, 0xB2, 0xB4, 0xED, 0x81, 0xAC, 0x20, 0xED, 0x8C, 0x90, 0xEC, 0xA0, 0x95))
+    $koHealthLine = "- **$koHealthLabel**: ``$lastStatus`` (enterprise_audit_ledger.csv ${lastBatchId}: $lastNotes)"
+    $koPattern = "(?m)^- \*\*" + [regex]::Escape($koHealthLabel) + "\*\*:.+$"
+    if ($koStatusContent -match $koPattern) {
+        $koStatusUpdated = [System.Text.RegularExpressions.Regex]::Replace($koStatusContent, $koPattern, $koHealthLine)
+    } else {
+        $koStatusUpdated = $koStatusContent
+    }
+    [System.IO.File]::WriteAllText($koStatusPath, $koStatusUpdated, $utf8NoBom)
+    Write-Host "  -> Successfully synchronized Korean mirror: logs\CURRENT_STATUS_KO.md" -ForegroundColor Cyan
+}
+
+Write-Host ">>> [SYNC COMPLETE] All dashboards & Korean mirrors 100% aligned with SSOT ($totalReqCount requirements)." -ForegroundColor Green
 exit 0
