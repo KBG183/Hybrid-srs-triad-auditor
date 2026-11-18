@@ -67,10 +67,11 @@ if ($ContextFile -and (Test-Path -LiteralPath $ContextFile)) {
     $finalPrompt = "Reference Specification:`n`n$contextContent`n`nInstructions:`n$promptText"
 }
 
-# 3. Construct Request Body
+# 3. Construct Request Body (Thinking: between_tools for fast text audit)
 $requestBody = @{
     model = $Model
     max_tokens = $MaxTokens
+    thinking = @{ type = "between_tools" }
     system = $System
     messages = @(
         @{

@@ -6,7 +6,7 @@
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
 * **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全8要件
-* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-09 準拠: Slice 2シフト管理・排他制御（全12要件）のC#決定論的リンターPASS・4層交差検証完了）
+* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-10 準拠: 労基法第37条週40h・月60h超割増・端数処理BigDecimal化・初回確定ロック三重防御反映および4層再検証完了）
 * **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
