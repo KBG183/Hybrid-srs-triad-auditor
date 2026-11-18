@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Deterministic Verification & Pre-Write Hard Gate (gate_phase3.ps1)
 .DESCRIPTION
@@ -12,6 +12,7 @@ param(
     [string]$ReportFile = ""
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 

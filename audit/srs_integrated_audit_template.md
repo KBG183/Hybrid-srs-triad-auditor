@@ -1,4 +1,4 @@
-﻿# 📋 [SRS-XXXX] 要件定義 統合検証レポート
+# 📋 [SRS-XXXX] 要件定義 統合検証レポート
 
 作成日: 2026-11-16 | 対象文書: `config/srs_specification_ssot.md`
 

@@ -84,7 +84,7 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 |---|---|---|:---:|:---:|:---:|:---:|
 | **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **42.03秒** | Input: 11,311 tok / Output: 1,614 tok | **48.8 tok/s** | **10/10 PASS** (基礎骨子健全性立証) |
 | **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **255.2秒** | 14,539文字 (詳細監査レポート生成) | - | **FAIL (17件摘発)** (P0: 11件, P1: 6件) |
-| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 3000) | **25.73秒** | Input: 1,046 tok / Output: 3,000 tok | - | **Codex 100%支持** (労基法通達による法理確定) |
+| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **68.40秒** | Input: 29,019 tok / Output: 8,192 tok | - | **Codex 100%支持** (労基法通達による法理確定) |
 | **C# 決定論的リンター** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 実行バイナリ | **0.85秒** | 399行 / 44,386バイト全走査 | - | **PASS** (Zero Defects, Queue All Resolved) |
 
 ---
@@ -96,7 +96,7 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 | 欠陥ID | 重要度 | 対象要件 | 指摘された具体的欠陥内容 | 適用された工学的是正コード・算式エビデンス |
 |:---:|:---:|---|---|---|
 | **WAGE-01** | **P0** | `REQ-LABOR-001` | **同日複数勤務の日8h超過漏れ**: 中抜け勤務（09~14時, 16~21時）で打刻行ごとに `max(0, net-480)` を適用すると、19時以降の残業2時間が脱落する。 | `SPEC-WAGE-01` 導入: 法定労働日（LWD）単位で全勤務を通算合算し、`dailyOT = max(0, prior + current - 480) - max(0, prior - 480)` により日8h超過を決定論的に抽出。 |
-| **WAGE-02** | **P0** | `REQ-LABOR-001`<br>`REQ-LABOR-002`<br>`REQ-LABOR-003` | **自尊跨ぎ法定休日の手当歪み**: 土曜22時〜日曜(法定休日)06時の継続勤務で始業日のみで判定すると、日曜0~6時の休日割増(+35%)が全損する。 | **二元属性（Dual Attribution）** 導入: 日8h枠は始業日帰属（基発150号）、法定休日割増は暦日午前0時で分割。日曜0~6時は休日(+35%)および深夜(+25%)の重畳(+60%)として算定。 |
+| **WAGE-02** | **P0** | `REQ-LABOR-001`<br>`REQ-LABOR-002`<br>`REQ-LABOR-003` | **暦日跨ぎ法定休日の手当歪み**: 土曜22時〜日曜(法定休日)06時の継続勤務で始業日のみで判定すると、日曜0~6時の休日割増(+35%)が全損する。 | **二元属性（Dual Attribution）** 導入: 日8h枠は始業日帰属（基発150号）、法定休日割増は暦日午前0時で分割。日曜0~6時は休日(+35%)および深夜(+25%)の重畳(+60%)として算定。 |
 | **WAGE-03** | **P0** | `REQ-LABOR-003` | **月60h超時間外の到達境界分割漏れ**: 累計59.5h時点で90分勤務が発生した際、前半30分(+25%)と後半60分(+50%)のセグメント分割が未定義。 | 累計60時間到達境界で実労働を動的セグメント分割し、超過部分にのみ50%割増率（深夜重複時は手当合計+75%）を適用する排他分解エンジンを定義。 |
 | **WAGE-04** | **P0** | `REQ-LABOR-001`<br>`REQ-LABOR-002` | **秒精度打刻の分丸め境界損耗**: 21:59:30~22:00:30打刻で各区間を分に丸めると深夜時間が0分に切捨て脱落する。 | 出退勤打刻・休憩区間を秒単位の半開区間和集合として集計し、通貨丸め直前まで秒精度有理数を維持。 |
 | **WAGE-05** | **P0** | `REQ-LABOR-003` | **中間除算丸めによる50銭境界の1円不整合**: 時給1340円等で `scale=10` 除算を累積すると、50銭境界で最終 `HALF_UP` 結果が34円から33円へ歪む。 | **累積分子・共通分母方式**: 分子を `BigInteger`（`numerator += hourlyWage * seconds * rateFactor`）、共通分母を `360000` として中間丸めを完全排除。 |
@@ -129,9 +129,38 @@ Total Lines: 399 | Total Bytes: 44,386
 ```
 
 ### 3.2 Zero-Korean 物理的ハードゲート検証
-- **検査コマンド**: `powershell -ExecutionPolicy Bypass -File "scratch/test_zero_korean.ps1"`
+- **検査コマンド**: `powershell -ExecutionPolicy Bypass -File "tools/scripts/verify_repo_total_integrity.ps1"`
 - **対象ファイル**: ステージングされたリポジトリ追跡対象全ファイル
-- **結果**: **100% PASS**（韓国語文字コード `[\uAC00-\uD7A3]` 検知数: **0件**）
+- **結果**: **100% PASS**（韓国語文字コード `[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF\uFFA0-\uFFDC]` 検知数: **0件**）
+
+### 3.3 4層交差検証によるハードゲート・自動配線アーキテクチャのストレステストおよび恒久是正
+リポジトリ検証パイプライン（`verify_repo_total_integrity.ps1`）および Pre-Commit 自動配線（`.git/hooks/pre-commit`）自体の耐障害性を検証するため、4層AIハイブリッド交差監査を実施した。
+
+#### ① 4層交差検証実測メトリクス
+| 監査官 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 文字数 | 判定結果 | 物理保存先アーカイブ |
+|---|---|---|:---:|:---:|:---:|---|
+| **C# 決定論的** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 | **2.1秒** | 全85追跡ファイル走査 | **PASS (8/8)** | `tools/scripts/verify_repo_total_integrity.ps1` |
+| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **43.86秒** | Input: 4,131 tok / Output: 2,084 tok (50.2 tok/s) | **WARN** | `audit/runs/20261118_quad_audit_gate_remediation/qwen_27b_audit_report.md` |
+| **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **87.8秒** | 3,908文字 (詳細監査レポート生成) | **FAIL** (G-01~12) | `audit/runs/20261118_quad_audit_gate_remediation/codex_astra_audit_report_KO.txt` |
+| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **65.63秒** | Input: 6,588 tok / Output: 8,192 tok ($0.1426) | **FAIL** (F-01~31) | `audit/runs/20261118_quad_audit_gate_remediation/claude_sonnet_audit_log.txt` |
+
+#### ② 摘発された5大核心欠陥および工学的是正証跡
+1. **[F-01/G-03] grep '^+ ' 空白必須による非空白行脱落**:
+   - `git diff --cached` で空白を含まない追加行（例: `+SECRET_TOKEN`, `+PRIVATE_HOST`）が機微情報検査から脱落していた。
+   - `grep -E '^\+[^+]'` に是正し、`+++` 差分ヘッダーを除くすべての新規追加行を網羅抽出するよう改修。
+2. **[F-03/G-02] Staged Blob（インデックス）vs Working Tree（ディスク）不一致**:
+   - 部分ステージング（`git add -p`）やステージング後のディスク変更時に、コミット対象外のディスク内容を検査していた。
+   - `git show :"$FILE"` を用いて Git インデックスオブジェクト（Staged Blob）を直接ストリーミング検査する構造に完全刷新。
+3. **[F-05/G-04] grep -P エラー（Exit Code 2）時の Fail-Open 脆弱性**:
+   - PCRE 未対応環境で grep が異常終了（終了コード2）した際、未検知（正常）と誤認して通過させていた。
+   - プレコミット冒頭に UTF-8 PCRE 自己診断カナリテスト（Canary Test）を配備し、エンジン障害時は Fail-Closed で即時遮断。
+4. **[F-19/F-28] CWD 相対パス依存および CURRENT_STATUS.md サイレント通過**:
+   - サブディレクトリ実行時に相対パス解決が失敗して全ファイルがスキップされる問題、およびステータスファイル削除時に `else` 分期がなく通過する欠陥。
+   - すべてのファイル参照を `$projectRoot` 基準の絶対パス（`Join-Path`）に統一し、追跡ファイル0件またはステータスファイル欠落時は即時 `exit 1` で遮断。
+5. **PowerShell AST 構文検査の公式ゲート化**:
+   - スクリプト内の一括置換等で構文破損が発生しても静的テキスト検査ではすり抜ける問題を防止するため、`[System.Management.Automation.Language.Parser]::ParseFile` による AST 構文検査を Check 7 へ公式統合。
+6. **全監査ツールの恒久保存自動配線**:
+   - `call_codex.ps1` および `call_claude.ps1` を改修し、手動退避を不要化して全実行結果が自動的に `audit/runs/{timestamp}_{model}/` へ即時永続保存されるよう恒久配備。
 
 ---
 

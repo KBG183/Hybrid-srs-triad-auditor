@@ -1,4 +1,4 @@
-﻿# 🏛️ Hybrid SRS Quad-Auditor & Linter Engine
+# 🏛️ Hybrid SRS Quad-Auditor & Linter Engine
 
 > **ドメイン非依存型（Domain-Agnostic）高信頼性ソフトウェア要件定義書（SRS）自動生成・4核AI多層相互監査フレームワーク**  
 

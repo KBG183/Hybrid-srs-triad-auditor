@@ -1,4 +1,4 @@
-﻿# 🏛️ KINTAI Hermes 多層統合検証レポート (Master Quality Audit Report)
+# 🏛️ KINTAI Hermes 多層統合検証レポート (Master Quality Audit Report)
 
 - **検証日時 (Timestamp)**: 2026-11-18 14:46:03
 - **対象仕様書 (Target)**: srs_specification_ssot.md

@@ -25,6 +25,7 @@ param(
     [switch]$VerboseOutput = $false
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -163,7 +164,17 @@ if (Test-Path $outLastMsg) {
 if ($exitCode -eq 0 -and (-not [string]::IsNullOrWhiteSpace($lastMsg))) {
     $elapsedSec = $sw.Elapsed.TotalSeconds.ToString('F1')
     $msgLength = $lastMsg.Length
-    $summary = "[CODEX SUMMARY] Status: SUCCESS | Elapsed: ${elapsedSec}s | Length: ${msgLength} chars | File: $outLastMsg"
+    
+    # Auto-archive to permanent audit/runs/ repository (Never rely on manual save)
+    $runTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $permanentRunDir = Join-Path $projectRoot "audit\runs\${runTimestamp}_codex_${model}"
+    if (-not (Test-Path $permanentRunDir)) { New-Item -ItemType Directory -Path $permanentRunDir -Force | Out-Null }
+    $permReport = Join-Path $permanentRunDir "codex_report.txt"
+    $permLog = Join-Path $permanentRunDir "codex_live.log"
+    [System.IO.File]::WriteAllText($permReport, $lastMsg, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($permLog, $allLogs, [System.Text.Encoding]::UTF8)
+
+    $summary = "[CODEX SUMMARY] Status: SUCCESS | Elapsed: ${elapsedSec}s | Length: ${msgLength} chars | PermanentArchive: $permReport"
     Write-Output $summary
     if ($VerboseOutput) {
         Write-Output $lastMsg

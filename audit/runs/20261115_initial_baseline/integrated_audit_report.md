@@ -1,4 +1,4 @@
-﻿### [Hermes Audit Execution Metrics v1.1.1]
+### [Hermes Audit Execution Metrics v1.1.1]
 | Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
 |---|---|---|---|---|---|---|---|
 | <PROJECT_ROOT>\config/srs_specification_ssot.md | qwen27b:latest (IQ3_M) | 54.99s | 2274 tokens | 1549 tokens | 33.4 tokens/s | stop | 20261115_070114_f0c61c4e |

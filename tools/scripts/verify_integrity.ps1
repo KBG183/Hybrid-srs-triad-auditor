@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     SRS テキスト整合性・ヒューマンエラー遮断リンター (VerifySRS_Integrity) 実行スクリプト
 .DESCRIPTION
@@ -10,6 +10,7 @@ param(
     [string]$TargetFile = "README.md"
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 

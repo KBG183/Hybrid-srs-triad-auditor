@@ -1,4 +1,4 @@
-﻿# L3 労働基準法・法定監査レポート (Status: ACTIVE_INTEGRATED)
+# L3 労働基準法・法定監査レポート (Status: ACTIVE_INTEGRATED)
 
 > **ステータス**: `ACTIVE_INTEGRATED` (4核常時交差検証統合済み)  
 > **改定日**: 2026-11-18  

@@ -29,6 +29,7 @@ param(
     [switch]$Quiet
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -137,6 +138,15 @@ try {
     }
 
     [System.IO.File]::WriteAllText($liveLog, $outputText, [System.Text.Encoding]::UTF8)
+
+    # Auto-archive to permanent audit/runs/ repository (Never rely on manual save)
+    $runTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $permanentRunDir = Join-Path $projectRoot "audit\runs\${runTimestamp}_claude_${Model}"
+    if (-not (Test-Path $permanentRunDir)) { New-Item -ItemType Directory -Path $permanentRunDir -Force | Out-Null }
+    $permReport = Join-Path $permanentRunDir "claude_audit_report.txt"
+    $permRaw = Join-Path $permanentRunDir "claude_raw_response.json"
+    [System.IO.File]::WriteAllText($permReport, $outputText, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($permRaw, $rawJson, [System.Text.Encoding]::UTF8)
 
     $inputTokens = if ($response.usage -and $response.usage.input_tokens) { $response.usage.input_tokens } else { 0 }
     $outputTokens = if ($response.usage -and $response.usage.output_tokens) { $response.usage.output_tokens } else { 0 }

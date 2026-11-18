@@ -1,4 +1,4 @@
-﻿# Codex・Antigravity 共通運用および交差監査規約
+# Codex・Antigravity 共通運用および交差監査規約
 
 施行日: 2026-11-16
 

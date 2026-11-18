@@ -1,4 +1,4 @@
-﻿# 要件定義交差監査契約仕様書 (Audit Contract Spec)
+# 要件定義交差監査契約仕様書 (Audit Contract Spec)
 
 ---
 

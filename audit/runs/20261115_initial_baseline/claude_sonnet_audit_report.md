@@ -1,4 +1,4 @@
-﻿# L3 労働基準法・法定監査レポート (Status: NOT_EXECUTED)
+# L3 労働基準法・法定監査レポート (Status: NOT_EXECUTED)
 
 > **ステータス**: `NOT_EXECUTED` (本文未作成 / 実行保留)  
 > **最終確認日**: 2026-11-15  

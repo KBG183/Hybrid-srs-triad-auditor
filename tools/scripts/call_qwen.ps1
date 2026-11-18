@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     High-speed invocation script for Qwen 3.8 27B / Qwen 2.5 7B (Token streaming and fallback)
 .DESCRIPTION
@@ -29,6 +29,7 @@ param(
     [switch]$Quiet
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 

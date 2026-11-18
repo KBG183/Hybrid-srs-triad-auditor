@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Hermes Multi-Agent Quality Audit Controller (hermes_controller.ps1)
 .DESCRIPTION
@@ -24,6 +24,7 @@ param(
     [string]$AuditMode = "Independent"
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 

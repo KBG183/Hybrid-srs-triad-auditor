@@ -1,4 +1,4 @@
-﻿# Slice 1 Cross-Audit: REQ-STORE-001 to REQ-STAFF-002
+# Slice 1 Cross-Audit: REQ-STORE-001 to REQ-STAFF-002
 
 **Overall verdict: NOT READY for approval.** There are 4 P0 and 9 P1 findings. The spec states its security intent (the DoD says access is "ç¢ºå®ã«é®æ­") but defines no mechanism for store-scoped authorization, retroactive-change control, or lifecycle states.
 

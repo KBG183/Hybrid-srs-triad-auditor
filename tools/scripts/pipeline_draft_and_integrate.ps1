@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Hybrid Token-Balancing Pipeline Executor v1.1
 .DESCRIPTION
@@ -23,6 +23,7 @@ param(
     [int]$TimeoutSeconds = 300
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 

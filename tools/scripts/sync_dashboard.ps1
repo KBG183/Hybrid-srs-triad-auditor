@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     KINTAI Dashboard Automated Single Source of Truth Synchronization Script
 .DESCRIPTION
@@ -24,6 +24,7 @@ param(
     [string]$AuditDir = "audit"
 )
 
+$ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -174,10 +175,14 @@ Write-Host "  -> Successfully re-rendered: $MetricsFile (All $totalReqCount requ
 <# Step 5. Synchronize CURRENT_STATUS.md #>
 if (Test-Path $statusPath) {
     $statusContent = [System.IO.File]::ReadAllText($statusPath, [System.Text.Encoding]::UTF8)
-    $healthPrefix = [System.Text.Encoding]::UTF8.GetString(@(0x2D, 0x20, 0x2A, 0x2A, 0xE6, 0x9C, 0x80, 0xE6, 0x96, 0xB0, 0xE3, 0x83, 0x98, 0xE3, 0x83, 0xAB, 0xE3, 0x82, 0xB9, 0xE3, 0x83, 0x81, 0xE3, 0x82, 0xA7, 0xE3, 0x83, 0x83, 0xE3, 0x82, 0xAF, 0xE5, 0x88, 0xA4, 0xE5, 0xAE, 0x9A, 0x2A, 0x2A, 0x3A, 0x20))
-    $newHealth = $healthPrefix + "``$lastStatus`` (enterprise_audit_ledger.csv ${lastBatchId}: $lastNotes)"
-    $pattern = '(?m)^- \*\*[^\r\n]+?\*\*:.+$'
-    $statusUpdated = [System.Text.RegularExpressions.Regex]::Replace($statusContent, $pattern, $newHealth)
+    $jaHealthLabel = [System.Text.Encoding]::UTF8.GetString(@(0xE6, 0x9C, 0x80, 0xE6, 0x96, 0xB0, 0xE3, 0x83, 0x98, 0xE3, 0x83, 0xAB, 0xE3, 0x82, 0xB9, 0xE3, 0x83, 0x81, 0xE3, 0x82, 0xA7, 0xE3, 0x83, 0x83, 0xE3, 0x82, 0xAF, 0xE5, 0x88, 0xA4, 0xE5, 0xAE, 0x9A))
+    $newHealth = "- **$jaHealthLabel**: ``$lastStatus`` (enterprise_audit_ledger.csv ${lastBatchId}: $lastNotes)"
+    $pattern = "(?m)^- \*\*" + [regex]::Escape($jaHealthLabel) + "\*\*:.+$"
+    if ($statusContent -match $pattern) {
+        $statusUpdated = [System.Text.RegularExpressions.Regex]::Replace($statusContent, $pattern, $newHealth)
+    } else {
+        $statusUpdated = $statusContent
+    }
     [System.IO.File]::WriteAllText($statusPath, $statusUpdated, $utf8NoBom)
     Write-Host "  -> Successfully synchronized: $StatusFile" -ForegroundColor Green
 }
