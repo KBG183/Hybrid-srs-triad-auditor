@@ -105,8 +105,8 @@ Write-Host "[PIPELINE] Draft successfully authored and verified: $finalDraftPath
 # 5. Execute Deterministic Linter Gate
 $linterBin = Join-Path $projectRoot "tools\scripts\VerifySRS_Deterministic.exe"
 if (Test-Path $linterBin) {
-    Write-Host "[PIPELINE] Executing Deterministic Linter Gate..."
-    & $linterBin | Out-File -FilePath $lintReportPath -Encoding UTF8
+    Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
+    & $linterBin $finalDraftPath | Out-File -FilePath $lintReportPath -Encoding UTF8
     Get-Content -Path $lintReportPath -Encoding UTF8 | Select-Object -First 10
 } else {
     Write-Host "[PIPELINE WARN] VerifySRS_Deterministic.exe not found at standard path."

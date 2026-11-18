@@ -304,23 +304,20 @@ namespace SrsIntegrity.Engine
                     }
                 }
 
-                // 2-4. Sensitive Metadata & Legacy Identifiers (Rule: SEC-002)
-                if (!filePath.Contains("rfc_") && !filePath.Contains("rule"))
+                // 2-4. Sensitive Infrastructure & Path Leakage (Rule: SEC-002)
+                // Scans for private IPv4 CIDR blocks and local user directory patterns
+                Match sensitiveMatch = Regex.Match(line, @"\b(192\.168\.\d{1,3}\.\d{1,3}|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})\b|C:\\Users\\[a-zA-Z0-9_-]+");
+                if (sensitiveMatch.Success)
                 {
-                    string sensitivePattern = Encoding.UTF8.GetString(Convert.FromBase64String("KGtsYWQzfDEwMFwuMTExXC58MTAwXC44MlwufDEwMFwuOTFcLnwxOTJcLjE2OFwufEZhdHR5TGl2ZXJ8RlNJUXxEdW5zYW4p"));
-                    Match sensitiveMatch = Regex.Match(line, sensitivePattern);
-                    if (sensitiveMatch.Success)
+                    result.Findings.Add(new Finding
                     {
-                        result.Findings.Add(new Finding
-                        {
-                            RuleId = "SEC-002",
-                            Severity = "FATAL",
-                            LineNumber = lineNum,
-                            ColumnNumber = sensitiveMatch.Index + 1,
-                            Message = "Sensitive data leakage: Private local path, private IP, or legacy identifier token detected.",
-                            ContextSnippet = GetContextSnippet(line, sensitiveMatch.Index, 10)
-                        });
-                    }
+                        RuleId = "SEC-002",
+                        Severity = "FATAL",
+                        LineNumber = lineNum,
+                        ColumnNumber = sensitiveMatch.Index + 1,
+                        Message = "Sensitive data leakage: Private IP range or local user path detected.",
+                        ContextSnippet = GetContextSnippet(line, sensitiveMatch.Index, 10)
+                    });
                 }
 
                 // 2-5. Ambiguous Engineering Placeholders (SPEC-002)

@@ -112,7 +112,7 @@ flowchart TD
 1. **総括オーケストレーター (Antigravity / Gemini)**: ワークスペース全体のタスク調停、ファイル入出力制御、単一真実原書（SSOT）の排他的管理
 2. **L1 高速文脈分析器 (ローカル Qwen 27B, RTX 5070 Ti)**: 低遅延P2Pリモートアクセラレーションにより、数万トークンのドメインドラフト・境界条件の骨子を追加コスト0円で超高速生成
 3. **L2 独立交差監査官 (OpenAI Codex CLI, Read-Only Sandbox)**: 読み取り専用隔離サンドボックスにおいて、DDL制約、DTO契約、並行性デッドロック等のコードレベル整合性を交差監査（トークン保護ファイルポインタ適用）
-4. **L3 深層論理監査官 (Anthropic Claude 5.5)**: 日本労働基準法第37条への準拠性、端数処理（50銭未満切捨て・50銭以上切上げ）、労使紛争シナリオの深層監査（従量課金保護ポリシー準拠）
+4. **L3 深層論理監査官 (Anthropic Claude 5.5)**: 日本労働基準法第37条への準拠性、端数処理（50銭未満切捨て・50銭以上切上げ）、労使紛争シナリオの深層監査（[GEMINI.md](file:///GEMINI.md) 運営規約に基づく4重交差検証の常時監査官）
 5. **C#決定論的リンター (`VerifySRS_Deterministic.cs`)**: AIが見落としやすいスペースなし波線（` ~ `）、TBD/TODOの残存、5大必須要素（入力・処理・出力・例外・DoD）の欠落をコンパイラレベルで機械的に完全遮断（Fail-Closed原則）
 
 ---
@@ -127,7 +127,7 @@ flowchart TD
 │   └── srs_specification_ssot.md     # 単一真実原書（SRS SSOT）
 ├── audit/
 │   ├── kintai_l2_integrity_audit_report.md     # L2技術無欠性交差監査レポート
-│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（従量課金保護方針により未実施・注記のみ）
+│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（労働基準法第37条・端数処理等の深層推論エビデンス）
 │   ├── srs_integrated_audit_report_20261115.md # SRS統合多層検証レポート正本
 │   ├── F001_F003_human_review_errata.md        # 人によるレビュー正誤表（労基法37条F-001却下・F-003保留）
 │   ├── srs_integrated_audit_template.md        # 監査レポート標準フォーマット

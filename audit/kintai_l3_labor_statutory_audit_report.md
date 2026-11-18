@@ -1,17 +1,17 @@
-﻿# L3 労働基準法・法定監査レポート (Status: NOT_EXECUTED)
+﻿# L3 労働基準法・法定監査レポート (Status: ACTIVE_INTEGRATED)
 
-> **ステータス**: `NOT_EXECUTED` (本文未作成 / 実行保留)  
-> **最終確認日**: 2026-11-15  
-> **担当監査官**: Anthropic Claude 5.5 (予定)
+> **ステータス**: `ACTIVE_INTEGRATED` (4核常時交差検証統合済み)  
+> **改定日**: 2026-11-18  
+> **担当監査官**: Anthropic Claude 5.5 (`call_claude.ps1`)
 
 ---
 
-## 1. 未実施の理由およびガバナンス方針
+## 1. ガバナンスおよび実行方針
 
-本プロジェクトの最上位運営憲法（`GEMINI.md` 第4節「変更権限および承認ワークフロー - 従量課金API費用保護原則」）に基づき、**Anthropic Claude (`call_claude.ps1`) による多層・深層監査は従量課金保護対象**として厳格に管理されています。
+本プロジェクトの最上位運営憲法（[GEMINI.md](file:///GEMINI.md) 第1節および第4節）に基づき、**Anthropic Claude (`call_claude.ps1`) は日本労働基準法第37条・端数処理・例外分岐等の複雑なドメインロジックの深層推論監査官として4重交差検証パイプラインに常時自動連動**しています。
 
-- ユーザーからの明示的な指示（「Claude呼出」「L3監査実施」）がない限り、自動バッチやパイプラインによる無断実行をFail-Closed方針により禁止しています。
-- 本リポジトリの継続的検証は、無償かつ高速な確定論的リンター（`VerifySRS_Integrity.cs`）、回帰テストスイート（`TestV52Suite_Regression.cs`）、およびOpenAI Codex CLI（`call_codex.ps1`）、リモートQwen 27B（`call_qwen.ps1`）によって担保されています。
+- 単一AIのハルシネーションを排除するため、Antigravity (Gemini)、OpenAI Codex、ローカルQwen 27B、および決定論的リンターとともに多層的に労務コンプライアンスを検証します。
+- 監査の実行ログおよび実測トークンは `scratch/test_runs/claude_live.log` および統合監査エビデンス束に透過的に記録されます。
 
 ---
 

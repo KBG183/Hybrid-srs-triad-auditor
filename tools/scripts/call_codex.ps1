@@ -34,7 +34,7 @@ if (-not (Test-Path $projectRoot)) { $projectRoot = (Get-Location).Path }
 
 $workspaceDir = Join-Path $projectRoot "scratch\test_runs\codex_workspace"
 $outLastMsg = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
-$promptFile = Join-Path $projectRoot "scratch\test_runs\codex_prompt_temp.txt"
+$tempPromptTarget = Join-Path $projectRoot "scratch\test_runs\codex_prompt_temp.txt"
 $liveLog = Join-Path $projectRoot "scratch\test_runs\codex_live.log"
 
 if (-not (Test-Path $workspaceDir)) { New-Item -ItemType Directory -Path $workspaceDir -Force | Out-Null }
@@ -72,7 +72,7 @@ if ($ContextFile -and (Test-Path $ContextFile)) {
     $contextContent = [System.IO.File]::ReadAllText($ContextFile, [System.Text.Encoding]::UTF8)
     $finalPrompt = "Reference Material:`n`n$contextContent`n`nInstructions:`n$Prompt"
 }
-[System.IO.File]::WriteAllText($promptFile, $finalPrompt, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($tempPromptTarget, $finalPrompt, [System.Text.Encoding]::UTF8)
 
 # 3. Model Auto-Routing (Luna vs Terra)
 $effectiveModel = $Model
@@ -128,7 +128,7 @@ $psi.RedirectStandardError = $true
 $psi.CreateNoWindow = $true
 
 $proc = [System.Diagnostics.Process]::Start($psi)
-$promptBytes = [System.IO.File]::ReadAllBytes($promptFile)
+$promptBytes = [System.IO.File]::ReadAllBytes($tempPromptTarget)
 $proc.StandardInput.BaseStream.Write($promptBytes, 0, $promptBytes.Length)
 $proc.StandardInput.BaseStream.Flush()
 $proc.StandardInput.Close()

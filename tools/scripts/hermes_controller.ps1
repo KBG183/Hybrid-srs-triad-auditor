@@ -62,7 +62,27 @@ Write-Host "=================================================================" -
 Write-Host "`n>>> [Step 1/4] Deterministic Linter Dual Hard-Gate Verification..." -ForegroundColor Yellow
 
 # Phase 1-A: Always enforce text & security integrity via VerifySRS_Integrity.exe
+$integrityCs = Join-Path $scriptDir "VerifySRS_Integrity.cs"
 $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+
+# Strict Fail-Closed check & auto-compilation
+if (-not (Test-Path $integrityExe) -or ((Test-Path $integrityCs) -and ((Get-Item $integrityCs).LastWriteTime -gt (Get-Item $integrityExe).LastWriteTime))) {
+    Write-Host "  -> [COMPILE] Compiling VerifySRS_Integrity.exe..." -ForegroundColor Cyan
+    $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework64\v4.0.30319\csc.exe")
+    if (-not (Test-Path $csc)) {
+        $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework\v4.0.30319\csc.exe")
+    }
+    if (-not (Test-Path $csc)) {
+        Write-Error "  -> FATAL: C# Compiler (csc.exe) not found. Cannot enforce deterministic integrity gate (Fail-Closed)."
+        exit 1
+    }
+    & $csc /nologo /target:exe /out:$integrityExe $integrityCs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "  -> FATAL: VerifySRS_Integrity compilation failed (ExitCode: $LASTEXITCODE). Fail-Closed abort."
+        exit 1
+    }
+}
+
 Write-Host "  -> Running Sub-Gate 1-A: VerifySRS_Integrity (BOM, Zero-Korean, Sensitive Patterns, RFC 4180)..." -ForegroundColor Cyan
 $integrityOutput = & $integrityExe $resolvedTarget 2>&1
 $integrityExitCode = $LASTEXITCODE

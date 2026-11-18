@@ -140,7 +140,121 @@
 
 ---
 
-### 2.2 [Slice 4] 労働基準法第37条 割増賃金算定エンジンおよび並行性制御 (Payroll Engine)
+### 2.2 [Slice 2] シフト管理および確定調停・労働基準法第34条休憩統制 (Shift Management & Concurrency Control)
+
+#### [REQ-SHIFT-001] スタッフ希望シフト申請および排他制御（悲観的ロック）
+- **区分**: 機能要件および並行性制御 (Function & Concurrency)
+- **概要**: アルバイトスタッフが自身の勤務希望日時を申請し（新規申請 → SUBMITTED）、同一スタッフの多重申請レースコンディションを悲観的ロック（`SELECT ... FOR UPDATE`）により直列化して重複申請を遮断する。
+- **入力**:
+  - `storeId` (店舗ID, BIGINT, 必須)
+  - `workDate` (勤務基準日, DATE, 必須, 当日以降の日付)
+  - `requestedStartTime` (希望開始時刻, TIME, 必須, 'HH:mm' 形式)
+  - `requestedEndTime` (希望終了時刻, TIME, 必須, 'HH:mm' 形式)
+  - `staffMemo` (スタッフ側メモ, VARCHAR(255), 任意)
+  - *(注: `storeStaffId` はリクエストボディの偽造値を信用せず、セッション認証済みPrincipalにバインドされたIDを使用する)*
+- **処理**:
+  1. 勤務基準日 `workDate` が店舗ローカル日付の当日より過去である場合、即時拒否する。
+  2. 開始・終了時刻を解析し、終了時刻が開始時刻より前の場合は翌日跨ぎ勤務（翌日日付）として終了日時を解決する。開始時刻と終了時刻が同一の場合は拒否する。
+  3. `Duration.between(startAt, endAt).compareTo(Duration.ofHours(16)) > 0` により、1回のシフト拘束時間が最大16時間以内であることをミリ秒/分単位で厳密に検証する。
+  4. 対象 `store_staff_id` に対し悲観的排他ロック（`SELECT store_staff_id FROM store_staff WHERE store_staff_id = ? FOR UPDATE`）を獲得し、並行申請トランザクションを直列化する。
+  5. 同一スタッフについて `status IN ('SUBMITTED', 'CONFIRMED')` の既存シフトとの時間帯重複（Overlap）を検証し、重複がある場合は登録を拒否する。
+  6. 検証成功時、状態遷移（新規申請 → SUBMITTED）を行い、`status = 'SUBMITTED'`、`planned_break_minutes = 0` として `shift_schedule` テーブルに新規永続化する。
+- **出力**:
+  - `shiftId` (生成されたシフトPK, BIGINT)
+  - `status` (初期状態 'SUBMITTED', VARCHAR(20))
+- **例外処理**:
+  - 時刻文字列の解析失敗時は `DateTimeParseException`（HTTP 400）を送出する。
+  - 過去日付指定または16時間超過時は `IllegalArgumentException`（HTTP 400）を送出する。
+  - 同一スタッフの既存シフトと時間帯重複が発生した場合は `IllegalStateException`（HTTP 409 Conflict）を送出する。
+  - 他者の `store_staff_id` への偽造申請は `AccessDeniedException`（HTTP 403 Forbidden）で遮断する。
+- **完了基準 (DoD)**:
+  - 並行する2件の希望申請が同一スタッフ・同一時間帯に発生した場合、悲観的ロックにより一方が確実に HTTP 409 で拒否され、重複レコードが生成されないこと。
+  - 翌日跨ぎのシフト（例: 22:00 `~` 翌06:00）が正常に日付跨ぎ計算され、16時間境界検証を通過すること。
+
+#### [REQ-SHIFT-002] 店長によるシフト確定調停および労働基準法第34条法定休憩時間の算定
+- **区分**: 機能要件および労働法遵守 (Function & Legal Compliance)
+- **概要**: 店舗管理者が申請された希望シフトを確認・調停し、日本労働基準法第34条に基づく法定休憩時間を自動算定・検証した上で確定調停（SUBMITTED → CONFIRMED または SUBMITTED → REJECTED）へ状態遷移させる。
+- **入力**:
+  - `shiftId` (調停対象シフトPK, BIGINT, パス変数, 必須)
+  - `confirmedStartTime` (確定開始時刻, TIME, 必須, 'HH:mm' 形式)
+  - `confirmedEndTime` (確定終了時刻, TIME, 必須, 'HH:mm' 形式)
+  - `plannedBreakMinutes` (計画休憩時間（分）, INT, 任意・未指定時は法定推奨値を自動設定)
+  - `status` (確定状態 'CONFIRMED' または却下 'REJECTED', 必須)
+  - `ownerMemo` (店長側メモ, VARCHAR(255), 任意)
+  - *(注: 操作者の `storeId` はセッション認証コンテキストより取得する)*
+- **処理**:
+  1. 操作対象シフトの `store_id` と店長セッションの `store_id` が一致することを検証し、他店舗シフトの不正操作（クロス店舗IDOR）を即時遮断する。
+  2. 対象 `shift_schedule` レコードを行排他ロック（`SELECT ... FOR UPDATE`）で取得する。
+  3. 拘束時間（`grossMinutes = Duration.between(startAt, endAt).toMinutes()`）を算出し、最大16時間以内であることを検証する。
+  4. 自身を除く確定済みシフトとの時間重複が存在しないことを検証する。
+  5. 計画休憩時間を評価する：
+     - 未指定時の自動算定推奨値：拘束時間 `<= 360分`（6時間以下）は `0分`、`360分 < 拘束時間 <= 525分`（6時間超8時間以下）は `45分`、`拘束時間 > 525分`（8時間超）は `60分`。
+     - 手動指定時：`plannedBreakMinutes` が拘束時間以上または負数の場合は拒否する。実労働時間（`grossMinutes - plannedBreakMinutes`）が6時間超で45分未満、または8時間超で60分未満の場合は警告・再確認を要求する。
+  6. CAS条件付き更新（`WHERE shift_id = ? AND store_id = ? AND status = 'SUBMITTED'`）を実行し、状態遷移（SUBMITTED → CONFIRMED または SUBMITTED → REJECTED）を行い、`affected rows == 1` を検証して確定状態へ更新する。
+- **出力**:
+  - `shiftId` (確定シフトPK, BIGINT)
+  - `status` (確定ステータス 'CONFIRMED', VARCHAR(20))
+  - `plannedBreakMinutes` (適用計画休憩時間（分）, INT)
+- **例外処理**:
+  - 対象シフトが存在しない場合は `SHIFT_NOT_FOUND`（HTTP 404）を返却する。
+  - 店舗不一致の場合は `CROSS_STORE_ACCESS_DENIED`（HTTP 403）を送出し、監査ログへ記録する。
+  - 休憩時間が拘束時間を超過する場合は `BREAK_EXCEEDS_SPAN`（HTTP 422）を返却する。
+  - 他の管理者との同時更新競合（CAS失敗）時は `SHIFT_CONCURRENT_MODIFICATION`（HTTP 409）を返却する。
+- **完了基準 (DoD)**:
+  - 拘束時間8時間30分（510分）のシフトに対して休憩45分を適用した場合、実労働時間が7時間45分となり法定45分基準を満たして確定されること。
+  - 他店舗の店長アカウントからの更新リクエストが HTTP 403 で遮断されること。
+
+#### [REQ-SHIFT-003] 希望シフト申請の本人取消および状態遷移制御
+- **区分**: 機能要件および認可制御 (Function & Authorization)
+- **概要**: スタッフ本人が提出済みの希望申請中シフトを取り下げる（SUBMITTED → CANCELLED_DELETED）。確定済（CONFIRMED）シフトの無断取消は防止し、店長直接連絡を強制する。
+- **入力**:
+  - `shiftId` (取消対象シフトPK, BIGINT, パス変数, 必須)
+  - *(注: 操作者の `storeStaffId` および `storeId` はセッション認証コンテキストより取得する)*
+- **処理**:
+  1. セッションの `storeStaffId` に基づき、対象シフトを行ロック（`SELECT ... FOR UPDATE`）で取得する。
+  2. 対象レコードの `store_staff_id` がセッション値と一致しない場合、他者シフトの不正削除（IDOR）として即時遮断する。
+  3. シフトの現在の `status` を検証する：
+     - `status == 'SUBMITTED'` の場合のみ、状態遷移（SUBMITTED → CANCELLED_DELETED）による物理削除を許可する。
+     - `status == 'CONFIRMED'` または `'REJECTED'` の場合は取消を拒否し、確定後の無断欠勤・自己取消を防止する。
+  4. 削除クエリ実行時、`affected rows == 1` を検証して直列化を完了する。
+- **出力**:
+  - `success` (取消完了フラグ, BOOLEAN, `true`)
+- **例外処理**:
+  - 他スタッフのシフト取消試行時は `SecurityException`（HTTP 403 Forbidden）を送出し、監査ログへ記録する。
+  - 確定済みシフトの取消試行時は `IllegalStateException`（HTTP 409 Conflict: "確定済のシフトは申請取消できません"）を送出する。
+  - 対象シフトが存在しない場合は `IllegalArgumentException`（HTTP 404 Not Found）を送出する。
+- **完了基準 (DoD)**:
+  - `SUBMITTED` 状態の希望シフトのみが正常に取り消され、`CONFIRMED` 状態のシフトに対する取消リクエストが HTTP 409 で確実にブロックされること。
+
+#### [REQ-SHIFT-004] カレンダー表示連携（FullCalendar 6.x）およびプライバシー保護
+- **区分**: 機能要件およびプライバシー統制 (Function & Privacy Protection)
+- **概要**: 月間カレンダー画面（FullCalendar 6.x）向けにシフトイベント一覧を配信し、排他終了日境界（`work_date < endDate`）を厳守するとともに、他スタッフへの個人情報（メモ・給与単価等）漏洩をマスキング遮断する。
+- **入力**:
+  - `storeId` (店舗ID, BIGINT, クエリパラメータ, 必須)
+  - `startDate` (検索開始日, DATE, ISO-8601, 必須)
+  - `endDate` (検索終了日, DATE, ISO-8601, 必須, ※FullCalendar仕様上この日付自体は含まない)
+  - *(注: 操作者のスタッフIDおよび管理者権限フラグ `isManager` はセッションより解決する)*
+- **処理**:
+  1. 日付境界条件 `s.work_date >= #{startDate} AND s.work_date < #{endDate}` を厳守して `shift_schedule` レコードを抽出する（`endDate` 当日のシフトを除外）。
+  2. 抽出された各シフトレコードに対し、操作者権限に応じたプライバシーマスキング（DTO変換）を実施する：
+     - **本人または店舗管理者（店長）**: 確定/希望日時、状態、`staffMemo`、`ownerMemo`、計画休憩時間の全項目を開示する。
+     - **同一店舗の他スタッフ**: 開始日時、終了日時、スタッフ表示名、状態（確定・希望）のみを開示し、`staffMemo`、`ownerMemo`、給与単価、時給等の機微情報は完全に `null` マスクする。
+  3. FullCalendar用表示プロパティを構築する：
+     - `CONFIRMED`: 青色表示（`#0d6efd`）、確定時間帯表示
+     - `SUBMITTED`: 橙色表示（`#fd7e14`）、希望時間帯表示
+     - `REJECTED`: 灰色表示（`#6c757d`）
+- **出力**:
+  - `events` (FullCalendar Event DTOリスト, JSON配列)
+- **例外処理**:
+  - 日付形式のパース失敗時は `DateTimeParseException`（HTTP 400）を送出する。
+  - 無効な `storeId` または店舗未所属スタッフのアクセスは `AccessDeniedException`（HTTP 403）で遮断する。
+- **完了基準 (DoD)**:
+  - 他スタッフのシフト情報レスポンスに `staffMemo` や `ownerMemo` が一切漏洩せず、プライバシーが保護されること。
+  - 月間カレンダーの末日翌日（`endDate`）のデータが誤ってレスポンスに含まれないこと。
+
+---
+
+### 2.3 [Slice 4] 労働基準法第37条 割増賃金算定エンジンおよび並行性制御 (Payroll Engine)
 
 #### [REQ-LABOR-001] 法定労働時間超過・時間外割増手当（残業手当）の算定
 - **区分**: 機能要件 (Function)

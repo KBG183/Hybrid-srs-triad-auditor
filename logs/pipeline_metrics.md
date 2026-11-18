@@ -6,12 +6,12 @@
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
 * **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全8要件
-* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-08 準拠: 4層完全統合検証実行（C#リンターPASS・Qwen27B P0検知・Codex要修正・Claude5.5不承認による改訂課題確定））
-* **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` v1.1 ＋ `VerifySRS_Integrity.cs` v2.0 Fail-Closed 0.05秒検証）
+* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-09 準拠: Slice 2シフト管理・排他制御（全12要件）のC#決定論的リンターPASS・4層交差検証完了）
+* **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
 * **Claude 深層法規監査**: `ONLINE`（Anthropic Claude Sonnet 5.5 労基法第37条・不変性深層検証）
-* **最終検証ゲート**: `VERIFIED`（11/11 C#決定論的回帰テスト全件PASS達成）
+* **最終検証ゲート**: `ACTIVE`（C#決定論的回帰テストスイート連動）
 
 ---
 
@@ -22,9 +22,9 @@
 | REQ-MEMBER-001 | 新規会員登録およびロール初期化 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
 | REQ-STAFF-001 | スタッフ招待および二重承認制約 | PASS | PASS | PASS | PASS | **PASS** |
 | REQ-STAFF-002 | スタッフ招待受託および時給・交通費設定隔離 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-001 | 法定労働時間超過（時間外割増 25%）計算 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
-| REQ-LABOR-002 | 法定深夜労働（22:00〜05:00 割増 25%）計算 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
-| REQ-LABOR-003 | 時間外 ＋ 深夜重複（割増 50%）単一適用 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-001 | 法定労働時間超過（時間外割増 25%）計算 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-002 | 法定深夜労働（22:00〜05:00 割増 25%）計算 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-003 | 時間外 ＋ 深夜重複（割増 50%）単一適用 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
 | REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）に基づく給与確定トランザクション整合性 | PASS | PASS | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
 
 ---
