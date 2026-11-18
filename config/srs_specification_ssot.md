@@ -11,6 +11,9 @@
 ## 0. 言語および対外成果物基準 (日本IT市場標準)
 1. **GitHub対外公式正本**: すべての公式SRS仕様書、README.md、アーキテクチャ図、およびコミットメッセージは、日本のエンタープライズ技術評価基準（ビジネス日本語）に準拠して策定される。
 2. **監査確認用対照版**: 開発者の直観的な検証および多角確認のため、主要ドキュメントごとに対照版（`_KO.md`）をローカルに常時ペアリング配置する。
+3. **技術スタックおよび検証エンジンの責務分離**:
+   - **システム実装基盤 (Target Architecture)**: Java 21 / Spring Boot 3.x / MyBatis 3.5 / PostgreSQL 16（トランザクション境界、悲観的ロック、BigDecimal高精度有理数演算）。
+   - **品質検証エンジン (Verification Toolchain)**: C# Roslyn 決定論的リンター（`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`）、ローカルGPU Qwen 27B、OpenAI Codex CLI、Anthropic Claude 5.5。
 
 ---
 
@@ -184,13 +187,14 @@
   - *(注: 操作者の `storeId` はセッション認証コンテキストより取得する)*
 - **処理**:
   1. 操作対象シフトの `store_id` と店長セッションの `store_id` が一致することを検証し、他店舗シフトの不正操作（クロス店舗IDOR）を即時遮断する。
-  2. 対象 `shift_schedule` レコードを行排他ロック（`SELECT ... FOR UPDATE`）で取得する。
-  3. 拘束時間（`grossMinutes = Duration.between(startAt, endAt).toMinutes()`）を算出し、最大16時間以内であることを検証する。
-  4. 自身を除く確定済みシフトとの時間重複が存在しないことを検証する。
-  5. 計画休憩時間を評価する：
+  2. 対象スタッフの先行排他ロック（`SELECT store_staff_id FROM store_staff WHERE store_staff_id = ? FOR UPDATE`）を獲得し、多店舗並行確定や同一スタッフへの同時調停トランザクションを直列化する。
+  3. 対象 `shift_schedule` レコードを行排他ロック（`SELECT ... FOR UPDATE`）で取得する。
+  4. 拘束時間（`grossMinutes = Duration.between(startAt, endAt).toMinutes()`）を算出し、最大16時間以内であることを検証する。
+  5. アプリケーション層およびDB排他制約（PostgreSQL: `EXCLUDE USING gist (store_staff_id WITH =, tstzrange(...) WITH &&) WHERE (status = 'CONFIRMED')`）により、確定済みシフトとの時間重複（Overlap）を二重防御線で遮断する。
+  6. 計画休憩時間を評価する：
      - 未指定時の自動算定推奨値：拘束時間 `<= 360分`（6時間以下）は `0分`、`360分 < 拘束時間 <= 525分`（6時間超8時間以下）は `45分`、`拘束時間 > 525分`（8時間超）は `60分`。
      - 手動指定時：`plannedBreakMinutes` が拘束時間以上または負数の場合は拒否する。実労働時間（`grossMinutes - plannedBreakMinutes`）が6時間超で45分未満、または8時間超で60分未満の場合は警告・再確認を要求する。
-  6. CAS条件付き更新（`WHERE shift_id = ? AND store_id = ? AND status = 'SUBMITTED'`）を実行し、状態遷移（SUBMITTED → CONFIRMED または SUBMITTED → REJECTED）を行い、`affected rows == 1` を検証して確定状態へ更新する。
+  7. CAS条件付き更新（`WHERE shift_id = ? AND store_id = ? AND status = 'SUBMITTED'`）を実行し、状態遷移（SUBMITTED → CONFIRMED または SUBMITTED → REJECTED）を行い、`affected rows == 1` を検証して確定状態へ更新する。
 - **出力**:
   - `shiftId` (確定シフトPK, BIGINT)
   - `status` (確定ステータス 'CONFIRMED', VARCHAR(20))
@@ -258,20 +262,22 @@
 
 #### [REQ-LABOR-001] 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定
 - **区分**: 機能要件および労働法遵守 (Function & Legal Compliance)
-- **概要**: 労働基準法第32条および第37条に基づき、1日8時間超過（日次法定外残業）および週40時間超過（週次法定外残業）の実労働時間を二段階で抽出し、基本時給の1.25倍（基本100% + 残業割増25%）を適用して残業手当を算定する。日次での1円未満端数切捨て（floor）を厳格に排除し、月次確定時まで高精度有理数（BigDecimal）を維持する。
+- **概要**: 労働基準法第32条および第37条に基づき、1日8時間超過（日次法定外残業）および週40時間超過（週次法定外残業）の実労働時間を二段階で抽出し、基本時給の1.25倍（基本100% + 残業割増25%）を適用して残業手当を算定する。労働基準法通達（昭22.11.21基発366号・平6.3.31基発181号）に準拠し、法定休日労働は時間外労働算定（週40時間・日8時間）から完全に除外して独立算定する。日次での1円未満端数切捨て（floor）を厳格に排除し、月次確定時まで高精度有理数（BigDecimal）を維持する。
 - **入力**: 
   - `clockInAt` (出勤日時, ISO-8601)
   - `clockOutAt` (退勤日時, ISO-8601)
   - `breakIntervals` (休憩開始・終了日時リスト, 半開区間)
   - `hourlyWage` (基本時給, JPY 整数, 地域別最低賃金以上必須)
-  - `weeklyAccumulatedMinutes` (同一週内の既算定実労働累計時間（日次残業算定済分を除く）, 分)
+  - `isStatutoryHoliday` (法定休日該当フラグ, BOOLEAN, 週1日または4週4日の法定休日)
+  - `weeklyAccumulatedMinutes` (同一週内の既算定実労働累計時間（法定休日および日次残業算定済分を除く）, 分)
 - **処理**:
   1. 勤務基準日（`workDate`）は始業時刻の属する日とし、日跨ぎシフト（夜勤）全体を継続1勤務として扱う（昭63.1.1基発1号通達準拠）。
   2. 総滞在時間から有効休憩時間を控除し、1勤務の実労働時間（`netWorkMinutes`）を分単位で算出する。
-  3. 日次法定外残業判定：実労働時間が480分（8時間）を超過する場合、超過分を `dailyOvertimeMinutes` として計上する。
-  4. 週次法定外残業判定：店舗就業規則に規定された起算曜日（デフォルト: 月曜日 00:00）からの週累計実労働時間（日次残業計上分を除く）が2400分（40時間）を超過する場合、その超過分を `weeklyOvertimeMinutes` として計上する。
-  5. 合計時間外労働時間：`totalOvertimeMinutes = dailyOvertimeMinutes + weeklyOvertimeMinutes`。
-  6. 金額計算：日次での通貨切捨ては実施せず、`overtimePayExact = (hourlyWage * 0.25 * totalOvertimeMinutes) / 60` を高精度 `BigDecimal` として保持し、月次集計へ連携する。
+  3. 法定休日労働の相互排除判定（基発366号）：`isStatutoryHoliday == true` の場合、全実労働時間は第35条の休日労働手当（135%）の対象となり、第32条の時間外労働（日8h・週40h累計）には算入しない。また、法定休日労働が8時間を超過しても時間外割増は重畳加算されない。
+  4. 通常勤務日（`isStatutoryHoliday == false`）の日次法定外残業判定：実労働時間が480分（8時間）を超過する場合、超過分を `dailyOvertimeMinutes` として計上する。
+  5. 通常勤務日の週次法定外残業判定：店舗就業規則に規定された起算曜日（デフォルト: 月曜日 00:00）からの週累計実労働時間（法定休日分および日次残業計上分を除く）が2400分（40時間）を超過する場合、その超過分を `weeklyOvertimeMinutes` として計上する。
+  6. 合計時間外労働時間：`totalOvertimeMinutes = dailyOvertimeMinutes + weeklyOvertimeMinutes`。
+  7. 金額計算：日次での通貨切捨ては実施せず、乗算先行かつ除算時スケール指定により `overtimePayExact = hourlyWage.multiply(BigDecimal.valueOf(0.25)).multiply(BigDecimal.valueOf(totalOvertimeMinutes)).divide(BigDecimal.valueOf(60), 10, RoundingMode.HALF_UP)` を高精度 `BigDecimal` として算出し、月次集計へ連携する。
 - **出力**:
   - `dailyOvertimeMinutes` (日次8h超残業時間, 分)
   - `weeklyOvertimeMinutes` (週40h超残業時間, 分)
@@ -310,11 +316,11 @@
 
 #### [REQ-LABOR-003] 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制
 - **区分**: 機能要件および労働法遵守 (Function & Legal Compliance)
-- **概要**: 2023年4月1日施行の改正労働基準法第37条（月60時間超の時間外労働割増率50%引上げ、中小企業猶予撤廃済）および法定休日労働（35%割増）を含む完全な重畳割増マトリクスを適用する。端数処理は昭和63年3月14日基発第150号通達に基づき、月次集計確定時に単一の `RoundingMode.HALF_UP`（50銭未満切捨て、50銭以上1円切上げ）を適用して決定論的整合性を担保する。
+- **概要**: 2023年4月1日施行の改正労働基準法第37条（月60時間超の時間外労働割増率50%引上げ、中小企業猶予撤廃済、法定休日労働は60h算定対象から除外）および法定休日労働（35%割増）を含む完全な重畳割増マトリクスを適用する。金額計算は乗算先行かつ除算時スケール指定（`scale=10`）を行い、端数処理は昭和63年3月14日基発第150号通達に基づき、月次集計確定時に単一の `RoundingMode.HALF_UP`（50銭未満切捨て、50銭以上1円切上げ）を適用して決定論的整合性を担保する。
 - **入力**:
   - `workMinutes` (総実労働時間, 分)
   - `overtimeMinutesUnder60` (月60時間以下の時間外労働時間, 分)
-  - `overtimeMinutesOver60` (月60時間超の時間外労働時間, 分)
+  - `overtimeMinutesOver60` (月60時間超の時間外労働時間, 分, 法定休日労働は除外)
   - `nightMinutes` (深夜労働時間, 分)
   - `holidayMinutes` (法定休日労働時間, 分)
   - 各種重複積集合時間（時間外×深夜、時間外60h超×深夜、法定休日×深夜）
@@ -323,15 +329,16 @@
   1. 以下の法定割増率マトリクスに基づき、全労働区間を相互排他的な割増カテゴリーに分解して算定する：
      - **所定内・法定内労働**: 割増 `0%`（基本 `100%`、乗率 `1.00`）
      - **法定外残業（月60h以下）**: 割増 `25%`（合計 `125%`、乗率 `1.25`）
-     - **法定外残業（月60h超）**: 割増 `50%`（合計 `150%`、乗率 `1.50`）
+     - **法定外残業（月60h超）**: 割増 `50%`（合計 `150%`、乗率 `1.50`、法定休日は参入除外）
      - **深夜労働のみ**: 割増 `25%`（合計 `125%`、乗率 `1.25`）
      - **法定外残業（月60h以下） + 深夜重畳**: 割増 `50%`（合計 `150%`、乗率 `1.50`）
      - **法定外残業（月60h超） + 深夜重畳**: 割増 `75%`（合計 `175%`、乗率 `1.75`）
      - **法定休日労働**: 割増 `35%`（合計 `135%`、乗率 `1.35`）
      - **法定休日 + 深夜重畳**: 割増 `60%`（合計 `160%`、乗率 `1.60`）
-  2. 月次集計確定処理（昭63基発150号準拠）：
-     - ① 月間の各割増手当および基本給の高精度累計額（`BigDecimal`）を合算する。
-     - ② 合算された月次支給総額に対してのみ、最終確定処理として50銭未満を切捨て、50銭以上1円未満を1円に切り上げる（`RoundingMode.HALF_UP`）。日次での途中切捨ては一切禁止する。
+  2. 高精度算定および月次集計確定処理（基発第150号準拠）：
+     - ① 各割増手当の算出は乗算先行とし、除算時は `hourlyWage.multiply(rateFactor).multiply(BigDecimal.valueOf(minutes)).divide(BigDecimal.valueOf(60), 10, RoundingMode.HALF_UP)` により算定し、`ArithmeticException` を完全に防止する。
+     - ② 月間の各割増手当および基本給の高精度累計額（`BigDecimal`, scale=10）を合算する。
+     - ③ 合算された月次支給総額に対してのみ、最終確定処理として `setScale(0, RoundingMode.HALF_UP)` により50銭未満を切捨て、50銭以上1円未満を1円に切り上げる。日次での途中切捨ては一切禁止する。
 - **出力**:
   - `monthlyGrossPay` (確定月次総支給額, JPY 整数)
   - `breakdown` (基本給、残業手当(<=60h)、残業手当(>60h)、深夜手当、休日手当の各未丸めDecimal明細)

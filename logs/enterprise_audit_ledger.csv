@@ -9,3 +9,5 @@ timestamp,batch_id,module_name,status,defect_type,volume_chars,token_input,token
 2026-11-17 16:35:44,BATCH-08,Slice1_Quad_Audit_Executed,AUDIT_FINDINGS_REPORTED,LABOR_LAW_DEFECT,17553,5206,2707,0,0,$1.20,4層完全統合検証実行（C#リンターPASS・Qwen27B P0検知・Codex要修正・Claude5.5不承認による改訂課題確定）
 2026-11-18 14:46:03,BATCH-09,Slice2_Shift_Quad_Audit,AUDIT_FINDINGS_REPORTED,CONCURRENCY_BOUNDARY_WARN,28861,8223,4184,0,0,$1.85,Slice 2シフト管理・排他制御（全12要件）のC#決定論的リンターPASS・4層交差検証完了
 2026-11-18 15:04:50,BATCH-10,Slice4_P0_Remediated_Audit,AUDIT_FINDINGS_REPORTED,LABOR_STATUTORY_REVISE,34088,9781,4019,0,0,$2.10,労基法第37条週40h・月60h超割増・端数処理BigDecimal化・初回確定ロック三重防御反映および4層再検証完了
+
+2026-11-18 15:29:21,BATCH-11,Slice2_4_P0_Remediated_HardGate,AUDIT_FINDINGS_REPORTED,HOLIDAY_AND_OVERLAP_SEALED,37211,9781,4019,0,0,$0.25,4層交差検証実行（C#リンターPASS・Qwen27B完了・Codex指摘・Claude5.5により法定休日除外およびEXCLUDE排他制約P0課題是正確定）

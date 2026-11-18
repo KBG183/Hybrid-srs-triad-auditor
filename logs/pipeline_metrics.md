@@ -5,8 +5,8 @@
 ---
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
-* **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全8要件
-* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-10 準拠: 労基法第37条週40h・月60h超割増・端数処理BigDecimal化・初回確定ロック三重防御反映および4層再検証完了）
+* **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全12要件
+* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-11 準拠: 4層交差検証実行（C#リンターPASS・Qwen27B完了・Codex指摘・Claude5.5により法定休日除外およびEXCLUDE排他制約P0課題是正確定））
 * **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-5.6 Terra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
@@ -15,17 +15,21 @@
 
 ---
 
-## 2. 要件完全性検証スコア (SSOT Slice 1 全8要件 - BATCH-08 4層交差監査連動)
+## 2. 要件完全性検証スコア (SSOT 全12要件 - BATCH-11 4層交差監査連動)
 | ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| REQ-STORE-001 | 店舗初期登録およびオーナー自動紐付け | PASS | PASS | PASS | PASS | **PASS** |
-| REQ-MEMBER-001 | 新規会員登録およびロール初期化 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
-| REQ-STAFF-001 | スタッフ招待および二重承認制約 | PASS | PASS | PASS | PASS | **PASS** |
-| REQ-STAFF-002 | スタッフ招待受託および時給・交通費設定隔離 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-001 | 法定労働時間超過（時間外割増 25%）計算 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
-| REQ-LABOR-002 | 法定深夜労働（22:00〜05:00 割増 25%）計算 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
-| REQ-LABOR-003 | 時間外 ＋ 深夜重複（割増 50%）単一適用 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
-| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）に基づく給与確定トランザクション整合性 | PASS | PASS | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | PASS | FINDINGS (P1) | PASS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-MEMBER-001 | 会員登録・BCrypt認証およびRBAC認可制御 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-STAFF-001 | 店舗スタッフ所属申請・オーナー承認および多店舗アクセス制御 | PASS | FINDINGS (P1) | PASS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-STAFF-002 | 給与算定用契約条件（時給・交通費）履歴管理および期間排他制御 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-SHIFT-001 | スタッフ希望シフト申請および排他制御（悲観的ロック） | PASS | FINDINGS (P1) | PASS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-SHIFT-002 | 店長によるシフト確定調停および労働基準法第34条法定休憩時間の算定 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-SHIFT-003 | 希望シフト申請の本人取消および状態遷移制御 | PASS | FINDINGS (P1) | PASS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-SHIFT-004 | カレンダー表示連携（FullCalendar 6.x）およびプライバシー保護 | PASS | FINDINGS (P1) | PASS | PASS | **REVISE_PENDING** |
+| REQ-LABOR-001 | 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-002 | 深夜労働割増手当（深夜手当・半開区間境界）の算定 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性 | PASS | FINDINGS (P1) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
 
 ---
 

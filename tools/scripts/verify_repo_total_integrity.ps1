@@ -69,7 +69,7 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Check 2/5] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
 $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
-$csvFiles = @("logs\cloud_api_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
+$csvFiles = @("logs\local_token_ledger.csv", "logs\cloud_api_token_ledger.csv", "logs\codex_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
 $csvFail = $false
 
 foreach ($csv in $csvFiles) {

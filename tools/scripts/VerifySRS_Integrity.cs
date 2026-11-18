@@ -209,11 +209,14 @@ namespace SrsIntegrity.Engine
 
             string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
-            // 2-0. CSV Column Cardinality & Structure Gate (Rule: CSV-001)
+            // 2-0. CSV Column Cardinality, Monotonicity & Cross-Ledger Gate (Rule: CSV-001, CSV-002, CSV-004)
             // RFC 4180 State Machine Parser: Preserves quoted commas and handles escaped quotes
             if (filePath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
                 int expectedCols = -1;
+                DateTime? lastTimestamp = null;
+                int timestampColIdx = -1;
+
                 for (int c = 0; c < lines.Length; c++)
                 {
                     string row = lines[c].Trim();
@@ -222,6 +225,18 @@ namespace SrsIntegrity.Engine
                     if (expectedCols == -1)
                     {
                         expectedCols = cols.Count;
+                        // Determine timestamp column index
+                        for (int colIdx = 0; colIdx < cols.Count; colIdx++)
+                        {
+                            string colHeader = cols[colIdx].Trim('\"', ' ');
+                            if (colHeader.Equals("Timestamp", StringComparison.OrdinalIgnoreCase) ||
+                                colHeader.Equals("timestamp", StringComparison.OrdinalIgnoreCase) ||
+                                colHeader.Equals("ExecutionTime", StringComparison.OrdinalIgnoreCase))
+                            {
+                                timestampColIdx = colIdx;
+                                break;
+                            }
+                        }
                     }
                     else if (cols.Count != expectedCols)
                     {
@@ -234,6 +249,63 @@ namespace SrsIntegrity.Engine
                             Message = string.Format("CSV Column Cardinality mismatch. Expected {0} columns based on header, but row has {1} columns.", expectedCols, cols.Count),
                             ContextSnippet = row.Length > 60 ? row.Substring(0, 60) + "..." : row
                         });
+                    }
+                    else if (timestampColIdx >= 0 && timestampColIdx < cols.Count)
+                    {
+                        // Check Timestamp Monotonicity (Rule: CSV-002)
+                        string rawTs = cols[timestampColIdx].Trim('\"', ' ');
+                        DateTime currentTs;
+                        string cleanTs = rawTs.Replace(" - ", " ").Replace("/", "-");
+                        if (DateTime.TryParse(cleanTs, out currentTs))
+                        {
+                            if (lastTimestamp.HasValue && currentTs < lastTimestamp.Value.AddSeconds(-60))
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "CSV-002",
+                                    Severity = "FATAL",
+                                    LineNumber = c + 1,
+                                    ColumnNumber = 1,
+                                    Message = string.Format("Chronological ordering violation. Timestamp '{0}' is earlier than previous row timestamp '{1}'.", rawTs, lastTimestamp.Value.ToString("yyyy-MM-dd HH:mm:ss")),
+                                    ContextSnippet = row.Length > 60 ? row.Substring(0, 60) + "..." : row
+                                });
+                            }
+                            lastTimestamp = currentTs;
+                        }
+                    }
+                }
+
+                // Rule CSV-004: Cross-Ledger Sibling Synchronization Hard-Gate
+                string fileName = Path.GetFileName(filePath);
+                string dirPath = Path.GetDirectoryName(filePath);
+                if (string.IsNullOrEmpty(dirPath)) dirPath = ".";
+
+                if (fileName.Equals("local_token_ledger.csv", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.Equals("cloud_api_token_ledger.csv", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.Equals("codex_token_ledger.csv", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.Equals("enterprise_audit_ledger.csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    string enterprisePath = Path.Combine(dirPath, "enterprise_audit_ledger.csv");
+                    if (File.Exists(enterprisePath) && lastTimestamp.HasValue)
+                    {
+                        DateTime? maxEnterpriseDate = ExtractMaxDateFromLedger(enterprisePath, 0);
+                        if (maxEnterpriseDate.HasValue)
+                        {
+                            TimeSpan diff = maxEnterpriseDate.Value.Date - lastTimestamp.Value.Date;
+                            if (diff.TotalDays >= 1)
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "CSV-004",
+                                    Severity = "FATAL",
+                                    LineNumber = lines.Length,
+                                    ColumnNumber = 1,
+                                    Message = string.Format("Sibling Ledger De-synchronization. '{0}' latest entry is at '{1}', but enterprise_audit_ledger.csv has latest entry at '{2}' ({3} days gap). All audit logs must be synchronized.",
+                                        fileName, lastTimestamp.Value.ToString("yyyy-MM-dd"), maxEnterpriseDate.Value.ToString("yyyy-MM-dd"), (int)diff.TotalDays),
+                                    ContextSnippet = string.Format("Target: {0} vs Enterprise: {1}", lastTimestamp.Value.ToString("yyyy-MM-dd"), maxEnterpriseDate.Value.ToString("yyyy-MM-dd"))
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -524,6 +596,38 @@ namespace SrsIntegrity.Engine
                 lines.Add(line);
             }
             return lines;
+        }
+
+        private static DateTime? ExtractMaxDateFromLedger(string path, int timestampCol)
+        {
+            try
+            {
+                string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+                DateTime? maxDate = null;
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    string row = lines[i].Trim();
+                    if (string.IsNullOrEmpty(row)) continue;
+                    List<string> cols = ParseCsvRow(row);
+                    if (cols.Count > timestampCol)
+                    {
+                        string rawTs = cols[timestampCol].Trim('\"', ' ').Replace(" - ", " ").Replace("/", "-");
+                        DateTime dt;
+                        if (DateTime.TryParse(rawTs, out dt))
+                        {
+                            if (!maxDate.HasValue || dt > maxDate.Value)
+                            {
+                                maxDate = dt;
+                            }
+                        }
+                    }
+                }
+                return maxDate;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string GetContextSnippet(string line, int colIndex, int range)

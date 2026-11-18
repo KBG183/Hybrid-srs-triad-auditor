@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Anthropic Claude API Standard Invocation Wrapper Script
 .DESCRIPTION
@@ -131,17 +131,42 @@ try {
         }
     }
 
-    [System.IO.File]::WriteAllText($liveLog, $outputText, [System.Text.Encoding]::UTF8)
-
     if ($response.stop_reason -eq "max_tokens") {
         Write-Warning "[CLAUDE WARNING] Output truncated due to max_tokens limit ($MaxTokens)."
+        $outputText += "`n`n> [!CAUTION]`n> [TRUNCATION NOTICE] Output was truncated by Anthropic API max_tokens ceiling ($MaxTokens). Findings beyond this point were not captured.`n"
     }
+
+    [System.IO.File]::WriteAllText($liveLog, $outputText, [System.Text.Encoding]::UTF8)
 
     $inputTokens = if ($response.usage -and $response.usage.input_tokens) { $response.usage.input_tokens } else { 0 }
     $outputTokens = if ($response.usage -and $response.usage.output_tokens) { $response.usage.output_tokens } else { 0 }
     $elapsedSec = [Math]::Max(0.01, $sw.Elapsed.TotalSeconds)
 
-    $summary = "[CLAUDE SUMMARY] Status: SUCCESS | Elapsed: $($elapsedSec.ToString('F2'))s | Tokens: In $inputTokens / Out $outputTokens | Output: $liveLog"
+    # 4. Deterministic Cost & Ledger Balance Auto-Update Hook
+    $cost = [Math]::Round(($inputTokens * 0.000003) + ($outputTokens * 0.000015), 4)
+    $ledgerPath = Join-Path $projectRoot "logs\cloud_api_token_ledger.csv"
+    $newBalance = 11.60
+
+    if (Test-Path $ledgerPath) {
+        $ledgerLines = [System.IO.File]::ReadAllLines($ledgerPath, [System.Text.Encoding]::UTF8)
+        if ($ledgerLines.Length -gt 1) {
+            $lastLine = $ledgerLines[$ledgerLines.Length - 1].Trim()
+            $cols = $lastLine -split '","'
+            if ($cols.Length -ge 9) {
+                $rawBal = $cols[8].Trim('"', ' ', '$')
+                $parsedBal = 0.0
+                if ([double]::TryParse($rawBal, [ref]$parsedBal)) {
+                    $newBalance = [Math]::Max(0.0, [Math]::Round($parsedBal - $cost, 2))
+                }
+            }
+        }
+    }
+
+    $costFormatted = "`$" + $cost.ToString("0.0000")
+    $balanceFormatted = "`$" + $newBalance.ToString("0.00")
+    $timestampStr = (Get-Date).ToString("yyyy-MM-dd - HH:mm:ss")
+
+    $summary = "[CLAUDE SUMMARY] Model: $Model | Duration: $($elapsedSec.ToString('F2'))s | Tokens: In $inputTokens / Out $outputTokens (Total: $($inputTokens + $outputTokens)) | Cost: $costFormatted | Remaining Balance: $balanceFormatted | Log: $liveLog"
     Write-Output $summary
     return $liveLog
 } catch {
