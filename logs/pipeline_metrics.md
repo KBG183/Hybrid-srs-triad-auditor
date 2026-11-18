@@ -15,17 +15,17 @@
 
 ---
 
-## 2. 要件完全性検証スコア (SSOT Slice 1 全8要件)
-| ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | 最終判定 |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| REQ-STORE-001 | 店舗初期登録およびオーナー自動紐付け | PASS | PASS | PASS | **PASS** |
-| REQ-MEMBER-001 | 新規会員登録およびロール初期化 | PASS | PASS | PASS | **PASS** |
-| REQ-STAFF-001 | スタッフ招待および二重承認制約 | PASS | PASS | PASS | **PASS** |
-| REQ-STAFF-002 | スタッフ招待受託および時給・交通費設定隔離 | PASS | PASS | PASS | **PASS** |
-| REQ-LABOR-001 | 法定労働時間超過（時間外割増 25%）計算 | PASS | PASS | PASS | **PASS** |
-| REQ-LABOR-002 | 法定深夜労働（22:00〜05:00 割増 25%）計算 | PASS | PASS | PASS | **PASS** |
-| REQ-LABOR-003 | 時間外 ＋ 深夜重複（割増 50%）単一適用 | PASS | FINDINGS (P0) | FINDINGS | **REVISE_PENDING** |
-| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）に基づく給与確定トランザクション整合性 | PASS | PASS | FINDINGS | **REVISE_PENDING** |
+## 2. 要件完全性検証スコア (SSOT Slice 1 全8要件 - BATCH-08 4層交差監査連動)
+| ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| REQ-STORE-001 | 店舗初期登録およびオーナー自動紐付け | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-MEMBER-001 | 新規会員登録およびロール初期化 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
+| REQ-STAFF-001 | スタッフ招待および二重承認制約 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-STAFF-002 | スタッフ招待受託および時給・交通費設定隔離 | PASS | PASS | FINDINGS | PASS | **REVISE_PENDING** |
+| REQ-LABOR-001 | 法定労働時間超過（時間外割増 25%）計算 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-002 | 法定深夜労働（22:00〜05:00 割増 25%）計算 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-003 | 時間外 ＋ 深夜重複（割増 50%）単一適用 | PASS | FINDINGS (P0) | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
+| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）に基づく給与確定トランザクション整合性 | PASS | PASS | FINDINGS | FINDINGS (Critical) | **REVISE_PENDING** |
 
 ---
 

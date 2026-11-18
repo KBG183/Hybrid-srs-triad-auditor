@@ -803,7 +803,7 @@ flowchart TD
 - 分離DBで全回帰を実行: `scripts/run_isolated_regression.ps1 -Scope All -DatabaseName kintai_full_test_3df696be0820`。最終実行はGradle終了コード0、JUnit XML 34件、テスト81件、失敗・エラー・スキップ0件。ログ・集計・SHA-256: `docs/audit_runs/isolated_all_20261114_074456_kintai_full_test_3df696be0820/`。
 - 最初のdemo DBの給与UIで2026-01のDRAFT 2件（総支給額¥141,700および¥164,332）を確認した。新しいUTF-8 demo DBでは認証済み計算APIがHTTP 200を返し、正しい氏名と同額のDRAFT給与2件を返した。Excel APIもHTTP 200、XLSX media type、月と両金額を含む5,092-byte OOXMLを返し、原本とSHA-256を保存した: `payroll_2026-01.xlsx`、`payroll_excel_validation.json`。ブラウザータブ自動化のタイムアウト後、新DB給与画面とbrowser-managedダウンロード操作は未検証。
 - demo準備スクリプトの `SOURCE` 非対話呼び出しはSQL 1064で失敗したため、原ログと作成済み分離DBを保持した。その後UTF-8 SQLファイルをmysql stdinへ渡し、氏名HEX・シフト件数の検査を追加して再実行に成功した。成功ログ: `docs/audit_runs/day13_calendar_20261114/demo_prepare_retry1.log`。
-- 独立監査の更新 (2026-11-14): 以前の `100.91...` は古い証跡の誤選択でした。正しい `http://<TAILSCALE_OLLAMA_HOST>:11434` でQwen 27B (`qwen27b:latest`, 27.3B IQ3_M, digest `23c3820b0d9326b73e97191b9fb7e16b53f6e24bb3449d2a17037c5f2b6179a1`) の独立監査を実行しました。初回は入力に広範な給与チェックリストのコード・テスト根拠が不足してFAIL。根拠を追加して再監査し、Day 13範囲はPASS。Run ID `20261113_230538_8ce60d45`、49秒、入力3055/出力2056トークン。結果 `docs/audit_runs/day13_calendar_20261114/qwen27b_reaudit/report.md`、入力SHA-256 `8ce60d454594e968d3b9c44060457a4ebcd8c302f72ebc9758bad76e1b80e449`、報告書SHA-256 `D34F3290E4AA660EFE5FFFEDDF5FC4EEF865681C4DE80BD533F727CE0551DF8A`。専用の他店舗給与IDOR拒否テストは後続推奨として記録。
+- 独立監査の更新 (2026-11-14): 以前のアドレス表記は古い証跡の誤選択でした。正しい `http://<TAILSCALE_OLLAMA_HOST>:11434` でQwen 27B (`qwen27b:latest`, 27.3B IQ3_M, digest `23c3820b0d9326b73e97191b9fb7e16b53f6e24bb3449d2a17037c5f2b6179a1`) の独立監査を実行しました。初回は入力に広範な給与チェックリストのコード・テスト根拠が不足してFAIL。根拠を追加して再監査し、Day 13範囲はPASS。Run ID `20261113_230538_8ce60d45`、49秒、入力3055/出力2056トークン。結果 `docs/audit_runs/day13_calendar_20261114/qwen27b_reaudit/report.md`、入力SHA-256 `8ce60d454594e968d3b9c44060457a4ebcd8c302f72ebc9758bad76e1b80e449`、報告書SHA-256 `D34F3290E4AA660EFE5FFFEDDF5FC4EEF865681C4DE80BD533F727CE0551DF8A`。専用の他店舗給与IDOR拒否テストは後続推奨として記録。
 - UI・監査範囲: `docs/audit_runs/day13_calendar_20261114/`。状態記録: `docs/rtm_ledger.md` R-15～R-18。引継ぎ: `docs/handoff/20261114_0746_codex_day13_handoff.md`。
 
 
@@ -874,7 +874,7 @@ flowchart TD
 - Antigravityの実行順、分離DBの安全条件、Qwenの指定先と除外作業は`docs/handoff/20261114_antigravity_project_wide_handoff.md`に記載しました。
 ### リモート監査モデル表記の訂正 (2026-11-14)
 
-- 過去の付録にある`qwen3.8:27b`タグおよび`100.91`のマスク済みアドレスは、現在の実行設定ではありません。現在のモデルタグは`qwen27b:latest`、接続先は`http://<TAILSCALE_OLLAMA_HOST>:11434`です。過去の記録は監査履歴として保持し、現行設定として再利用しません。正本は`scripts/audit_config.json`と`scripts/audit_with_hermes.ps1`です。
+- 過去の付録にあるモデルタグおよびマスク済みアドレスは、現在の実行設定ではありません。現在のモデルタグは`qwen27b:latest`、接続先は`http://<TAILSCALE_OLLAMA_HOST>:11434`です。過去の記録は監査履歴として保持し、現行設定として再利用しません。正本は`scripts/audit_config.json`と`scripts/audit_with_hermes.ps1`です。
 ### 現行引き継ぎ文書の監査試行と監査スクリプトの修正 (2026-11-14)
 
 - 最初の文書バンドル呼び出しは指定先`http://<TAILSCALE_OLLAMA_HOST>:11434`の`GetRequestStream`で`Unable to connect to the remote server`となり、レポートはありませんでした。その後、同じbundle SHA `cd7cd20d12ba7771fb8ceb01dcd95181bfe39c924b8a595aa5e6fb91fdf649b8`の呼び出しはexit 0で不正なレポートを生成しました。Qwen独立再監査Run `20261114_014515_cd7cd20d`はWARN 3件を返しました。これらはPASSではなく、以前の文書監査10/10 PASSは当時の固定bundleだけに適用します。
@@ -1094,7 +1094,7 @@ Day 4以降の記録を追加する際は、既存の数値を上書きせず、
 | **ランタイム / Ollamaバージョン** | Windows 11 / `Ollama v0.40.14`（CUDA 12.8ドライバ 572.x / RTX 5070 Ti Blackwell） |
 | **GPU VRAM常駐確認実測値** | 証跡書に記録された`/api/ps`主要フィールドの抜粋（完全な原文JSONではない）：<br>`{"name":"qwen3.8:27b","size":13965176339,"size_vram":13965176339,"context_length":24576}`<br>※ 原本レスポンスファイルは別途保存・照合が必要。`size == size_vram`は、当該時点でOllamaが報告するモデルサイズ相当のVRAM使用量が記録された根拠である。この値だけでKV Cacheの配置やホストメモリ全体の使用量が0バイトであることまでは証明できない。 |
 | **推論パラメータ実測値** | `temperature: 0.1`, `think: false`, `num_ctx: 24576`, `stop: ["<|im_start|>", "<|im_end|>"]`, `stream: true` |
-| **ネットワーク接続構成（Tailscale）** | `tailscale status` 実行実測値（公開版ではマスキング）：<br>`100.91.26.xx  bk  active; direct xxx.xxx.xxx.xxx:41641`<br>※ UDP Port 41641によるDirect WireGuard P2P接続（DERP Relay 0%、実測RTT 12〜18ms）。実際のグローバルIPv4アドレスは公開リポジトリに掲載しない。 |
+| **ネットワーク接続構成（Tailscale）** | `tailscale status` 実行実測値（公開版ではマスキング）：<br>`<TAILSCALE_IP_MASKED>  <NODE_NAME>  active; direct xxx.xxx.xxx.xxx:41641`<br>※ UDP Port 41641によるDirect WireGuard P2P接続（DERP Relay 0%、実測RTT 12〜18ms）。実際のグローバルIPv4アドレスは公開リポジトリに掲載しない。 |
 | **投入ファイルおよびトークン** | `AttendanceService.java` (341 lines) / `prompt_eval_count`: 3,739 tokens |
 | **出力トークンおよび所要時間** | `eval_count`: 2,850 tokens / 全体経過57.8秒 / 純粋生成速度 `51.1 tokens/sec`（`eval_count ÷ eval_duration`。※監査実行ログに記録された生成速度であり、原始`eval_duration`ナノ秒値は初期ログで保存されていないため第三者による独立再計算は現状不可能。以後のログは全原始値を保存） |
 | **生の性能計測値に関する補足** | 現在の表には`eval_duration`の生値（ナノ秒）が記載されていない。元の`/api/generate`応答を保持している場合は、その値と`prompt_eval_duration`、`load_duration`、`total_duration`を追記して再現性を補強する |

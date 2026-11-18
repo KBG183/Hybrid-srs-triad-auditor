@@ -42,12 +42,12 @@ To optimize execution speed without race conditions:
 
 ---
 
-## 4. Specific Issues Addressed
-1. **H-1 (Phantom Requirement REQ-LABOR-004)**: Prevented by Tier 2 Cross-Heading Validator.
-2. **H-2 (Audit REJECT vs Dashboard PASS contradiction)**: Prevented by Tier 3 Automated Sync.
-3. **M-3 (CSV Header/Row Column Mismatch)**: Prevented by Tier 2 CSV Column Cardinality Linter.
-4. **M-6 (Buffer Pollution / Stale Cache Re-use)**: Prevented by Isolated Buffers and pre-execution buffer wipe in Tier 3 dispatch.
-5. **L-2 (Sensitive / Legacy Identifier Leakage)**: Prevented by Tier 1 Pre-Commit Hard-Gate.
+## 4. Target Vulnerabilities & Defense Mechanisms
+1. **H-1 (Requirement Heading Desynchronization)**: Addressed via SSOT heading synchronization and dual-gate linter enforcement.
+2. **H-2 (Audit Finding vs Dashboard Contradiction)**: Addressed via `sync_dashboard.ps1` automated single-source-of-truth renderer.
+3. **M-3 (CSV Header/Row Column Mismatch)**: Addressed via RFC 4180 state-machine parser in `VerifySRS_Integrity` (`Rule: CSV-001`).
+4. **M-6 (Buffer Pollution / Stale Cache Re-use)**: Addressed via pre-execution buffer purge in `hermes_controller.ps1`.
+5. **L-2 (Sensitive / Legacy Identifier Leakage)**: Addressed via `.git/hooks/pre-commit` and `VerifySRS_Integrity` dual-layer gate (`Rule: SEC-001/002`).
 
 ---
 

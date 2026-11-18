@@ -57,29 +57,42 @@ if ($UseCache) {
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------------------------
-# Step 1. Deterministic Linter Hard-Gate
+# Step 1. Deterministic Linter Dual Hard-Gate (Integrity + Deterministic)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Step 1/4] Deterministic Linter Hard-Gate Verification..." -ForegroundColor Yellow
+Write-Host "`n>>> [Step 1/4] Deterministic Linter Dual Hard-Gate Verification..." -ForegroundColor Yellow
+
+# Phase 1-A: Always enforce text & security integrity via VerifySRS_Integrity.exe
+$integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+Write-Host "  -> Running Sub-Gate 1-A: VerifySRS_Integrity (BOM, Zero-Korean, Sensitive Patterns, RFC 4180)..." -ForegroundColor Cyan
+$integrityOutput = & $integrityExe $resolvedTarget 2>&1
+$integrityExitCode = $LASTEXITCODE
+
+if ($integrityExitCode -ne 0) {
+    Write-Host "  -> Integrity Gate Verdict: FAIL (ExitCode: $integrityExitCode - Hard-Gate Blocked)" -ForegroundColor Red
+    Write-Error "  -> Deterministic Integrity Hard-Gate violated! Aborting multi-layer verification immediately (Fail-Closed)."
+    exit $integrityExitCode
+}
+
+# Phase 1-B: For specification documents (.md), enforce SRS Domain Schema via VerifySRS_Deterministic.exe
+$linterOutput = @($integrityOutput)
 $targetExt = [System.IO.Path]::GetExtension($resolvedTarget).ToLower()
 
 if ($targetExt -eq ".md") {
+    Write-Host "  -> Running Sub-Gate 1-B: VerifySRS_Deterministic (REQ Headings, DoD, Taboo Syntax)..." -ForegroundColor Cyan
     $linterScript = Join-Path $scriptDir "verify_srs.ps1"
-    $linterOutput = & powershell -ExecutionPolicy Bypass -File $linterScript -TargetFile $resolvedTarget 2>&1
+    $detOutput = & powershell -ExecutionPolicy Bypass -File $linterScript -TargetFile $resolvedTarget 2>&1
     $linterExitCode = $LASTEXITCODE
-} else {
-    $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
-    $linterOutput = & $integrityExe $resolvedTarget 2>&1
-    $linterExitCode = $LASTEXITCODE
-}
+    $linterOutput += $detOutput
 
-if ($linterExitCode -ne 0) {
-    Write-Host "  -> Linter Verdict: FAIL (ExitCode: $linterExitCode - Hard-Gate Blocked)" -ForegroundColor Red
-    Write-Error "  -> Deterministic Hard-Gate violated! Aborting multi-layer verification immediately (Fail-Closed)."
-    exit $linterExitCode
+    if ($linterExitCode -ne 0) {
+        Write-Host "  -> Deterministic Linter Verdict: FAIL (ExitCode: $linterExitCode - Hard-Gate Blocked)" -ForegroundColor Red
+        Write-Error "  -> Deterministic Specification Hard-Gate violated! Aborting multi-layer verification immediately (Fail-Closed)."
+        exit $linterExitCode
+    }
 }
 
 $linterStatus = "PASS"
-Write-Host "  -> Linter Verdict: $linterStatus" -ForegroundColor Green
+Write-Host "  -> Dual Hard-Gate Verdict: $linterStatus (100% Deterministic Pass)" -ForegroundColor Green
 
 # -------------------------------------------------------------------------
 # Step 2. Local Qwen 27B (RTX 5070 Ti) Main Architectural Audit

@@ -9,9 +9,9 @@
 
 本規約は、本プロジェクトにおける要件定義およびコード品質の客観性を担保するための最上位基準です。特定AIモデルの幻覚や単一障害点を防ぎ、実務に耐えうる堅牢な品質を確立するため、以下の多層検証＋決定論的リンター体制を維持します：
 
-1. **Antigravity (Google Gemini)**: ワークスペース全体の統括オーケストレーション、ファイル入出力制御、単一真実原書（SSOT）の排他的管理。
-2. **OpenAI Codex CLI (`call_codex.ps1`)**: 読み取り専用サンドボックスに基づく機能・DDL・境界条件の独立交差監査（自動ルーティング機能付き）。
-3. **Anthropic Claude (`call_claude.ps1`)**: 労働基準法第37条・端数処理・例外分岐等の複雑なドメインロジックの深層推論監査（従量課金保護対象）。
+1. **Antigravity (Google Gemini)**: ワークスペース全体の統括オーケストレーション、ファイル入出力制御、単一真実原書（SSOT）の排他的管理、およびFast Track（UI/軽微な修正）の即時執筆。
+2. **OpenAI Codex CLI (`call_codex.ps1`, `pipeline_draft_and_integrate.ps1`)**: Heavy Track（DDL・労働基準法第37条計算・排他制御等）の初案自動執筆および独立交差監査（トークン消費平準化 v1.1 準拠）。
+3. **Anthropic Claude (`call_claude.ps1`)**: 労働基準法第37条・端数処理・例外分岐等の複雑なドメインロジックの深層推論監査（常時交差監査官）。
 4. **ローカル Qwen 27B (`call_qwen.ps1`)**: 自社GPU（RTX 5070 Ti）を活用したコスト0円の高速骨子抽出および文脈解析。
 5. **決定論的リンター (`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`)**: C# Roslynエンジンによる構文・書式・DoDの機械的Fail-Closed検証。
 
@@ -40,9 +40,9 @@
 
 ## 4. 変更権限および承認ワークフロー (Fail-Closed)
 
-- ファイル読み取り、静的解析、リンター実行、ローカルモデルおよびCodex CLI（定額制）監査は事前承認なしで実行可能。
-- **従量課金API費用保護原則**:
-  - Anthropic Claudeは従量課金制であるため、ユーザーが明示的に指示した場合にのみ呼び出しを許可する（独断呼出の厳禁）。
+- ファイル読み取り、静的解析、リンター実行、ローカルモデル（Qwen 27B）、Codex CLI、およびAnthropic Claudeによる4重交差監査は事前承認なしで常時実行可能。
+- **4重交差検証の常時稼働体制**:
+  - Anthropic Claudeは、Codex、Qwen、Antigravity、および決定論的リンターとともに4重検証パイプラインの必須監査官として常時自動連動する。
 - **外部CLI無出力ストリーミング規約 (INCIDENT-43)**:
   - `codex.exe` 等のバイナリ直接実行を禁止し、無出力ファイルストリーミングラッパー（`tools/scripts/call_codex.ps1`）を介して実行する。
   - 大量ログはファイルへ出力し、画面（stdout）への出力流出を遮断してコンテキストトークンを保護する。
