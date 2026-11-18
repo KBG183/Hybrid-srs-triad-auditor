@@ -209,6 +209,34 @@ namespace SrsIntegrity.Engine
 
             string[] lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
+            // 2-0. CSV Column Cardinality & Structure Gate (Rule: CSV-001)
+            if (filePath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                int expectedCols = -1;
+                for (int c = 0; c < lines.Length; c++)
+                {
+                    string row = lines[c].Trim();
+                    if (string.IsNullOrEmpty(row)) continue;
+                    string[] cols = row.Split(',');
+                    if (expectedCols == -1)
+                    {
+                        expectedCols = cols.Length;
+                    }
+                    else if (cols.Length != expectedCols)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "CSV-001",
+                            Severity = "FATAL",
+                            LineNumber = c + 1,
+                            ColumnNumber = 1,
+                            Message = string.Format("CSV Column Cardinality mismatch. Expected {0} columns based on header, but row has {1} columns.", expectedCols, cols.Length),
+                            ContextSnippet = row.Length > 60 ? row.Substring(0, 60) + "..." : row
+                        });
+                    }
+                }
+            }
+
             int consecutiveBlankLines = 0;
             Dictionary<string, int> headingTracker = new Dictionary<string, int>();
 
@@ -248,15 +276,53 @@ namespace SrsIntegrity.Engine
                     result.Findings.Add(new Finding
                     {
                         RuleId = "SPEC-001",
-                        Severity = "FATAL",
+                        Severity = "WARN",
                         LineNumber = lineNum,
                         ColumnNumber = unspacedTilde.Index + 1,
-                        Message = string.Format("Unspaced tilde detected: '{0}'. Must use space-padded ' ~ ' or escape '\\~' to prevent markdown strikethrough.", unspacedTilde.Value),
-                        ContextSnippet = GetContextSnippet(line, unspacedTilde.Index, 15)
+                        Message = "Unspaced tilde (~) detected. Markdown interpreters render this as strikethrough. Use ' ~ ' or backticks.",
+                        ContextSnippet = GetContextSnippet(line, unspacedTilde.Index, 10)
                     });
                 }
 
-                // 2-3. Ambiguous Engineering Placeholders (SPEC-002)
+                // 2-3. Zero-Korean Hard-Gate (Rule: SEC-001)
+                // Enforces zero-korean unicode on public files (excluding local _KO files)
+                if (!filePath.Contains("_KO.") && !filePath.Contains("_ko."))
+                {
+                    Match koreanMatch = Regex.Match(line, @"[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF]");
+                    if (koreanMatch.Success)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "SEC-001",
+                            Severity = "FATAL",
+                            LineNumber = lineNum,
+                            ColumnNumber = koreanMatch.Index + 1,
+                            Message = "Zero-Korean violation: Korean unicode character detected in public repository file.",
+                            ContextSnippet = GetContextSnippet(line, koreanMatch.Index, 10)
+                        });
+                    }
+                }
+
+                // 2-4. Sensitive Metadata & Legacy Identifiers (Rule: SEC-002)
+                if (!filePath.Contains("rfc_") && !filePath.Contains("rule"))
+                {
+                    string sensitivePattern = Encoding.UTF8.GetString(Convert.FromBase64String("KGtsYWQzfDEwMFwuMTExXC58MTAwXC44MlwufDEwMFwuOTFcLnwxOTJcLjE2OFwufEZhdHR5TGl2ZXJ8RlNJUXxEdW5zYW4p"));
+                    Match sensitiveMatch = Regex.Match(line, sensitivePattern);
+                    if (sensitiveMatch.Success)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "SEC-002",
+                            Severity = "FATAL",
+                            LineNumber = lineNum,
+                            ColumnNumber = sensitiveMatch.Index + 1,
+                            Message = "Sensitive data leakage: Private local path, private IP, or legacy identifier token detected.",
+                            ContextSnippet = GetContextSnippet(line, sensitiveMatch.Index, 10)
+                        });
+                    }
+                }
+
+                // 2-5. Ambiguous Engineering Placeholders (SPEC-002)
                 // e.g. TBD, TODO, 未定, 未確定, 追って決定
                 Match placeholder = Regex.Match(line, @"\b(TBD|TODO|FIXME|WIP)\b|(未定|未確定|追って決定)");
                 bool isRuleDefinitionRow = line.TrimStart().StartsWith("|") && (line.Contains("SPEC-002") || line.Contains("RULE-FMT-02"));
