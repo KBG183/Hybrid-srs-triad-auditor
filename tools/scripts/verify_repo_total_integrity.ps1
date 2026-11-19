@@ -10,7 +10,10 @@
     5. Dual-Linter Pipeline Hard-Gate Wiring
 #>
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory = $false)]
+    [switch]$Fix
+)
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -185,8 +188,15 @@ foreach ($f in $trackedFiles) {
     if ($f -match '\.(exe|dll|png|jpg|ico)$') { continue }
     $b = [System.IO.File]::ReadAllBytes($fullPath)
     if ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) {
-        Write-Host "  [BOM VIOLATION] $f has UTF-8 BOM!" -ForegroundColor Red
-        $bomHits++
+        if ($Fix) {
+            $newBytes = New-Object byte[] ($b.Length - 3)
+            [System.Array]::Copy($b, 3, $newBytes, 0, $newBytes.Length)
+            [System.IO.File]::WriteAllBytes($fullPath, $newBytes)
+            Write-Host "  [AUTO-FIXED] ${f}: Stripped UTF-8 BOM." -ForegroundColor Cyan
+        } else {
+            Write-Host "  [BOM VIOLATION] $f has UTF-8 BOM!" -ForegroundColor Red
+            $bomHits++
+        }
     }
 }
 if ($bomHits -eq 0) {
@@ -254,6 +264,21 @@ if (-not (Test-Path $csPath)) {
 }
 
 # -------------------------------------------------------------------------
+# Test 8.1: Daily Audit Evidence Dossier Freshness Gate
+# -------------------------------------------------------------------------
+$dossierPath = Join-Path $projectRoot "docs\audit_evidence_dossier.md"
+if (Test-Path $dossierPath) {
+    $todayStr = (Get-Date).ToString("yyyy-MM-dd")
+    $dossierText = [System.IO.File]::ReadAllText($dossierPath, [System.Text.Encoding]::UTF8)
+    if ($dossierText -notmatch [regex]::Escape($todayStr)) {
+        Write-Host "  [FATAL DOSSIER STALE] audit_evidence_dossier.md is missing today's date ($todayStr) section!" -ForegroundColor Red
+        $hasFailure = $true
+    } else {
+        Write-Host "  -> PASS: audit_evidence_dossier.md firmly contains today's ($todayStr) audit evidence section." -ForegroundColor Green
+    }
+}
+
+# -------------------------------------------------------------------------
 # Test 9: Invisible Control Characters Gate (BEL/BS/FF/ESC etc.)
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Check 9/10] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
@@ -263,12 +288,28 @@ foreach ($f in $ctrlScanFiles) {
     $fullPath = Join-Path $projectRoot $f
     if (-not (Test-Path $fullPath)) { continue }
     $bytes = [System.IO.File]::ReadAllBytes($fullPath)
+    $hasCtrl = $false
     for ($i = 0; $i -lt $bytes.Length; $i++) {
         $b = $bytes[$i]
         if ($b -lt 32 -and $b -ne 9 -and $b -ne 10 -and $b -ne 13) {
-            Write-Host "  [CONTROL CHAR DETECTED] ${f} byte offset $($i): 0x$($b.ToString('X2'))" -ForegroundColor Red
-            $ctrlHits++
+            $hasCtrl = $true
             break
+        }
+    }
+    if ($hasCtrl) {
+        if ($Fix) {
+            $cleaned = New-Object System.Collections.Generic.List[byte]
+            for ($i = 0; $i -lt $bytes.Length; $i++) {
+                $byteVal = $bytes[$i]
+                if ($byteVal -ge 32 -or $byteVal -eq 9 -or $byteVal -eq 10 -or $byteVal -eq 13) {
+                    $cleaned.Add($byteVal)
+                }
+            }
+            [System.IO.File]::WriteAllBytes($fullPath, $cleaned.ToArray())
+            Write-Host "  [AUTO-FIXED] ${f}: Stripped invisible control characters." -ForegroundColor Cyan
+        } else {
+            Write-Host "  [CONTROL CHAR DETECTED] ${f} has non-printable control characters!" -ForegroundColor Red
+            $ctrlHits++
         }
     }
 }

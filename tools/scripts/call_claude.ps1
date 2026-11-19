@@ -176,6 +176,20 @@ try {
     $balanceFormatted = "`$" + $newBalance.ToString("0.00")
     $timestampStr = (Get-Date).ToString("yyyy-MM-dd - HH:mm:ss")
 
+    # Physical Write to cloud_api_token_ledger.csv (Never lose tokens)
+    if (Test-Path $ledgerPath) {
+        $nextIndex = 1
+        if ($ledgerLines.Length -gt 1) {
+            $lastLineCols = $ledgerLines[$ledgerLines.Length - 1].Trim() -split '","'
+            $parsedIdx = 0
+            if ($lastLineCols.Length -ge 1 -and [int]::TryParse($lastLineCols[0].Trim('"'), [ref]$parsedIdx)) {
+                $nextIndex = $parsedIdx + 1
+            }
+        }
+        $csvLine = "`"$nextIndex`",`"$timestampStr`",`"$Model`",`"$inputTokens`",`"$outputTokens`",`"$($inputTokens + $outputTokens)`",`"$costFormatted`",`"$($elapsedSec.ToString('F2'))`",`"$balanceFormatted`"`r`n"
+        [System.IO.File]::AppendAllText($ledgerPath, $csvLine, (New-Object System.Text.UTF8Encoding($false)))
+    }
+
     $summary = "[CLAUDE SUMMARY] Model: $Model | Duration: $($elapsedSec.ToString('F2'))s | Tokens: In $inputTokens / Out $outputTokens (Total: $($inputTokens + $outputTokens)) | Cost: $costFormatted | Remaining Balance: $balanceFormatted | Log: $liveLog"
     Write-Output $summary
     return $liveLog

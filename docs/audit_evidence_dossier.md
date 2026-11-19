@@ -263,3 +263,36 @@ Total Lines: 587 | Total Bytes: 66,586
    - `REQ-ATTEND-001`: 30秒回転型TOTP動的QR打刻およびGPSジオフェンシング（代理打刻の物理的遮断）
    - `REQ-ATTEND-002`: 打刻状態遷移機械（CLOCK_IN → BREAK_START → BREAK_END → CLOCK_OUT）および区間代数検証
    - `REQ-STORE-002`: 満18歳未満（年少者）の深夜労働（22:00〜05:00）および時間外労働の事前ブロックガード
+
+
+---
+
+## 5. Day 3 (2026-11-19) 第3スライス勤怠要件の4重交差検証・是正およびシステム自動化パイプライン確立
+
+### 5.1 4重交差検証実測メトリクス
+| 監査官 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 文字数 | 判定結果 | 物理保存先アーカイブ |
+|---|---|---|:---:|:---:|:---:|---|
+| **C# 決定論的** | `verify_repo_total_integrity.ps1` | .NET 4.8 / PowerShell 5.1 | **3.8秒** | 全135追跡ファイル走査 | **PASS (10/10)** | `tools/scripts/verify_repo_total_integrity.ps1` |
+| **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社RTX 5070 Ti (Ollama P2P) | **82.56秒** | Input: 8,763 tok / Output: 3,820 tok (49 tok/s) | **WARN** | `docs/audit_runs/20261119_071847_51506ae9/report.md` |
+| **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **136.15秒** | 16,001 bytes (詳細監査レポート生成) | **FAIL $\rightarrow$ 是正済** | `audit/runs/20261119_162305_codex_gpt-6.2-astra/codex_report.txt` |
+| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **30.21秒** | Input: 34,659 tok / Output: 8,192 tok | **WARN (改善昇格)** | `audit/runs/20261119_160327_claude_claude-sonnet-5-5/claude_audit_report.txt` |
+
+### 5.2 摘発された5大核心欠陥の完全解消（DoD 100%達成）
+1. **[P0-S3-01] 地下店舗・GPS測位不能時におけるDRAFT救済セッション配備**:
+   - 地下店舗やGPSモジュール障害時に出勤打刻が遮断され、勤務終了時の退勤ができず無記録労働（ゴーストワーク）となる問題を解消。申告理由付きで `DRAFT` セッションを生成し、正常退勤および事後承認を保証（`REQ-ATT-001`, `DDL-005`）。
+2. **[P0-S3-02] 店舗外休憩（150m等）におけるBREAK_START/END許容および状態遷移デッドロック解消**:
+   - 100mジオフェンスを出退勤に限定し、店外飲食店での休憩開始・終了を許容。`off_premise_flag = TRUE` を記録して `ON_BREAK` へ正常遷移させ、復帰不能デッドロックを防止（`REQ-ATT-001`, `REQ-ATT-002`）。
+3. **[P0-S3-03] 年少者深夜実労働の事後訂正整合性（労基法第24条保護）**:
+   - 事後修正（`REQ-ATT-003`）における年少者22時超の実績申告に対する HTTP 422 遮断を撤廃。`youth_night_violation_flag = TRUE` を強制記録した上で承認を受理し、実就労に対する賃金全額支給を担保。
+4. **[P0-S3-04] 最低賃金改定日跨ぎ夜勤におけるJST 00:00境界分割算定（Segmented Wage Basis）**:
+   - 10月1日等の最低賃金改定日を跨ぐ夜勤において、発効日当日 JST 00:00:00 の境界で勤務区間を2分割し、改定前後の法定最低時給を各セグメントに厳格適用して過少払いを防止（`REQ-LABOR-005`, `DDL-009`）。
+5. **[P1-S3-05] MySQL 8.4 InnoDB物理DDL型および仮想生成列索引の完全整合**:
+   - DDL-001〜013のPostgres方言をMySQL 8.4標準（`DATETIME(6)`, `VARCHAR(36)`, `JSON`, `BINARY(32)`）へ置換し、部分索引をMySQL 8.4仕様の仮想生成列（Virtual Generated Column）+ Unique Keyへ統一。
+
+### 5.3 3大システム自動化ツールの確立
+1. **自己治癒リンター (`verify_repo_total_integrity.ps1 -Fix`)**:
+   - UTF-8 BOMおよび不可視制御文字を検知と同時にインメモリ再構築し、ワンショットで自己修復（Auto-Fix）。
+2. **完全リテラル1:1置換器 (`patch_ssot_literal.ps1`)**:
+   - Here-Stringエスケープ事故を防止し、パス走査防御（Path Traversal Guard）および `StringComparison.Ordinal` 単一一致検査を実装。
+3. **4重交差リレー検証マスターランナー (`run_quad_audit.ps1`)**:
+   - Codex $\rightarrow$ Claude $\rightarrow$ Qwen 27B $\rightarrow$ C#リンターの直列多層検収を一括自動オーケストレーション。

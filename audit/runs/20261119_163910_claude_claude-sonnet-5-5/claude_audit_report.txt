@@ -1,0 +1,63 @@
+I can't give an unconditional verdict on the full scope you listed, and the reason matters more than the verdict itself.
+
+## Input Integrity Finding (Critical)
+
+Only File 1 was provided as actual code. Files 2 and 3 are placeholders:
+
+```
+=== FILE 2 === (See tools/scripts/patch_ssot_literal.ps1)
+=== FILE 3 === (See tools/scripts/run_quad_audit.ps1)
+```
+
+I cannot verify the claimed properties of `patch_ssot_literal.ps1` (literal replacement, `[IO.File]::Replace`, single-match guard) or `run_quad_audit.ps1` (fail-closed exit propagation, stage tracking). An approval on unseen code would be a rubber stamp, and it would defeat the purpose of a cross-audit.
+
+Additionally, the File 1 snippet contradicts your own description. The brief says `-Fix` uses an `[IO.File]::Replace` atomic swap, but the snippet uses `[System.IO.File]::WriteAllBytes($fullPath, ...)`, a non-atomic in-place overwrite. Either the snippet is stale (pre-Stage-2), or the Codex-raised risk was not resolved.
+
+## Stage 3 Verdict: HOLD
+
+## File 1 Findings (what I can actually assess)
+
+| # | Severity | Finding |
+|---|----------|---------|
+| 1 | High | Non-atomic write. `WriteAllBytes` truncates, then writes. A crash, power loss, AV lock, or Ctrl-C mid-write can leave a zero-length or partial file. The claimed `[IO.File]::Replace` is absent from the snippet. |
+| 2 | High | Control-character strip is not UTF-8-safe. The filter `$b -ge 32 -or 9/10/13` is byte-wise. It keeps all bytes ≥ 0x80, so it won't corrupt multibyte sequences, but it also won't remove Unicode invisibles (U+200B, U+202E bidi overrides, U+00AD). Those are encoded as bytes ≥ 0x80 and pass straight through. If this check exists to defend against hidden-character or Trojan Source attacks, the check is ineffective. |
+| 3 | High | Binary-file corruption risk. If Check 9 isn't strictly scoped to text extensions, `-Fix` will silently destroy PNGs, DLLs, ZIPs, etc. (any byte < 32 is stripped). The snippet shows no extension allowlist or binary sniffing. |
+| 4 | Medium | Strips 0x7F (DEL)? No, but it also keeps ESC (0x1B)? No, 0x1B < 32 is stripped. However, it removes form feed (0x0C), vertical tab, and NUL. For files like `.csv`, `.tsv`, or legacy sources using FF, this is silent data loss. |
+| 5 | Medium | Loop variable `$b` in Check 9 shadows `$b` (the file byte array) from Check 6. If these share scope, Check 6's `$b` is clobbered. Check 9 re-reads `$bytes`, but this is fragile and suggests copy-paste drift. |
+| 6 | Medium | Performance and consistency. Per-byte `List[byte].Add` in PowerShell is very slow on large files (orders of magnitude slower than `-notmatch`/`[byte[]]` filtering). Also, no re-verification after the fix: the file is not re-read to confirm the violation is gone. |
+| 7 | Medium | Check 6 BOM strip: `Array::Copy` into a new array, then `WriteAllBytes`. Same atomicity issue as #1. Also, no handling of UTF-16 BOMs (FF FE / FE FF), which are not detected. |
+| 8 | Low | Preserved attributes are lost on replace unless handled. File ACLs, read-only attributes, timestamps, and line endings are not addressed. If `$fullPath` is read-only, `WriteAllBytes` throws and the script reports neither a fix nor a violation, with no try/catch visible. |
+| 9 | Low | Counter accounting. In `-Fix` mode, neither `$bomHits` nor `$ctrlHits` increments, so the final exit code will read "clean" even if the fix failed or was partial. Fixed files should be tracked in a separate `$fixed` counter, and exit status should reflect fix failures. |
+| 10 | Low | Missing `-WhatIf`/`SupportsShouldProcess`. A destructive mass-fix across a repo with no dry-run is a governance gap. Git-tracked repos mitigate this, but only if the working tree was clean beforehand (not checked). |
+
+## Required Checks for Files 2 and 3
+
+For `patch_ssot_literal.ps1`, verify:
+- Uses `.Replace()` / `[string]::Replace` (ordinal), not `-replace` (regex). Confirm `[StringComparison]::Ordinal` where `IndexOf` is used.
+- The single-match guard counts matches and aborts on 0 and on >1. A guard that only checks `-ge 1` is insufficient. Overlapping matches (e.g., pattern `aa` in `aaa`) must be counted correctly.
+- Encoding round-trip: read as bytes or with an explicit `UTF8Encoding($false)`. `Get-Content`/`Set-Content` can alter encoding, add a BOM (PS 5.1), or normalize line endings.
+- `[IO.File]::Replace` requires source and destination on the same volume. The temp file must be created in the target directory, not `$env:TEMP`. A backup argument of `$null` leaves no rollback.
+- Temp file cleanup in `finally`.
+
+For `run_quad_audit.ps1`, verify:
+- Native-command exits are checked via `$LASTEXITCODE`, not `$?` alone. `$ErrorActionPreference = 'Stop'` does not catch non-zero native exit codes.
+- `exit` is propagated from every stage and the final aggregate is non-zero if any stage fails or is skipped. A stage that never ran must count as a failure (fail-closed).
+- Stage tracking handles terminating exceptions (try/catch/finally), not just exit codes. An uncaught throw must not produce exit 0.
+- No `| Out-Null` or `2>$null` swallowing failures.
+
+## Answers to Your Three Questions
+
+1. Did the implementation resolve Codex's risks? Unverifiable for Files 2 and 3. For File 1, the atomic-swap claim is contradicted by the provided snippet.
+2. Residual defects? Yes, 10 listed above for File 1 alone, three of them High.
+3. Verdict: HOLD.
+
+## Conditions to Move to APPROVED
+
+1. Supply the actual contents of Files 2 and 3, and the current File 1 diff showing `[IO.File]::Replace`.
+2. Replace `WriteAllBytes` with a same-directory temp file + `[IO.File]::Replace(temp, target, backup)` + `finally` cleanup.
+3. Add an extension allowlist or binary detection before any `-Fix` write.
+4. Decide whether Check 9 must cover Unicode invisibles/bidi controls. If so, decode as UTF-8 (strict, `throwOnInvalid`) and filter by code point.
+5. Add `$fixed`/`$fixFailed` counters, a try/catch around writes, a post-fix re-verification, and `-WhatIf` support.
+6. Rename the shadowed `$b` variable.
+
+Once the real file contents are supplied, I'll do a line-level audit of all three and issue a definitive verdict.

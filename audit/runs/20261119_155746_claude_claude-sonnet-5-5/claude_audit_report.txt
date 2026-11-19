@@ -1,0 +1,135 @@
+# KINTAI SRS Slice 3 Cross-Audit Report
+
+**Scope**: REQ-ATT-001/002/003, REQ-STORE-002, REQ-LABOR-005, DDL-001〜013
+**Note on versioning**: The submitted document header reads **v1.0.2**, but the audit request targets **v1.0.3**. Either the wrong revision was attached or the version bump was not applied. This must be reconciled before any APPROVED stamp.
+
+---
+
+## 1. Executive Summary
+
+| Cluster | Topic | Verdict |
+|---|---|---|
+| 1 | Youth holiday ban / `week_start_day` | **FAIL**: policy text present, persistence/definition missing |
+| 2 | Objective attendance / anti-proxy | **WARN**: rules present, several enforcement and schema gaps |
+| 3 | Minimum wage alignment | **WARN**: boundary clarified, but REQ-LABOR-001 still contradicts it |
+| 4 | Two-person approval / hash chain | **FAIL**: RBAC schema gap, bypass flag unpersisted, lock unspecified in DDL |
+| Overall | | **FAIL: NOT RELEASE-READY** |
+
+---
+
+## 2. Status of Previously Identified Findings
+
+### Cluster 1: Youth statutory holiday & week start (REQ-STORE-002)
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Art. 60(1) statutory-holiday ban for minors | **Resolved (text only)** | Section 4 adds `YOUTH_STATUTORY_HOLIDAY_WORK_PROHIBITED` and a DoD item |
+| `store.week_start_day` baseline definition | **Remaining** | Referenced in processing/DoD, but **absent from DDL-001**, which lists only `latitude`, `longitude`, `prefecture_code`. No type, domain (1–7 / ISO DOW), NOT NULL, or default. The text says "未設定時は月曜日起算", which implies NULLable, but nothing is specified |
+| Statutory-holiday identification | **Remaining (P1)** | There is no schema or algorithm for *which day is the statutory holiday*. `isStatutoryHoliday` appears as an input in REQ-LABOR-001 but there is no `statutory_holiday_dow` / calendar table, and no definition for the "4週4日" variant (four-week variable-holiday system needs a four-week anchor date). The ban is unenforceable without this |
+| Per-segment age evaluation | **Resolved** | Segment split at JST 00:00, with a DoD test for the leap-day case |
+
+**New issues in this cluster:**
+
+- **P1: the statement of the law is wrong.** Art. 60(1) exempts minors from Art. 32-2 (variable-hours), 36 (overtime/holiday agreements), and 40, so overtime/holiday work under a 36 agreement is barred. It does **not** literally say "法定休日就労の絶対禁止"; the holiday ban is derived by reading Arts. 35, 36, 60 together. The SRS also claims "休日労働による35%割増賃金受給を目的とした年少者就労の発生を未然に防止", which is a rationale no statute states. Legal review should rewrite the basis. Additionally, Art. 60(3) allows minors to be put on a variable-hours arrangement within 1 day ≤ 8h / week ≤ 48h by *reallocating* within the week. The spec's flat "1日8h/週40h" cap is stricter than the law (acceptable as company policy, but should be labelled as such, not as statutory).
+- **P1: `youthClass` enumeration and wording are legally unsound.** `CHILD_UNDER_15_PRE_MARCH` is a CHILD per Art. 56 (until the first March 31 after the 15th birthday). Art. 61(5) night limit for children is **20:00–05:00**, correct as written. But a child's daily/weekly cap is **7h / 40h (Art. 60(2))**, not 8h. The spec applies 8h to all `isYouth`. This is a **legal compliance defect for the child class**.
+- **P1: night window for minors.** Art. 61(1) prohibits 22:00–05:00; Art. 61(5) extends to 20:00–05:00 for children. Art. 61(3)/(4) permit shifts of 22:30 end in Tokyo-area *only* with permission and for 16+ males on 2-shift systems. These exemptions are not modelled. Acceptable if intentionally excluded, but they should be stated.
+- **P2: age basis.** The spec cites "民法第143条第2項および年齢計算に関する法律" for 2/29 birthdays and fixes age-up at 3/1 00:00. The Act on Age Calculation, together with Civil Code Art. 143, indeed supports "the day before the anniversary reaches 24:00". For a 2/29 birth in a non-leap year, the legal consensus is that the year ends at the end of 2/28 → the person turns 18 at 3/1 00:00. This is consistent. ✔
+- **P2: the contradiction between "YOUTH_NIGHT_WORK_PROHIBITED pre-block" and the "CLOCK_OUT must never be rejected" rule** is handled sensibly. Still missing: what happens to CLOCK_IN for a minor whose shift ends at 21:50 but who clocks in at 21:00 intending to stay? The pre-block depends on "shift contains night hours"; spontaneous unscheduled work is not addressed.
+
+### Cluster 2: Objective attendance & anti-proxy (REQ-ATT-001)
+
+| Finding | Status | Evidence |
+|---|---|---|
+| `horizontalAccuracy ≤ 50 m` | **Resolved** | Input, processing, error code, DoD |
+| `fixTimestamp` freshness ≤ 60 s | **Resolved (with caveat)** | Specified against server receive time; a skew rule is missing (see below) |
+| `isMockProvider` rejection | **Resolved (weakly)** | Rejected, but see trust-boundary issue |
+| Relay-attack threat model & residual risk | **Resolved** | Section 5 documents three layers, residual risk and operational controls |
+
+**New / remaining issues:**
+
+- **P0: client-asserted integrity.** `isMockProvider`, `horizontalAccuracy`, `latitude/longitude`, and `fixTimestamp` are all client-supplied. The text says Play Integrity / App Attest is "前提" (assumed), yet **no requirement, input field (attestation token), verification step, or error code exists** for it. A rooted/instrumented client simply sends `isMockProvider=false`, `horizontalAccuracy=5`. As written, the location defense is advisory, not enforceable. Add `attestationToken` input, server-side verdict verification, and a failure code, or explicitly downgrade the claim to "best-effort deterrent".
+- **P1: TOTP slot window vs. UQ constraint.** DDL-006 `UQ (t,staff_id,terminal_id,key_version,slot,kind)` blocks a second event of the same kind in one 30 s slot. Legitimate repeated BREAK_START/BREAK_END within a 30 s slot are rare, but a CLOCK_IN retried after a transient failure with a *new* idempotency key but the same slot collides with the unique key and returns an ambiguous error (the spec only defines 409 `IDEMPOTENCY_CONFLICT` for key collisions). Define the error code for slot collisions.
+- **P1: the DoD claim "同一店舗QRを同一スロット内で複数スタッフが正当打刻できる" is consistent** with the UQ, which includes `staff_id`. ✔ But the narrative "同一スタッフの多重打刻は一意制約で遮断" is only true per `kind`+slot, not for a CLOCK_IN across different slots; that is delegated to the state machine and to `uq_open_attendance`. Note that `uq_open_attendance` as originally specified in REQ-STORE-001 refers to an `attendance` table with `clock_out_at`, which **does not exist in the Slice 3 DDL** (DDL-005 uses `attendance_session`, with the partial-unique `WHERE state IN ('WORKING','ON_BREAK')`). The legacy index reference is stale; the SRS has two competing models of the open-session guard.
+- **P1: MySQL 8.4 incompatibility with the DDL set.** The target stack is MySQL 8.4, yet DDL-005 requires a **partial unique index** (`WHERE state IN (...)`) and a **range-exclusion constraint** for overlapping work intervals; DDL-006/DDL-007 use `jsonb`, `timestamptz(6)`, `bytea`. MySQL has none of these (no partial indexes, no exclusion constraints, no `jsonb`/`bytea`/`timestamptz`). Section 0 names PostgreSQL 16 only as an "alternative reference". Slice 3 DDL is therefore **PostgreSQL-only while the declared target is MySQL**. The spec must either pick PostgreSQL as primary or give MySQL emulations (generated-column unique key, trigger/lock-based overlap guard).
+- **P2: fix-timestamp skew.** A device clock is untrusted; freshness is measured against `received_at`, which is good, but a negative skew (fix time in the future) is not bounded. Add `|received_at − fixTimestamp| ≤ 60 s`.
+- **P2: `attendance_event` stores `device_uuid`/`terminal_id`/`key_version`/`slot` but not `horizontalAccuracy`, `isMockProvider`, or `fixTimestamp`.** The decision inputs are not persisted, so a later audit cannot prove why an event was accepted. Add them (or a hashed evidence blob).
+- **P2: `attendance_device` has no device-registration requirement** (who may register, rate limits, number of devices per staff). Device binding is only as strong as its enrollment flow.
+- **P2: HMAC key custody.** DDL-004 stores `secret_ref` only (good), but rotation overlap (`valid_until` vs. the ±1 slot window) and clock-skew on the display terminal are unspecified.
+
+### Cluster 3: Minimum wage alignment (REQ-LABOR-005)
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Demarcation: creation-time rejection vs. runtime auto-adjust | **Resolved** | Explicit "役割分担" paragraph, plus a DoD item |
+| Single source of truth for wage in REQ-LABOR-001 | **Remaining (P1)** | See below |
+| Rate-change straddle day | **Resolved** | Business-date anchored |
+
+**Remaining/new issues:**
+
+- **P1: REQ-LABOR-001 Step 6 still contains its own minimum-wage logic** (`payableRate = max(contractWage, applicableMinimumWage)`) *with its own lookup of `applicableMinimumWage`*. REQ-LABOR-005 declares itself the "唯一の真実原書" and says LABOR-001 must reference `appliedHourlyWage`. Two independent derivations of the same value remain in the spec text. LABOR-001 must be amended to *consume* the LABOR-005 output and delete its own max() step; otherwise the two can diverge (different date anchors, different master tables).
+- **P1: business-date anchor vs. legal anchor.** The Minimum Wage Act applies by *time worked*, and the usual administrative reading is that the rate effective on the date the work is performed applies. The spec anchors the entire overnight shift to its start date. For an overnight shift crossing the **October 1 effective date**, hours after 00:00 on Oct 1 legally fall under the new rate while the spec pays the old one for the whole shift (the 9/30 start). That is an under-payment risk. The spec states this as intentional ("日途中での時給分裂を防止") but it conflicts with the statute; it needs a labour-law sign-off or must split at midnight for wage-floor purposes while keeping the business-date for hour counting.
+- **P1: `attendance_wage_basis` stores a single `effective_date`, `contract_rate`, `minimum_rate` per payroll line.** It cannot represent a split-day if the previous point is fixed, and it cannot represent monthly aggregation across an effective-date boundary inside one `payroll_line_id` (a line spanning 9/30→10/1 days). Confirm the line granularity is per-session.
+- **P2: the 時給差 DDL-009 definition is internally inconsistent.** `rate_difference` is "適用額−契約額" in `rate` (numeric(12,4)), but `adjustment_numerator/denominator` is described as "円単位の整数分子／正整数分母" (an amount, not a rate). Two representations of the adjustment with no stated relationship or reconciliation constraint.
+- **P2: the commuter-allowance/premium base.** Not addressed. Minimum-wage comparison excludes certain allowances (commuting, etc.). State that `contract_rate` is the *basic hourly rate only*.
+- **P2: `MINIMUM_WAGE_HISTORY_MISSING` (HTTP 422) fails the payroll closing for the entire store** if one prefecture row is missing. Consider a pre-check at store creation / a deployment gate for master completeness.
+- **P2: industry-specific minimum wages (特定最低賃金)** are not modelled. They can exceed the regional rate for some industries (e.g. retail/restaurant segments in some prefectures). If out of scope, say so.
+
+### Cluster 4: Two-person approval, bypass flag, audit chain (REQ-ATT-003)
+
+| Finding | Status | Evidence |
+|---|---|---|
+| RBAC alignment (1st: STAFF[is_manager]/OWNER; 2nd: OWNER) | **Remaining (P0)** | See below |
+| Single-owner bypass with mandatory `is_single_owner_bypass = TRUE` | **Remaining (P0)** | Text only; no column |
+| Tenant-level pessimistic serialization for hash chain | **Partially resolved** | Stated in processing; not backed by DDL-013 mechanics |
+
+**Blocking issues:**
+
+- **P0: `is_manager` does not exist in any schema.** REQ-ATT-003 grants first-stage approval to `ROLE_STAFF && is_manager = TRUE`. Neither REQ-MEMBER-001 (role fixed to `ROLE_STAFF`/`ROLE_OWNER`), REQ-STAFF-001 (state machine), nor DDL-001〜013 defines the `is_manager` column, who may grant it, or its audit trail. Since REQ-MEMBER-001 explicitly bans role self-escalation, a *store-scoped manager flag* is a new privilege-escalation surface with no grant/revoke flow, no scope (store-level vs. global), and no constraint that the flag is per `store_staff`, not per `member`. A staff member who is a manager at store A must not approve at store B.
+- **P0: `is_single_owner_bypass` and the bypass reason have no persistence.** DDL-013 (`attendance_audit_log`) has columns for action, actor, versions, hashes, and `reason`, but **no `is_single_owner_bypass` boolean**, and DDL-012 (`attendance_decision`) `stage IN (1,2)` with `PK (t,request_id,stage)` and `UQ (t,request_id,actor_id)` provides no way to represent a one-stage approval that jumps straight to APPLIED. A single-owner approval creates one `stage=1` row (or one `stage=2` row?) and the status transitions to APPLIED; the decision table never records that stage 2 was skipped. The mandatory flag must be a NOT NULL column in either the decision or audit table, and be part of the hashed canonical form.
+- **P0: bypass condition is not machine-defined.** "管理代行スタッフが存在しない1人運営店舗" has no predicate. If the check is "no `is_manager` staff exist *now*", an owner can **demote or resign their only manager and then self-approve**, or approve while a manager is merely inactive. The owner can also be the *applicant* (owners can file corrections): the self-approval ban would then collide with the single-owner exception, and the spec doesn't say whether an owner may approve their own application under bypass. This permits a single person to fabricate and approve hours-altering corrections, the exact fraud the SoD control exists to prevent. Required: define the bypass predicate (e.g. zero `ACTIVE` staff with manager rights *at request creation time*, snapshotted into the request), and prohibit bypass when applicant = approver unless explicitly allowed with an additional control (delay, notification to the staff member whose time is altered, etc.).
+- **P1: no worker-side consent/notification** when a correction alters the worker's recorded hours or wages (Art. 24 pay-in-full, plus dispute evidence). The affected staff member is not a participant in the flow.
+- **P1: stage-ordering enforcement in DDL.** `attendance_decision` has `UQ (t,request_id,actor_id)` (good: no double approval by the same person) but no constraint that the stage-2 actor ≠ the applicant, ≠ the stage-1 actor, or has the owner role; these are service-layer-only. Add trigger/validation requirements or DB-level checks where feasible.
+- **P1: tenant lock vs. throughput and deadlock order.** A tenant-wide pessimistic lock on every audit append serializes **all** attendance events if audit rows are written per punch (REQ-ATT-001 does not state whether punches are audited; REQ-ATT-003 only lists approvals). If only approvals are chained, state that explicitly. Also, the lock-ordering hierarchy in LABOR-004 (`store → store_staff → payroll_settlement`) does not mention `attendance_audit_log`/`attendance_session`, so the interaction between a correction approval (locks session, then audit tenant lock) and a payroll settlement freeze (locks store, then …) is undefined. **A deadlock is possible**, and the settlement-freeze guarantee ("精算中は遡及打刻が待機") conflicts with corrections applied after settlement confirmation. Define whether an APPLIED correction against a CONFIRMED settlement month is rejected, or triggers a supplementary/adjustment payroll line.
+- **P1: the sequence-number mechanism is unspecified.** A gap-free `sequence_no` per tenant needs a counter row locked `FOR UPDATE` (or equivalent). MySQL has no sequences with gap-free guarantees and rollbacks create gaps in auto-increment. Specify the `tenant_audit_head` row (last `sequence_no`, last `entry_hash`) as the lock target, otherwise "テナント直列化排他ロック" has no lockable object when the log table is empty (the same phantom problem that LABOR-004 solved with the parent `store` lock).
+- **P1: the canonical form is not defined.** "版固定の正規化表現" has no versioned algorithm spec (field order, encoding, null handling, timestamp format). Hash verification across implementations will fail without it. Also add a `hash_version` column.
+- **P1: append-only is claimed via "UPDATE/DELETE 権限を剥奪" only.** The table owner or a DBA role can still mutate. Add trigger-based rejection, plus periodic external anchoring (e.g. publish the head hash to WORM storage) because a hash chain alone cannot detect *truncation of the tail* or a full rewrite by a privileged actor.
+- **P2: `attendance_decision.proposal_hash`** binds the approver to the proposal (good). But `attendance_correction.proposed_timeline` is a free `jsonb`; its schema validation (events ordered, within the session, no overlap) is delegated to REQ-ATT-002 without saying the *same validator* runs at application time against the approved timeline (including the youth-night check, which is listed in exceptions).
+- **P2: REJECT handling.** A REJECT at stage 1 sets status REJECTED; whether stage 2 can still act, and whether the applicant may resubmit against the same `base_version`, is unspecified. Also no expiry/SLA for PENDING requests (stale `base_version` makes them unusable).
+- **P2: `attendance_revision.timeline` source semantic** (OBJECTIVE vs. APPROVED_CORRECTION) is good, but there is no rule preventing an `APPROVED_CORRECTION` from silently overwriting objective punch history in payroll; the payroll reader should know which revision it consumed (`session_version` in DDL-009 partially covers this ✔).
+
+---
+
+## 3. New Blocking Issues Summary
+
+| ID | Sev | Issue |
+|---|---|---|
+| N-01 | **P0** | `is_manager` undefined in schema/RBAC; escalation surface, not store-scoped |
+| N-02 | **P0** | `is_single_owner_bypass` has no persistence; bypass predicate undefined; owner self-approval loophole |
+| N-03 | **P0** | Client-side location/mock claims unenforceable: no attestation input/verification despite being "assumed" |
+| N-04 | **P1** | `week_start_day` and statutory-holiday definition absent from DDL; Art. 60(1) ban not enforceable |
+| N-05 | **P1** | Children (under 15/Art. 56) daily cap is 7h (Art. 60(2)), but the spec applies 8h to all minors |
+| N-06 | **P1** | Slice 3 DDL is PostgreSQL-only (partial unique, exclusion, jsonb, bytea) vs. the MySQL 8.4 target |
+| N-07 | **P1** | REQ-LABOR-001 still derives its own min-wage; "single source of truth" not actually enforced |
+| N-08 | **P1** | Minimum-wage business-date anchoring under-pays hours after midnight on an effective date crossed overnight |
+| N-09 | **P1** | Audit-chain lock object/sequence counter and lock-order vs. payroll freeze undefined (phantom + deadlock risk); corrections after settlement confirmation undefined |
+| N-10 | **P1** | Hash canonicalization/versioning and tail-truncation protection missing |
+| N-11 | **P2** | Evidence fields (accuracy, mock flag, fix time) not persisted; stale `uq_open_attendance`/`attendance` reference in REQ-STORE-001 |
+
+---
+
+## 4. Final Release Recommendation
+
+**Verdict: FAIL (do not move to APPROVED / implementation baseline).**
+
+Of the four clusters, only the *textual* parts of clusters 2 and 3 are substantively closed. Clusters 1 and 4 each retain P0/P1 gaps rooted in missing schema (`week_start_day`, `is_manager`, bypass flag, audit head/lock object), and the legal basis for the youth rules contains an incorrect child-class cap and a mis-attributed Art. 60(1) rationale.
+
+**Minimum conditions for re-audit (v1.0.4):**
+1. Reconcile document version (v1.0.2 submitted vs. v1.0.3 targeted).
+2. Add DDL for `store.week_start_day`, a statutory-holiday definition (weekly DOW / four-week anchor), and `store_staff.is_manager` with grant/revoke/audit flow and per-store scoping.
+3. Persist `is_single_owner_bypass` (+ reason, snapshotted predicate) in the hashed audit record; forbid or additionally control applicant = approver.
+4. Add an attestation requirement, or explicitly downgrade the location/mock controls to non-authoritative signals; persist the evidence fields.
+5. Correct the youth rules: child class 7h/day, 40h/week; restate the Art. 60 basis; label stricter-than-law limits as policy.
+6. Strip the min-wage derivation from REQ-LABOR-001 and reference `appli
+
+> [!CAUTION]
+> [TRUNCATION NOTICE] Output was truncated by Anthropic API max_tokens ceiling (8192). Findings beyond this point were not captured.
