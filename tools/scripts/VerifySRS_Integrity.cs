@@ -710,6 +710,101 @@ namespace SrsIntegrity.Engine
                             }
                         }
                     }
+
+                    // =========================================================================
+                    // PHASE 9: Orchestrator Self-Restraint & Audit Linkage Gate (PROC-007)
+                    // =========================================================================
+                    if (isHeavyTrack)
+                    {
+                        // Check 9-A: Physical existence of fresh and un-failed audit execution evidence (<24h)
+                        string auditRunsDir = Path.Combine(projectRoot, "audit", "runs");
+                        string docsAuditRunsDir = Path.Combine(projectRoot, "docs", "audit_runs");
+                        bool hasRecentAuditLog = false;
+                        DateTime nowUtc = DateTime.UtcNow;
+                        DateTime thresholdTime = nowUtc.AddHours(-24);
+                        DateTime maxFutureTime = nowUtc.AddMinutes(10); // Clock skew protection
+
+                        if (Directory.Exists(auditRunsDir))
+                        {
+                            string[] rDirs = Directory.GetDirectories(auditRunsDir);
+                            foreach (string rd in rDirs)
+                            {
+                                DirectoryInfo dInfo = new DirectoryInfo(rd);
+                                if (dInfo.LastWriteTimeUtc >= thresholdTime && dInfo.LastWriteTimeUtc <= maxFutureTime)
+                                {
+                                    string[] logFiles = Directory.GetFiles(rd, "*.*");
+                                    foreach (string lf in logFiles)
+                                    {
+                                        if (lf.EndsWith(".txt") || lf.EndsWith(".md") || lf.EndsWith(".json"))
+                                        {
+                                            FileInfo fi = new FileInfo(lf);
+                                            if (fi.Length > 0)
+                                            {
+                                                try
+                                                {
+                                                    string logContent = File.ReadAllText(lf, Encoding.UTF8);
+                                                    // Ensure it is not an unhandled fatal run
+                                                    if (logContent.IndexOf("[FATAL]", StringComparison.OrdinalIgnoreCase) < 0 &&
+                                                        logContent.IndexOf("status: FAILED", StringComparison.OrdinalIgnoreCase) < 0)
+                                                    {
+                                                        hasRecentAuditLog = true;
+                                                        break;
+                                                    }
+                                                }
+                                                catch {}
+                                            }
+                                        }
+                                    }
+                                }
+                                if (hasRecentAuditLog) break;
+                            }
+                        }
+
+                        if (!hasRecentAuditLog && Directory.Exists(docsAuditRunsDir))
+                        {
+                            string[] rDirs = Directory.GetDirectories(docsAuditRunsDir);
+                            foreach (string rd in rDirs)
+                            {
+                                DirectoryInfo dInfo = new DirectoryInfo(rd);
+                                if (dInfo.LastWriteTimeUtc >= thresholdTime && dInfo.LastWriteTimeUtc <= maxFutureTime)
+                                {
+                                    string doneFile = Path.Combine(rd, ".done");
+                                    string reportMd = Path.Combine(rd, "report.md");
+                                    if (File.Exists(doneFile) && new FileInfo(doneFile).Length > 0)
+                                    {
+                                        hasRecentAuditLog = true;
+                                        break;
+                                    }
+                                    else if (File.Exists(reportMd) && new FileInfo(reportMd).Length > 0)
+                                    {
+                                        try
+                                        {
+                                            string repContent = File.ReadAllText(reportMd, Encoding.UTF8);
+                                            if (repContent.IndexOf("ExitCode: 1", StringComparison.OrdinalIgnoreCase) < 0)
+                                            {
+                                                hasRecentAuditLog = true;
+                                                break;
+                                            }
+                                        }
+                                        catch {}
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!hasRecentAuditLog)
+                        {
+                            result.Findings.Add(new Finding
+                            {
+                                RuleId = "PROC-007",
+                                Severity = "FATAL",
+                                LineNumber = 1,
+                                ColumnNumber = 1,
+                                Message = "Orchestrator self-restraint violation: SSOT/Heavy Track modifications require fresh (<24h) non-failing external audit execution logs in audit/runs/ or docs/audit_runs/.",
+                                ContextSnippet = filePath
+                            });
+                        }
+                    }
                 }
             }
 

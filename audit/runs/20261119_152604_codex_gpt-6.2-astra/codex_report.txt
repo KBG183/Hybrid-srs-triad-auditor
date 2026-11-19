@@ -1,0 +1,123 @@
+**Verdict: revise PROC-007 before making it a fatal gate.** The decisive change is to make the verifier answer two separate questions: *What changed in the candidate commit?* and *Did an independent reviewer approve those exact inputs?* The Git index can answer the first. A receipt staged by the orchestrator can answer the second only if an independently controlled issuer authenticates it.
+
+I reviewed the proposal reproduced in the request and the stated XC-1 provenance concern. The execution policy blocked local file reads, so I could not inspect `scratch/test_runs/claude_live.log`, compare the on-disk proposal with the supplied text, or compile the snippets against `VerifySRS_Integrity.cs`. The conclusions below are design findings. No local test or independent audit PASS was established.
+
+### 1. Read the staged snapshot once and hash raw blob bytes
+
+Use a pinned, .NET Framework 4.8-compatible binding to **libgit2**, or a small native adapter around its C API. Roslyn has no role in reading Git objects. The efficient operation is a path-and-object-ID comparison followed by content reads only for changed, relevant blobs.
+
+1. Open the repository for the active worktree and honor the index selected by the caller, including `GIT_INDEX_FILE` when present. Capture the base commit ID and load the index once. Use an empty base tree for an initial commit. An unsupported index format, unresolved index stage, or intent-to-add protected file should yield `INVALID` with the path and reason. Git supports multiple index stages and sparse directory entries, so a hand-written reader that assumes one ordinary entry per path is fragile. [Git index format](https://git-scm.com/docs/gitformat-index)
+2. Compare the base tree with the captured index using `git_diff_tree_to_index`, or compare entries by exact Git path, mode, and object ID. Inspect both sides of deletions and renames. A protected file moved out of scope still changes the protected input. Reject symlinks and gitlinks where policy requires a regular specification, receipt, or report.
+3. Read changed blobs by the captured object IDs. Apply per-file and total expanded-byte limits before materializing parser input. Compute the evidence SHA-256 over **raw blob content**. Keep it distinct from the Git object ID, which identifies a Git-framed object. Decode text separately and use strict decoding for protected text formats.
+4. Give the snapshot the same identity throughout classification, receipt verification, and reporting. At protected-branch admission, repeat the check against the actual candidate tree and its trusted base. This closes the race between a successful local check and a subsequent index change.
+
+There is an important memory constraint: `git_odb_open_rstream` can provide a streaming read, but libgit2 documents that most backends do not support it for compressed or delta-stored objects. A managed `Stream` wrapper alone therefore establishes no end-to-end memory bound. Try the streaming API where supported. For a packed-object fallback, use `git_odb_read_header` to inspect type and expanded size, then permit `git_odb_read` only within the configured cap. Process one object at a time and release its native handle promptly. If a **hard process-memory ceiling** is required, isolate packed-object decoding in a resource-limited worker and treat limit exhaustion as `INVALID`. [libgit2 object streaming and backend limitations](https://libgit2.org/docs/reference/main/odb/git_odb_open_rstream.html)
+
+This C# helper bounds the managed hashing buffer, detects short and overlong reads, and works with .NET Framework 4.8. The caller owns the stream and must enforce the native allocation policy before opening it.
+
+```csharp
+using System;
+using System.IO;
+using System.Security.Cryptography;
+
+internal static class BlobEvidence
+{
+    internal static byte[] ComputeSha256(
+        Stream rawBlob, long expectedLength, long maximumLength)
+    {
+        if (rawBlob == null)
+            throw new ArgumentNullException("rawBlob");
+        if (expectedLength < 0 || expectedLength > maximumLength)
+            throw new InvalidDataException("Blob length exceeds policy.");
+
+        byte[] buffer = new byte[64 * 1024];
+        long remaining = expectedLength;
+
+        using (SHA256 hash = SHA256.Create())
+        {
+            while (remaining > 0)
+            {
+                int wanted = (int)Math.Min(remaining, buffer.Length);
+                int read = rawBlob.Read(buffer, 0, wanted);
+                if (read == 0)
+                    throw new EndOfStreamException("Truncated staged blob.");
+
+                hash.TransformBlock(buffer, 0, read, buffer, 0);
+                remaining -= read;
+            }
+
+            if (rawBlob.ReadByte() != -1)
+                throw new InvalidDataException("Blob exceeds declared length.");
+
+            hash.TransformFinalBlock(buffer, 0, 0);
+            return hash.Hash;
+        }
+    }
+}
+```
+
+### 2. Close XC-1 with an independently issued, content-bound receipt
+
+**Move receipt issuance across the trust boundary.** The audit runner must obtain the reviewed inputs, construct the model request, receive the response, validate its completion and schema, and sign its own record. A service that signs an orchestrator-supplied `PASS` merely authenticates the submission. Keep the signing credential and the verifier’s trusted-key configuration outside the candidate repository’s control.
+
+| Signed field | Verification at admission |
+|---|---|
+| Schema version, purpose, repository identity, base commit | Require the expected audit type, repository, and exact base. |
+| Reviewed-input manifest digest | Recompute from a deterministic, path-sorted manifest of old and new paths, modes, content digests, and explicit absence markers. Include every input that can affect the decision. |
+| Policy, runner, and prompt identities | Compare with independently approved versions. Bind the actual ordered request roles and contents, including supplemental instructions and attachments. |
+| Run ID, issuer, result, report digest, finding IDs | Verify issuer authorization, report bytes, response completion, recognized verdict, and the complete finding inventory. Distinguish a drafting receipt from a review approval. |
+| Issuance and validity data | Apply the issuer’s configured validity and revocation rules. Reuse is admissible only for the same bound scope and policy, if policy permits it. |
+
+Avoid a circular hash: the **reviewed-input manifest excludes its own receipt and derived audit outputs**. Define these exclusions narrowly in trusted policy. Sign the report digest separately, and reject any unclassified changed path. Use an unambiguous encoding such as versioned, length-prefixed fields with explicit UTF-8 and ordinal path ordering. A digest over concatenated path strings is ambiguous.
+
+For .NET Framework 4.8, a detached signature over the exact payload bytes keeps JSON serialization out of cryptographic verification:
+
+```csharp
+internal static bool VerifyReceiptSignature(
+    RSA trustedIssuer, byte[] payload, byte[] signature)
+{
+    return trustedIssuer.VerifyData(
+        payload, signature,
+        HashAlgorithmName.SHA256,
+        RSASignaturePadding.Pkcs1);
+}
+```
+
+The caller selects `trustedIssuer` from protected configuration. After signature verification, strictly parse **the same payload bytes**, reject duplicate properties and unknown schema versions, and compare every binding with the staged snapshot. A valid signature with a mismatched manifest is a gate failure. A signed `FINDINGS` result establishes that an audit occurred; it does not authorize admission.
+
+### 3. Classify semantic changes before choosing the track
+
+There is no reliable regex for distinguishing a harmless typo from a changed obligation in unrestricted prose. For example, changing *may* to *must* is a one-word edit, and changing a Japanese comparison from `未満` to `以下` changes a boundary without introducing a formula. Give PROC-007-A three explicit outcomes: `EDITORIAL`, `REVIEW_REQUIRED`, and `INVALID`. Reserve `EDITORIAL` for transformations the grammar can positively identify as immaterial.
+
+| Input | Comparison | Decision examples |
+|---|---|---|
+| Requirement IDs | Parse Markdown structure first. Extract declarations only in the repository’s defined heading, table, or field positions. Compare ID-to-requirement mappings and reject duplicates. | Adding, deleting, renumbering, or moving a rule to a different ID requires review. An illustrative ID in a code fence has no effect unless that fence is normative. |
+| Formula fields | Parse the declared expression grammar. Compare operator trees, operands, units, rounding modes, thresholds, and references. Ignore only grammar-defined trivia. | `a + (b * c)` and `a+b*c` can compare equal under the same precedence rules. Changing `>` to `>=`, a divisor, or a rounding mode requires review. |
+| `schema.sql` | Use the parser for the actual database dialect. For T-SQL, use ScriptDom with the deployed dialect and quoted-identifier settings. Compare ordered statements and significant tokens or AST fields; preserve literal values, quoted identifiers, constraints, defaults, and executable directives. | Indenting a column definition is editorial. Changing precision, nullability, collation, or a default requires review. A parser error yields `INVALID`, including when the change looks like a typo. |
+| Natural-language SSOT | Mark normative and nonnormative fields in the specification grammar. Compare normative text conservatively, applying only context-safe formatting normalization. | A spelling correction in a designated editorial note can stay fast-track. A wording change inside an obligation requires review unless a trusted rule proves equivalence. |
+
+Use regex only for a bounded lexical task. For example, **if** the actual SSOT grammar defines IDs of the form `REQ-123`, the following validates an *already extracted declaration field*. Replace the example prefix and width with the real grammar. Applying this regex to every added line would misclassify examples and miss deletions.
+
+```csharp
+private static readonly Regex RequirementId = new Regex(
+    @"\AREQ-[0-9]{3}\z",
+    RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+    TimeSpan.FromMilliseconds(100));
+```
+
+Roslyn is appropriate only if a formula field explicitly uses C# expression syntax. In that case, parse the entire field, reject diagnostics and trailing input, and allowlist the expression nodes and functions the specification supports. For a domain formula such as `hours × rate` with units or statutory rounding, use the domain grammar. Treat any changed normative construct the classifier cannot interpret as requiring review or correction.
+
+### 4. Enforce the four gates against the same evidence
+
+| Gate | Required implementation change |
+|---|---|
+| **A — Track** | Derive the required track from the base and candidate snapshots. For a heavy change, require the correctly scoped, authenticated drafting or review receipts specified by policy. Mere simultaneous staging has no evidentiary value. |
+| **B — Findings** | Derive the expected finding IDs from the independently signed report, then reconcile by exact ID set. A missing ledger, duplicate ID, unknown status, or omitted finding fails reconciliation. Resolve each evidence path and range against the bound blob and verify the referenced change. A physical diff proves that bytes changed; independent re-review or an authorized signed disposition establishes closure. |
+| **C — Prompt** | Have the trusted runner load the approved template and record the **actual** request it sent. Canonicalize template encoding and line endings under a versioned rule **before sending**, then hash those same bytes. Preserve indentation, role boundaries, code fences, and internal whitespace. Represent intentional wording changes with a newly approved template hash. A phrase blacklist can produce diagnostics, but cannot establish prompt integrity. |
+| **D — Dossier** | Parse a structured run-reference field and reconcile each claimed verdict, count, and metric with the authenticated run record. Resolve evidence in the candidate tree or a trusted immutable run store. A directory and `.done` file alone establish neither who ran the audit nor whether it passed. |
+
+For recoverability, **verify changes to the linter, policy, and trust configuration with the last independently approved verifier**. Activate a new verifier only after that review. If emergency changes are in scope, use a separately authorized, signed exception bound to one repository, base, manifest, gate, reason, and expiry. Record `EXCEPTION` as its own outcome so the dossier cannot count it as an audit PASS.
+
+The proposal’s fifth objective also has a different observation point: a staged-blob linter cannot determine whether progress markers were delivered to a user in real time. If that remains a requirement, its evidence must come from the execution host’s event stream.
+
+Before enabling fatal enforcement, the most informative acceptance cases are a **partially staged formula edit**, a **packed blob above the configured cap**, a **signed receipt replayed after a one-byte normative change**, a **deleted findings ledger**, and a **legitimate verifier repair evaluated by the prior verifier**. These exercise the snapshot boundary, memory policy, provenance, completeness, and recovery path on which PROC-007 depends.

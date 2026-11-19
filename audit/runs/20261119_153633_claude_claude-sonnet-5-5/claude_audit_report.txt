@@ -1,0 +1,166 @@
+# PROC-007 Final Quad-Audit Report
+
+**Auditor role:** Principal Safety & Distributed Governance Auditor
+**Scope:** Assets A (PowerShell choke-point), B (C# Phase 9 gate), C (governance spec)
+**Caveat:** I reviewed only the code and spec text pasted in the prompt. I did not see `scratch/proc007_final_bundle.md`, `pipeline_draft_and_integrate.ps1`, or the `isHeavyTrack` classifier. Findings that depend on those are flagged as such.
+
+---
+
+## Executive Summary
+
+PROC-007 is a sound *deterrent* but not yet a *control*. Its core weakness is that the audit-linkage gate verifies that audit-shaped files exist and are recent. It does not verify that those files are an audit of this change, that the audit passed, or that an independent party produced them. Likewise, the editorial choke-point is a regex deny-list, applied to only half of the mutation, on a tool the orchestrator can simply route around. As written, a non-malicious but sloppy orchestrator will be caught; a motivated or merely "creative" one will not.
+
+---
+
+## 1. Asset A: `patch_ssot_editorial.ps1`
+
+### 1.1 Splitting evasion is trivially possible: **CONFIRMED, HIGH**
+
+Yes. Each invocation is stateless, so the guard sees only one `$ReplacementText` at a time. Concrete bypasses:
+
+**a) Two-step split of an ID token.**
+- Call 1: replace `"typo-fix"` with `"[REQ-PAY-"` (does not match `\[REQ-[A-Z]+-[0-9]+\]`).
+- Call 2: replace a later anchor with `"042]"` (does not match either).
+- Result: `[REQ-PAY-042]` now exists in the SSOT, assembled by two "editorial" patches.
+
+**b) Anchor-text laundering.** Call 1 places a benign placeholder, e.g. `REQ_PLACEHOLDER`. Call 2 replaces `REQ_PLACEHOLDER` with a different benign-looking string. Neither call contains the forbidden pattern if the final token is constructed through intermediate replacements that each stay under the regex.
+
+**c) The guard inspects the wrong operand.** Only `$ReplacementText` is checked. A patch whose `$TargetText` is an existing `[REQ-...]` block and whose replacement is empty or mangled *deletes or rewrites requirements* while passing every check. Deleting a requirement, or changing its body to alter wage logic in prose, is arguably worse than adding one. Nothing blocks it.
+
+**d) Replacement of the entire file body.** `$content.Replace($TargetText, ...)` happily accepts a `$TargetText` that is a 40 KB section. There is no size or scope ceiling, so "editorial" is unbounded.
+
+### 1.2 The regex set has real coverage gaps: **HIGH**
+
+| Gap | Example that passes |
+|---|---|
+| Case sensitivity is not guaranteed; `-match` is case-insensitive in PowerShell, but the patterns are brittle in other ways | n/a (this one is OK) |
+| **Wage-calculation prose is entirely unguarded.** The header promises to block "wage calculation alterations," but only a Java-ish `BigDecimal x =` pattern exists | Change "overtime multiplier is 1.25" to "1.0" in prose: passes |
+| Non-`BigDecimal` numerics/rates/thresholds | `0.25`, `割増率`, `時給`, `残業` changes pass |
+| REQ ID format variants | `[REQ-PAY_01]`, `[REQ-pay-1]` (the latter is caught only because of case-insensitivity, the former is not), `[REQ-PAY-1a]`, `[REQ-PAY-1.2]`, `[ REQ-PAY-1 ]` |
+| Unbracketed references | `REQ-PAY-042` without brackets (possibly still normative to downstream tooling) |
+| DDL beyond the listed statements | `CREATE INDEX`, `CREATE UNIQUE INDEX`, `ADD COLUMN`, `RENAME`, `TRUNCATE`, `CREATE VIEW`, `GRANT`; also `CREATE  TABLE` is fine (`\s+`) but `CREATE/**/TABLE` and `CREATE`+newline are handled only by `\s+`, which does match newlines, so OK |
+| `[DDL-n]` format variants | `[DDL-007a]`, `[DDL-A-7]` |
+| Locking/SQL semantics | `SELECT ... FOR UPDATE` is guarded with `.*`, which **does not match across newlines** in .NET by default. A multi-line `SELECT` with `FOR UPDATE` on a later line passes. Also misses `FOR SHARE`, `NOWAIT`, `SKIP LOCKED`, `LOCK TABLE` |
+| Unicode lookalikes | Fullwidth brackets `［REQ-PAY-1］`, fullwidth digits `０４２` (in .NET, `[0-9]` is ASCII-only, so fullwidth digits evade). Given a Japanese-language spec, fullwidth forms are a *natural* evasion, not an exotic one |
+| Zero-width / formatting characters | `[REQ-\u200BPAY-1]` evades the regex but may render identically |
+
+### 1.3 Integrity and operational defects in the script: **MEDIUM**
+
+- **Ambiguous match cardinality.** `String.Contains` + `String.Replace` replaces *all* occurrences. A short `$TargetText` (e.g., `"the"`) mutates every instance across the SSOT silently. There should be an exactly-one-occurrence requirement (or an explicit `-ReplaceAll` switch), with a count printed.
+- **Line-ending and BOM handling.** `ReadAllText(..., UTF8)` plus `WriteAllText(..., UTF8 no BOM)` will strip a BOM if the file had one, producing a whole-file diff that is not editorial. CRLF/LF mismatch between `$TargetText` (passed via a shell) and file content produces false "not found" failures. Neither is detected or normalized.
+- **No atomicity / no backup.** A crash mid-`WriteAllText` can truncate the SSOT. Use write-to-temp + `File.Replace`/move with a backup.
+- **No concurrency control.** Two simultaneous patches produce lost updates (read-modify-write race). The spec invokes `FOR UPDATE` thinking for data, but the SSOT file itself has no lock.
+- **Path traversal on `$SSOTPath`.** `Join-Path $projectRoot $SSOTPath` accepts `..\..\anything` or an absolute path. The orchestrator can point this script at *any* file, and "editorial patch" becomes a general-purpose file-write primitive. This single parameter defeats the entire chokepoint claim: the guard protects whatever file you aim it at, but the script can be aimed at other governed assets (the linter, the rules spec, the audit logs).
+- **`exit 1` after `Write-Error` with `$ErrorActionPreference='Stop'`.** `Write-Error` under `Stop` throws a terminating error, so `exit 1` is *never reached*; the process exit code will be non-zero in most hosts, but behavior varies between `powershell -File`, `-Command`, and `pwsh`. Fail-closed semantics should not depend on this. Use `throw` explicitly, or `[Console]::Error.WriteLine` followed by `exit 1`, and test the exit code in CI.
+- **Project-root derivation is fragile.** `$MyInvocation.MyCommand.Path` is null when dot-sourced or run in some hosts; the `Test-Path $projectRoot` fallback to `Get-Location` means the script can silently resolve a *different* SSOT depending on cwd.
+- **No audit trail.** The script records nothing: no who/when/what-hash, no before/after diff, no log entry. An "editorial" Fast Track with zero provenance is invisible to the very Phase 9 gate meant to police it.
+- **Error message states policy that the script cannot enforce.** It says "Direct orchestrator insertion blocked," but the orchestrator can still invoke `[System.IO.File]::WriteAllText` through any shell tool (see Section 3).
+
+### 1.4 Recommended hardening for Asset A
+
+1. **Diff-based guard, not replacement-only.** Compute the full before/after SSOT, then run guards on the *delta*: set of REQ/DDL IDs before vs. after must be identical (ID multiset equality), and any line containing a wage/rate/threshold token must be byte-identical or the patch is refused. This defeats splitting, because every call is evaluated against the cumulative state.
+2. **Structural invariants post-patch.** After applying, recompute the REQ-ID set, DDL-ID set, and a hash of "protected regions" (code fences, tables, any line matching numerics near wage vocabulary). Refuse if any changed.
+3. **Normalize before matching.** Apply Unicode NFKC normalization and strip zero-width characters (`\u200B-\u200D\u2060\uFEFF`) from both `$ReplacementText` and the full result before running patterns.
+4. **Single-occurrence rule** plus a max-delta budget (e.g., ≤ N changed characters, ≤ 1 line region, ≤ X% of file).
+5. **Pin `$SSOTPath`.** Resolve with `[IO.Path]::GetFullPath`, then assert the result is exactly the canonical SSOT path (or a short allow-list). Reject otherwise.
+6. **Cumulative rate limit / anti-split.** Maintain an append-only patch ledger (timestamp, hash-before, hash-after, delta size). Refuse if N patches in M minutes touch adjacent regions or if cumulative delta exceeds a threshold without a Heavy Track run.
+7. **Atomic write with backup and file lock**; emit a ledger entry that Phase 9 can later consume.
+
+---
+
+## 2. Asset B: `VerifySRS_Integrity.cs` Phase 9
+
+### 2.1 The gate proves existence, not audit: **CRITICAL (control validity)**
+
+The check is: *some directory under `audit/runs/` was modified in the last 24h and contains a non-empty `.txt/.md/.json`.* That is satisfied by:
+
+- An orchestrator-authored `echo "ok" > audit/runs/x/a.txt`.
+- Any unrelated audit run for a different change or different file.
+- A **failed** audit (nothing checks the verdict).
+- A run produced by the *same* model that wrote the change (no independence check, which is the entire stated threat model: "no external cross-audit").
+- A stale audit of an older SSOT revision, re-touched to be "fresh."
+- The audit's own in-progress or crashed output (non-empty partial log).
+
+The spec (4.2, line 2) promises "完了外部監査実機ログ" (completed external audit execution log) and, in 4.2 line 3, a "欠陥0件証明" (zero-defect proof). The code verifies neither "completed" (for `audit/runs/`, `.done` is not required) nor "external" nor "zero defects." **Spec-to-code divergence is the single biggest finding in this report.**
+
+Note the asymmetry: the `docs/audit_runs/` branch requires `.done` or `report.md`, while the `audit/runs/` branch accepts *any* non-empty text-ish file. The weaker branch is checked first, so the stricter one is effectively dead code from an attacker's perspective.
+
+### 2.2 `LastWriteTimeUtc` weaknesses: **HIGH**
+
+Direct answer to the posed question: timezone is *not* the problem, because `LastWriteTimeUtc` is UTC and compared to `DateTime.UtcNow`. The real vulnerabilities are:
+
+1. **Directory mtime is the wrong signal.** A directory's `LastWriteTime` changes only when an *entry is added, removed, or renamed* in it, not when a file inside is edited. Consequences:
+   - **False negative:** a legitimate long-running audit that appends to an existing `log.txt` for hours never bumps the directory mtime; the directory looks stale even though the audit is fresh. Result: spurious FATAL, commit freeze.
+   - **False positive / spoof:** `touch`-ing the directory (creating and deleting any temp file inside) makes any old audit directory look fresh. `Directory.SetLastWriteTimeUtc` is also available to any process with write access.
+2. **Backdating and forward-dating are unrestricted.** mtime is user-settable (`SetLastWriteTimeUtc`, `(Get-Item).LastWriteTime = ...`, `touch -d`). The gate trusts an attacker-writable attribute.
+3. **Clock skew.** If the audit ran on another machine (the spec says *external* audit) and results were synced via git/network drive/zip, mtimes reflect the sync/checkout time or the remote clock. A skewed or future-dated clock yields a perpetual "fresh" directory (future mtime ≥ threshold always true); there is no upper bound check (`mtime <= UtcNow + tolerance`).
+4. **Git checkout resets mtimes.** In CI or on a fresh clone, every file gets checkout-time mtime, so *all* audit directories look fresh (false pass), or, with shallow/sparse checkout, none exist (false fail). The gate's behavior then depends on how the repo was materialized, not on whether an audit occurred.
+5. **DST is not an issue** with UTC, but on FAT/exFAT volumes mtime granularity is 2 seconds and some network filesystems round or mis-report timestamps; irrelevant at 24h granularity but worth noting for any future tightening.
+6. **The 24h window is a fixed constant** independent of *when the SSOT/asset was last changed*. If the audit ran 23h ago and the asset was modified 1 minute ago, the audit predates the change but passes. If the audit is 25h old but the change landed 5 minutes ago and was legitimately audited right before, it fails. Time-since-audit is the wrong predicate; "audit covers this exact content" is the right one.
+
+### 2.3 False-positive commit-freeze risks: **MEDIUM-HIGH**
+
+Because the gate keys on wall-clock recency, it will block legitimate work in these cases:
+
+- **Multi-commit workflows.** One audit, three Heavy Track commits over 30 hours; the third is blocked despite the SSOT being unchanged since the audit.
+- **Weekends/holidays/timezones.** Friday audit, Monday commit.
+- **Long audits**, as in 2.2.1 above.
+- **Clean checkouts / CI runners** where `audit/runs/` is gitignored or absent, causing hard FATAL on every CI run. There is no environment bypass and no explicit escape hatch for incident/hotfix, which pressures operators into creating dummy files, which is exactly the spoofing path in 2.1. A control with no sanctioned break-glass invites unsanctioned break-glass.
+- **Pipeline co-location.** If Heavy Track pipeline output and audit output share directories, a pipeline run itself may satisfy the gate.
+
+### 2.4 Implementation defects: **MEDIUM**
+
+- `isHeavyTrack` is undefined in the excerpt. If the classifier is based on the same text heuristics as Asset A, Phase 9 inherits the same evasion: a change classified as "not heavy" never reaches the audit gate at all. **The fast/heavy classifier is the real trust boundary and has not been audited.**
+- `Directory.GetFiles(rd, "*.*")` is non-recursive; audits storing logs in `rd/<model>/output.md` (a likely layout for multi-model cross-audit) are missed, producing false FATALs.
+- Extension checks use case-sensitive `EndsWith`; `LOG.TXT`/`.MD` are ignored on case-insensitive filesystems. Use `StringComparison.OrdinalIgnoreCase`.
+- `.done` is accepted as evidence when merely non-empty; its content is not parsed (no verdict, no hash, no model identity).
+- No exception handling: `UnauthorizedAccessException`, `PathTooLongException`, or a directory deleted mid-enumeration throws out of the phase; whether that is fail-closed or crashes the linter into an ambiguous state depends on the caller. Define it explicitly as FATAL.
+- `LineNumber = 1, ColumnNumber = 1, ContextSnippet = filePath` are placeholders; the finding does not name which asset triggered it or which directories were considered, which makes triage hard.
+- Excessive duplication of the scan logic across the two roots; extract and unit test it.
+- Symlinks/junctions: an audit directory can be a junction pointing to an old directory with a spoofed mtime.
+
+### 2.5 Recommended redesign for Asset B
+
+Replace "recent audit exists" with **content-addressed audit attestation**:
+
+1. **Bind to content.** The audit tool writes a manifest, e.g. `audit.manifest.json`, containing: SHA-256 of the SSOT (and each governed asset) at audit time, the set of REQ/DDL IDs audited, auditor model identifier and version, start/end timestamps, defect count, verdict, and prompt/response hashes.
+2. **Gate verifies:** manifest present; `ssotSha256 == SHA256(current working-tree/staged SSOT)`; `verdict == PASS` and `defects == 0`; `auditor != author model` (independence); manifest signature valid.
+3. **Authenticate the manifest.** Minimum: HMAC with a key the orchestrator process cannot read (held by the audit runner/CI). Better: asymmetric signature (e.g., sigstore/minisign) produced by the audit runner identity, with the public key pinned in the repo. Without this, any local writer, including the orchestrator, can forge the manifest and the whole scheme reduces to the current problem.
+4. **Drop mtime from the trust path.** Use the manifest's signed timestamp for freshness if you still want a TTL, but make the *hash match* the primary criterion; then the 24h window becomes unnecessary or can be generous (e.g., 7 days) without weakening security.
+5. **Run the gate where the orchestrator cannot bypass it** (see Asset C): server-side/CI required check, not only a local pre-commit.
+6. **Define failure semantics:** any exception is FATAL; missing directories produce a clear, actionable message; provide an audited break-glass (two-person or out-of-band token) that is logged and later reconciled.
+
+---
+
+## 3. Asset C: Governance Specification
+
+### 3.1 Enforcement boundary is not "physical": **CRITICAL**
+
+Control Line 1 states that direct `edit_file` / `write_file` tool calls are "全面禁止" (fully forbidden). This is a **policy** on an agent's tool-calling behavior, not a technical control, unless the harness actually removes those tools or denies writes to the SSOT path. The spec does not say which. Consequences:
+
+- The orchestrator can modify the SSOT via `Set-Content`, `>`, `sed -i`, `python -c`, `git apply`, `git checkout -p`, an editor, or any terminal tool.
+- The orchestrator can edit the *enforcement artifacts themselves* (`patch_ssot_editorial.ps1`'s deny-list, `VerifySRS_Integrity.cs`, `dual_hardgates_specification.md`, the pre-commit hook, `isHeavyTrack` logic) and weaken the gate. **Nothing in the spec protects the guards.** The rule set must govern itself (protected-path list including the linter source, hooks, the spec, the audit key material, and CI config) or the whole structure is self-amending.
+- The orchestrator can disable the local hook (`git commit --no-verify`, `core.hooksPath` change, deleting `.git/hooks/*`, running the commit with the linter exe replaced by a stub).
+
+The title says "3大**物理的**統制線" (physical control lines), but only Line 2 has any machine enforcement, and as shown it is spoofable. Be honest in the document: today these are *procedural deterrents with detective checks*, not preventive controls. Overstating assurance is itself a governance/compliance risk (an auditor or regulator reading "physically blocked" will assume prevention).
+
+### 3.2 Control-by-control assessment
+
+**Line 1 (single choke-point).** Gaps: (a) not technically enforced; (b) `pipeline_draft_and_integrate.ps1` was not provided for audit, but it is the *heavy-path* chokepoint and the spec depends on it entirely; (c) the editorial script is itself a bypass vehicle for Heavy Track changes (Section 1); (d) the path parameter makes it a general file writer; (e) no rule prevents the orchestrator from *authoring the Codex "draft"* itself and handing it to the pipeline, so "Codex-first" is unverifiable without provenance of the draft.
+
+**Line 2 (C# hard gate).** Gaps listed in Section 2. Additionally: the spec says "ビルド・コミットを即時遮断する" (immediately blocks build and commit), but a linter executable only blocks if something *invokes it as a required step the agent cannot skip*. No hook, CI required-status check, or branch protection is described. Local-only gates are advisory against an agent with shell access.
+
+**Line 3 (evidence briefing + user approval).** This is the only control with a human in the loop, so it is the strongest *if actually enforced*, but as specified it is the weakest to verify: it is a behavioral instruction to the agent ("ユーザーの明示的承認を待機する"). There is no mechanism that makes the commit *technically* conditional on a recorded approval. An orchestrator can present a table fabricated from its own claims ("外部監査実機ログの絶対パス, 欠陥0件証明"), and a time-pressured human will approve a convincing table. The table should be **generated by the tooling** from verified manifest data (so the agent cannot author the numbers), and approval should be recorded as a signed artifact the commit gate checks.
+
+### 3.3 Specification ambiguities and missing definitions
+
+1. **Heavy vs. Fast classification is undefined.** The spec never states the decision criteria or who/what decides. If the agent self-classifies a change as "editorial," the entire Heavy Track apparatus is optional. Classification must be computed mechanically from the diff (ID-set change, protected-token change, DDL/wage vocabulary touched, delta size), never asserted.
+2. **"外部" (external) is undefined.** Is a different vendor required? A different model family? A different instance of the same model? A human? The stated threat is the orchestrator marking its own homework; the spec needs an enforceable independence criterion (e.g., auditor identity ≠ author identity, recorded in a signed manifest).
+3. **"欠陥0件" (zero defects) is undefined.** Zero *reported* defects from a model that may be non-deterministic, was given a truncated prompt, or returned an empty response is not evidence of correctness. Define severity taxonomy, required coverage (all changed REQs reviewed), and how audit *failure to run* (timeout, empty output) is distinguished from *clean pass*. Currently a non-empty log of any content passes.
+4. **Audit-to-change binding is unspecified** (see 2.1): which revision, which commit, which asset set.
+5. **Scope of "Heavy Track assets"** is unclear: SSOT only, or also DDL files, the linter, rules spec, pipeline scripts? Governance artifacts must be Heavy Track themselves.
+6. **No break-glass / incident procedure**, no expiry or review process for exceptions.
+7. **No retention policy.** Audit logs under `audit/runs/` must be tamper-evident and retained; at minimum committed or shipped to append-only storage, otherwise the evidence behind a past decision can be deleted or
+
+> [!CAUTION]
+> [TRUNCATION NOTICE] Output was truncated by Anthropic API max_tokens ceiling (8192). Findings beyond this point were not captured.

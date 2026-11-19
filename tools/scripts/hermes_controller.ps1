@@ -139,8 +139,16 @@ if ($UseCache -and (Test-Path $qwenCacheFile)) {
         # Path A: Global Hermes controller if available in local environment
         & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir -OutputFile $hermesReportCandidate | Out-Null
     } elseif (Test-Path $repoQwenScript) {
-        # Path B: Repository self-contained standalone execution (Zero-External-Dependency)
-        $auditPrompt = "Inspect the following specification/source code for architectural integrity, Labor Standards Act compliance, concurrency controls, and boundary conditions.`nTarget: $resolvedTarget`nContent:`n" + [System.IO.File]::ReadAllText($resolvedTarget, [System.Text.Encoding]::UTF8)
+        # Path B: Repository self-contained standalone execution (2-Tier Adversarial Audit Engine)
+        $auditPrompt = @"
+You are an uncompromising Red-Team Labour Standards Auditor and Adversarial Systems Architect.
+Execute a 5-stage adversarial audit across 7 attack vectors (P1 Blocked-Terminator, P2 Record-vs-Reality Divergence, P3 Boundary Instant, P4 Rule Collision, P5 Aggregation Gap, P6 Silent Default, P7 Irreversibility).
+Evaluate the following specification/source code for architectural integrity, legal paradoxes, and operational deadlocks.
+
+Target: $resolvedTarget
+Content:
+$([System.IO.File]::ReadAllText($resolvedTarget, [System.Text.Encoding]::UTF8))
+"@
         $auditPromptFile = Join-Path $hermesTempDir "prompt.txt"
         [System.IO.File]::WriteAllText($auditPromptFile, $auditPrompt, [System.Text.Encoding]::UTF8)
         $qwenRaw = & powershell -ExecutionPolicy Bypass -File $repoQwenScript -PromptFile $auditPromptFile -Seed 42 -Temperature 0.1 -Quiet

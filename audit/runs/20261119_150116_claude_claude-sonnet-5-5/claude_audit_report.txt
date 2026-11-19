@@ -1,0 +1,307 @@
+# Cross-Audit: 2-Tier Adversarial Audit Engine for Qwen 27B
+
+## 0. Verdict Summary
+
+| Area | Verdict |
+|---|---|
+| Two-tier architecture | Sound, but under-specified. Tier 1 and Tier 2 are not independent, and the merge/adjudication step is missing. |
+| "Find at least 2 fatal contradictions" | **Defective.** It guarantees false positives. Replace with a quota-free, evidence-gated mandate. |
+| Persona framing ("Ruthless Inspector / Black-Hat") | Helps with agreeableness, but amplifies hallucination at 27B/IQ3. Constrain it heavily. |
+| Few-shot examples | Highest-leverage lever, but **overfitting risk**: the model will pattern-match your 4 vectors instead of reasoning. |
+| Legal-citation reliability | **Cannot be trusted** from a quantized 27B model. Retrieval or a closed statute list is mandatory. |
+| Output schema | Not provided in the proposal; one is supplied below. |
+
+Short answer to Objective 1: a 27B IQ3_M model can detect rule-interaction paradoxes if you decompose the task into small, mechanical, verifiable steps. It cannot reliably do so from a single "be adversarial" instruction. Its failure mode in that setup is plausible-sounding invented law, not a missed finding.
+
+---
+
+## 1. Critical Flaws in the Proposal
+
+### 1.1 The quota ("at least 2 fatal contradictions") is a bug
+Forcing N findings guarantees N findings. A 27B model will fabricate to satisfy the quota, producing exactly the hallucinated statutes you want to avoid. It also destroys signal-to-noise on specs that are actually sound.
+
+**Fix:** Require *exhaustive, justified search*, not a quota. Allow `findings: []` as a first-class valid outcome, but force the model to show the search it performed (the interaction matrix in §3) so an empty result is auditable rather than lazy.
+
+### 1.2 Tier 1 / Tier 2 are not independent
+Tier 1's PASS (10/10) is exactly the signal that anchored Qwen into approval before. If Tier 2 sees Tier 1's score, anchoring returns.
+
+**Fix:** Tier 2 must run **blind to Tier 1 output**, as a separate Ollama call with a fresh context. Merge only in the controller, not in the prompt.
+
+### 1.3 Missing adjudication step
+The proposal routes findings straight to `pending_findings.json`. With a 27B model, raw Tier 2 output should be treated as *hypotheses*, not findings. There is no verifier. This is the single biggest architectural gap.
+
+**Fix:** Add a Tier 3 (cheap, deterministic or small-LLM) **Verifier/Reproducer** that re-checks each hypothesis (see §5).
+
+### 1.4 The four vectors are domain-overfit
+Vectors A to D are all derived from one incident class. The model will treat them as a closed checklist, which recreates the superficial-checklist failure at a higher level of abstraction. Vector D (leap day) is also a different category (computation edge case) from A to C (policy-interaction paradoxes).
+
+**Fix:** Keep the vectors as *seeds*, but add domain-agnostic **abstract interaction patterns** (see §3.2) so the model generalizes.
+
+### 1.5 Vector A is itself ambiguous as written
+"Age-of-majority instant" is under-specified. Under Japanese law, age is computed per the Act on Age Computation (年齢計算ニ関スル法律): a person attains an age on the day *before* the birthday (the day prior to the anniversary). A model, and a spec, can easily get this wrong. Likewise "JST 00:00 vs work-start baseline" needs a defined *work-day boundary* (does the system use calendar day or a shifted business-day cutoff?). These ambiguities must be resolved in the *spec under audit*, and Tier 2 should flag them as `AMBIGUITY` findings rather than assuming an interpretation.
+
+---
+
+## 2. Legal-Compliance Risk Review (Substantive)
+
+These are risks in the *domain logic* the audit targets. I am flagging them for human/legal verification, not asserting them as final law. Verify against current statute text.
+
+1. **Blocking `CLOCK_OUT` is evidence destruction (the core P0).** Labour-time recording is the employer's duty, and wages are owed for actual work performed regardless of whether the work was permitted. A system that refuses a termination event produces an *open-ended, inaccurate time record*. The correct pattern is **never reject a factual event; record it and raise a violation flag**. Fail-closed applies to *scheduling/authorization*, not to *recording facts*.
+
+2. **Fail-closed vs fail-open must be split by event type.** A table is needed:
+   - *Intent/authorization events* (shift assignment, `CLOCK_IN` permission): fail-closed is legitimate.
+   - *Fact-recording events* (`CLOCK_OUT`, break-end, correction): **must be append-only and always accepted**.
+
+3. **Minors' night work.** The Labor Standards Act restricts under-18 work in the late-night band, with exceptions (e.g., certain age/industry/shift cases, and the 16:00-onward and prefecture-dependent nuances). A hardcoded "22:00" rule may be right for the common case but is exactly the sort of constant a 27B model will assert confidently and wrongly. Treat any hardcoded legal threshold as **requiring a source citation from the spec itself**, not from model memory.
+
+4. **Full-payment / wage rules.** Do not let the model cite specific article numbers from memory. The proposal's own example cites "Article 24 full-wage payment"; the *concept* (wages paid in full) is well-founded, but the auditor must be prevented from generating article numbers it cannot ground (see §4, directive N3).
+
+5. **Multi-store (Vector C).** Concurrent contracts raise **aggregation of working hours across employers/stores** for statutory-hour and overtime purposes, and minor-protection limits. A per-store ledger that never aggregates is a latent violation. This is a strong, concrete check the model *can* verify mechanically (does any query/aggregation span `member_id` across `store_id`?).
+
+6. **Personal data of minors** (birthdate storage, age derivation): out of the stated scope but a compliance surface (APPI). Add as an optional low-priority vector.
+
+---
+
+## 3. Prompt Engineering Directives for Qwen 27B
+
+### 3.1 Decompose, do not "be adversarial" holistically
+A single adversarial prompt asks a 27B quantized model to simultaneously extract rules, cross-product them, simulate, and legally judge. IQ3_M quantization degrades long multi-hop coherence. Split into **mechanical stages inside one structured output**, so each step is small and checkable:
+
+1. **Extract**: list every rule/constraint as an atomic clause with an ID and a *verbatim quote*.
+2. **Extract state & events**: list every event the system must handle and every state it can enter.
+3. **Cross**: for each event, list which rules constrain it, and detect rules that *block* a factual event.
+4. **Simulate**: for each flagged intersection, walk the concrete scenario step by step with timestamps.
+5. **Judge**: only now state the consequence, with evidence pointers back to the quoted clauses.
+
+This turns "intuition" into a mechanical pipeline where hallucination has fewer places to hide.
+
+### 3.2 Domain-agnostic adversarial patterns (replace/augment vectors A-D)
+Give the model abstract patterns it can apply to *any* spec:
+
+- **P1 Blocked-Terminator:** a rule that rejects/blocks an event that *ends* or *records* a real-world state (clock-out, payment, cancellation, delete).
+- **P2 Record-vs-Reality Divergence:** a case where the system state can diverge from physical reality because an input was refused.
+- **P3 Boundary Instant:** a rule keyed to a time/threshold where two definitions of "now/the same day/age" disagree.
+- **P4 Rule Collision:** two rules both individually valid whose conjunction is unsatisfiable (deadlock) or whose disjunction leaves a gap.
+- **P5 Aggregation Gap:** a limit defined per-X but whose legal/business meaning is per-Y.
+- **P6 Silent Default:** unspecified behaviour (NULL, timeout, concurrency, retry) that defaults to an unsafe outcome.
+- **P7 Irreversibility:** an action with no correction/audit trail.
+
+Keep A-D as *worked examples* of P1/P2, P3, P5, and P3 respectively.
+
+### 3.3 Hard negative constraints (inject verbatim)
+- **N1. Evidence-or-silence:** every claim must cite a verbatim quote from the spec. No quote means the claim is discarded.
+- **N2. No quota:** report only findings you can reproduce step by step. An empty list is acceptable and correct if no reproducible defect exists.
+- **N3. No statute numbers from memory:** do not state article/section numbers. Describe the legal principle in plain language and set `legal_basis_needs_verification: true`. A deterministic post-step maps principle to citation from a vetted list.
+- **N4. Separate fact from inference:** label each claim `SPEC_QUOTE`, `DERIVED` (logically implied), or `ASSUMPTION` (not in the spec). `ASSUMPTION`-based findings are downgraded automatically.
+- **N5. No findings about things the spec does not address unless P6 (Silent Default) applies**, and in that case mark `type: UNSPECIFIED`, not `CONTRADICTION`.
+- **N6. Severity discipline:** `P0` only if you can demonstrate (a) an actual harm (wage loss, evidence loss, deadlock) and (b) a concrete reproducible scenario. Otherwise cap at `P2`.
+- **N7. No praise, no checklist-style "all good" statements** in the findings array.
+
+### 3.4 Anti-over-triggering
+- Require a **`reproduction` block** (inputs, timestamps, expected vs actual). If the model cannot fill concrete values, it must drop the finding.
+- Require a **`confidence`** in {HIGH, MEDIUM, LOW}; the controller discards LOW unless it is P0-candidate.
+- Add a **self-refutation step**: "State the strongest argument that this is NOT a defect. If the argument holds, drop the finding." This is cheap and notably reduces false positives on small models.
+- Run **N=3 samples at moderate temperature** (≈0.4-0.6) and keep only findings that recur (self-consistency). Single-sample adversarial output from a quantized model is too noisy.
+
+### 3.5 Framing for balanced compliance + red-team
+Do not present red-teaming and compliance verification as one task. Use **two sequential personas in separate calls** (or clearly delimited phases): a *Prosecutor* generates hypotheses, a *Defense Counsel* attempts refutation, and the controller keeps only the survivors. This addresses Question 2 directly.
+
+---
+
+## 4. Answers to the Three Architectural Questions
+
+### Q1. Can a quantized 27B reliably do Tier 2 without hallucinating statutes? What constraints prevent over-triggering?
+
+**Partially, and only under constraint.**
+- Reliable: structural reasoning (extracting clauses, detecting a rule that blocks an event, walking a timestamped scenario). These are mechanical and verifiable.
+- Unreliable: recalling specific statutes, article numbers, thresholds, or exceptions. IQ3_M quantization notably harms precise factual recall.
+
+**Mitigations:**
+1. Forbid legal citation generation (N3); do legal grounding in a *retrieval/lookup step* against a vetted, version-pinned statute snippet file that you control.
+2. Evidence-or-silence (N1) and the `reproduction` requirement (N6).
+3. Self-refutation plus multi-sample consensus (§3.4).
+4. A Tier 3 verifier that re-derives the scenario independently (§5).
+5. Treat Tier 2 output as **hypotheses requiring human or higher-tier sign-off for P0**. A local 27B should *surface candidates*, not be the final authority on legal violations.
+
+If you cannot afford multi-sampling, restrict Tier 2 to the structural patterns P1/P2/P4/P6/P7 (mechanical) and route P3/P5 and anything legal-threshold-dependent to escalation.
+
+### Q2. How to balance positive compliance verification with destructive red-teaming?
+
+- **Separate them.** Tier 1 owns "is the required thing present." Tier 2 owns "does the present thing break something." Do not blend them; blended prompts regress to the agreeable assistant.
+- **Keep Tier 2 blind** to Tier 1's verdict (anti-anchoring).
+- **Add a Defense phase** (Defense Counsel) so destructive output is filtered by a constructive adversary rather than by the same model's mood.
+- **Asymmetric reporting:** Tier 1 failures are cheap and deterministic; Tier 2 findings carry confidence and a refutation record. A Tier 1 PASS never suppresses a Tier 2 finding, and a Tier 2 finding never overrides a Tier 1 FAIL.
+- **Report the negative space:** require the model to output the interaction matrix it examined, so a "clean" result still proves it looked.
+
+### Q3. Recommended output schema for `scratch/pending_findings.json`
+
+Use a strict JSON object (not Markdown) so the controller can validate with a JSON Schema and reject malformed output (enforce via Ollama's `format` parameter / JSON mode with a schema).
+
+```json
+{
+  "schema_version": "1.0",
+  "audit_id": "string",
+  "tier": 2,
+  "model": "qwen-27b-iq3_m",
+  "run": { "sample_index": 0, "temperature": 0.5, "spec_hash": "sha256:..." },
+  "extracted": {
+    "rules":  [{ "rule_id": "R1", "quote": "verbatim spec text", "location": "section/line" }],
+    "events": [{ "event_id": "E1", "name": "CLOCK_OUT", "kind": "FACT_RECORDING|AUTHORIZATION" }]
+  },
+  "interaction_matrix": [
+    { "event_id": "E1", "rule_ids": ["R1"], "blocks_event": true, "pattern": "P1" }
+  ],
+  "findings": [
+    {
+      "finding_id": "F1",
+      "pattern": "P1",
+      "type": "CONTRADICTION|AMBIGUITY|UNSPECIFIED|ECONOMIC_HARM|DEADLOCK",
+      "severity": "P0|P1|P2|P3",
+      "confidence": "HIGH|MEDIUM|LOW",
+      "title": "string",
+      "evidence": [{ "rule_id": "R1", "quote": "verbatim", "claim_basis": "SPEC_QUOTE|DERIVED|ASSUMPTION" }],
+      "reproduction": {
+        "preconditions": "concrete values",
+        "steps": [{ "t": "22:00:00+09:00", "action": "...", "system_state": "..." }],
+        "expected": "string",
+        "actual": "string"
+      },
+      "harm": "plain-language consequence",
+      "refutation_considered": "strongest counter-argument and why it fails",
+      "legal_principle": "plain language only, no article numbers",
+      "legal_basis_needs_verification": true,
+      "suggested_fix": "string"
+    }
+  ],
+  "no_finding_attestation": "required if findings is empty: what was checked and why it holds",
+  "self_check": { "all_findings_have_quotes": true, "no_statute_numbers_cited": true }
+}
+```
+
+Controller-side rules: reject if any finding lacks a quote; auto-downgrade `ASSUMPTION`-based findings; auto-reject if the output contains regexes like `第\d+条|Article \d+`; require `legal_basis_needs_verification: true` always; dedupe across the N samples by `(pattern, rule_ids)` and keep findings present in at least 2 of 3.
+
+---
+
+## 5. Revised Architecture (Recommended)
+
+```
+Spec ──► Tier 1: deterministic checklist (no LLM anchoring output passed on)
+   │
+   ├──► Tier 2a: Extract (rules/events)        [LLM, temp 0.1]
+   ├──► Tier 2b: Prosecutor (hypotheses x3)    [LLM, temp 0.5, blind to Tier 1]
+   ├──► Tier 2c: Defense (refute each)         [LLM, fresh context]
+   └──► Tier 3: Verifier
+            - deterministic: quote exists in spec? no statute numbers? timestamps valid?
+            - consensus: present in >=2/3 samples?
+            - P0 candidates ──► escalate to higher-tier model / human
+   ▼
+scratch/pending_findings.json   (hypotheses, not verdicts)
+```
+
+---
+
+## 6. Production System Prompt Template (Qwen 27B)
+
+Use the model's chat template with the Ollama `format` JSON-schema constraint. Keep this as the *Prosecutor* call; run Extract and Defense as separate calls with analogous prompts.
+
+```
+SYSTEM:
+You are an adversarial specification auditor. Your only job is to find
+REPRODUCIBLE defects where rules in the specification interact in ways
+that cause real harm. You are not an assistant and you do not reassure.
+
+You work in strict stages and must complete every stage in order.
+
+STAGE 1 EXTRACT
+List every rule as an atomic clause: {rule_id, verbatim quote, location}.
+List every event the system must handle and classify each as
+FACT_RECORDING (records something that already happened, e.g. clock-out,
+payment, break-end) or AUTHORIZATION (permits/denies future action).
+
+STAGE 2 CROSS
+For each event, list the rules that constrain it. Mark blocks_event=true
+if any rule can REJECT, DELAY, or ALTER a FACT_RECORDING event.
+Apply these patterns to find candidates:
+ P1 Blocked-Terminator: a rule blocks an event that ends/records a real state.
+ P2 Record-vs-Reality: system record can diverge from what physically occurred.
+ P3 Boundary Instant: two definitions of day/time/age disagree at a boundary.
+ P4 Rule Collision: two valid rules together are unsatisfiable or leave a gap.
+ P5 Aggregation Gap: limit is per-X but its real meaning is per-Y.
+ P6 Silent Default: behaviour unspecified (null, timeout, concurrency, retry).
+ P7 Irreversibility: action with no correction or audit trail.
+
+STAGE 3 SIMULATE
+For each candidate, walk a concrete scenario with exact timestamps and
+state after each step. If you cannot give concrete values, DROP it.
+
+STAGE 4 REFUTE
+For each remaining candidate, write the strongest argument that it is NOT
+a defect. If that argument holds, DROP it.
+
+STAGE 5 REPORT
+Output ONLY JSON matching the provided schema.
+
+HARD RULES (violations invalidate your output):
+N1 Every claim MUST cite a verbatim quote from the spec. No quote = no claim.
+N2 There is NO quota. If nothing survives Stage 4, return findings: [] and
+   fill no_finding_attestation. Fabricating a finding is worse than none.
+N3 NEVER state a statute name, article number, or numeric legal threshold
+   from memory. Describe the legal PRINCIPLE in plain language and set
+   legal_basis_needs_verification=true.
+N4 Label every evidence item claim_basis: SPEC_QUOTE, DERIVED, or ASSUMPTION.
+   Do not build a P0/P1 finding on an ASSUMPTION.
+N5 If the spec is silent, report type=UNSPECIFIED (pattern P6), never CONTRADICTION.
+N6 P0 requires BOTH (a) concrete harm (wage loss, evidence loss, deadlock)
+   AND (b) a reproducible timestamped scenario. Otherwise severity <= P2.
+N7 Do not write praise, summaries, or "everything looks good" text.
+N8 Do not invent rules, fields, or behaviours that are not in the spec.
+N9 If a term is ambiguous (e.g. "day", "age", "22:00 which timezone"),
+   report type=AMBIGUITY and do NOT silently pick an interpretation.
+
+CORE PRINCIPLE (domain-independent):
+A system must never refuse to RECORD a fact that has already occurred.
+Preventing future violations (AUTHORIZATION, fail-closed) is legitimate.
+Rejecting the recording of a real event hides evidence and can cause
+unpaid or mis-recorded obligations. Always test every FACT_RECORDING
+event for this.
+
+WORKED EXAMPLE (study the reasoning, do not copy the topic):
+ Spec says: "Reject CLOCK_OUT if time >= 22:00 for minors."
+ Shallow audit: "Mentions 22:00 rule -> PASS."   <-- WRONG
+ Adversarial audit:
+   - Event CLOCK_OUT is FACT_RECORDING; rule blocks it (P1).
+   - Scenario: minor clocks in 19:00, works through 22:30, taps CLOCK_OUT 22:30.
+     Expected: record 19:00-22:30 and flag the 22:00 violation.
+     Actual: request rejected; record stays open or is truncated.
+   - Harm: real work time unrecorded or erased; wage owed for work actually
+     performed is understated; illegal work leaves no evidence.
+   - Refutation considered: "blocking prevents illegal work." Fails: the work
+     already occurred; blocking does not stop it, it only hides it.
+   - Verdict: P0, pattern P1, legal principle: wages owed in full for work
+     performed, plus duty to keep accurate time records.
+
+OUTPUT: JSON only, conforming to the schema. No prose outside JSON.
+
+USER:
+<SPEC>
+{{spec_text_with_line_numbers}}
+</SPEC>
+Begin at STAGE 1.
+```
+
+Operational notes for the Ollama runner:
+- Set `format` to the JSON Schema from §4; set `temperature` 0.4-0.6 for the Prosecutor, 0.1 for Extract/Verifier; `num_ctx` large enough to hold spec plus extraction (IQ3_M degrades with very long context, so chunk specs above ~6-8k tokens by section and audit interactions across a *rules index* rather than raw text).
+- Number the spec lines before sending so quotes are verifiable by exact-substring match in the Verifier.
+- Maintain a regression corpus: your known P0 incident plus several *clean* specs. Track recall on the incident and false-positive rate on the clean set; do not ship prompt changes that trade one for the other without data.
+
+---
+
+## 7. Residual Risks & Recommendations
+
+1. **Treat local output as triage.** Final P0 sign-off should require a stronger model or a human; the local engine's value is cheap, high-recall candidate generation.
+2. **Few-shot overfit:** rotate 2-3 differently-themed worked examples to stop the model keying on "22:00/clock-out" tokens. Test on a spec containing an analogous defect in a different domain (e.g., refund-blocking on a cancelled order).
+3. **Quantization:** if achievable, evaluate Q4_K_M or higher against IQ3_M; reasoning quality gaps between them are often larger than the speed benefit warrants for an audit task.
+4. **Legal grounding:** maintain a small, version-controlled statute/principle file the Verifier maps principles onto, with the date of last review recorded; the model
+
+> [!CAUTION]
+> [TRUNCATION NOTICE] Output was truncated by Anthropic API max_tokens ceiling (8192). Findings beyond this point were not captured.

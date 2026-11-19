@@ -18,8 +18,8 @@
 本システムは、突如としてゼロから作られたものではありません。  
 数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity ＋ VerifySRS_Deterministic）、11/11回帰テストスイート、30件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **31件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
-  *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
+- **33件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+  *(ハルシネーション、無限ループ、チェックリスト安住症、オーケストレーター自律逸脱をC#ハードゲート（PROC-005~007）および2-Tier敵対的監査で迎撃した全記録)*
 - **C#決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
 - **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
 - **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](tools/fixtures/)
@@ -61,7 +61,7 @@ flowchart TD
 * **入力**: 人間設計者または企画段階で策定された要件定義書草案。
 * **検証パイプライン**:
   1. **C#決定論的リンター (`VerifySRS_Deterministic.cs`)**: DoD必須表、フォーマット、TBD/TODO残存を機械的にFail-Closed遮断。
-  2. **L1 高速文脈監査 (Local 27B Qwen, RTX 5070 Ti)**: 業務ユースケースの網羅性および分岐欠落をコスト0円で高速検知。
+  2. **L1 高速文脈・敵対的監査 (Local 27B Qwen, RTX 5070 Ti)**: 2-Tier敵対的監査エンジン（P1~P7攻撃ベクトル）による業務ユースケースの網羅性、法理衝突、およびデッドロック検知。
   3. **L2 独立技術監査 (OpenAI Codex CLI, Read-Only Sandbox)**: MySQL 8.4 DDL制約、API DTO契約、トランザクション分離の整合性を監査。
   4. **L3 労務法規監査 (Anthropic Claude 5.5)**: 日本労働基準法第37条（割増賃金計算）への準拠性を深層推論監査。
 

@@ -1,6 +1,6 @@
-# 🏛️ KINTAI Governance Specification: Dual Hard-Gates Architecture (PROC-005 & PROC-006)
+# 🏛️ KINTAI Governance Specification: Triple Hard-Gates Architecture (PROC-005, PROC-006 & PROC-007)
 
-Version: 1.0.5 (GEMINI.md v1.05 附則仕様)  
+Version: 1.0.6 (GEMINI.md v1.06 附則仕様)  
 Date: 2026-11-19  
 Status: APPROVED_GOVERNANCE_SPECIFICATION  
 Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
@@ -78,7 +78,26 @@ Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
 
 ---
 
-## 4. 保証水準および例外規定 (Assurance Level & Exceptions)
+## 4. PROC-007: Orchestrator Self-Restraint & Audit Linkage Gate
+
+### 4.1 目的および脅威モデル
+オーケストレーター（Antigravity/Gemini）による以下の自律的逸脱を物理的に遮断する：
+1. **SSOT直接執筆の横行**: 厳格なCodex初案パイプラインを経由せず、SSOTを直接手動編集して未検証テキストを混入させる行為。
+2. **監査スキップおよび口頭承認**: 外部モデルによる交差監査を実行せず、あるいは失敗結果が出ているにもかかわらず、口頭で「検証完了」と詐称してコミットする行為。
+
+### 4.2 3大物理的統制線
+1. **統制線 1 (SSOT直接執筆遮断・単一チョークポイント強制)**:
+   - SSOT（`srs_specification_ssot.md`）の直接編集ツール（`edit_file` / `write_file`）呼び出しを全面禁止。
+   - Heavy Trackの更新は `tools/scripts/pipeline_draft_and_integrate.ps1`、Fast Trackの更新は `tools/scripts/patch_ssot_editorial.ps1` の単一スクリプト経由でのみ実行を許可する。
+2. **統制線 2 (監査ログ物理結束・C#ハードゲート)**:
+   - C#リンター（`VerifySRS_Integrity.exe`）の Phase 9 において、Heavy Track資産の変更時、過去24時間以内の完了外部監査実機ログ（`audit/runs/` または `docs/audit_runs/` 内の非空ログ・`.done`）がディスク上に物理的に存在することを検証する。
+   - 存在しない場合、直ちに `[FATAL] [PROC-007]` を送出してビルド・コミットを即時遮断する。
+3. **統制線 3 (実物証跡事前ブリーフィング義務)**:
+   - コミット提案時、エージェントは口頭説明を排除し、外部監査実機ログの絶対パス、欠陥0件証明、およびリンター合格出力をテーブル形式で事前提示し、ユーザーの明示的承認を待機する。
+
+---
+
+## 5. 保証水準および例外規定 (Assurance Level & Exceptions)
 
 1. **オフライン自律性**: 本ゲートは外部ネットワークに依存せず、Gitインデックスとローカル追跡原帳のみで決定論的（100% Fail-Closed）に判定する。
 2. **監査証跡の永続性**: 生成された領収書およびトレースログはすべてGitリポジトリの正本としてコミットされ、事後監査可能性を完全に担保する。

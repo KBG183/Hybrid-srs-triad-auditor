@@ -1,6 +1,6 @@
-# KINTAI 品質検証パイプライン 運用規約 v1.05
+# KINTAI 品質検証パイプライン 運用規約 v1.06
 
-施行日: 2026-11-17 (改定: 2026-11-18)  
+施行日: 2026-11-17 (改定: 2026-11-19)  
 適用対象: アルバイト勤怠・給与管理SaaS（KINTAI）の詳細要件定義書（SRS）作成および多層AIハイブリッド交差検証システム
 
 ---
@@ -111,9 +111,13 @@
    - 新規要件・DDL・排他制御を含む設計（Heavy Track）において、Antigravity（Gemini）が直接初案を長文生成する単独執筆（便宜主義）を厳禁とする。
    - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS_Deterministic.exe`）の検証を通過した後にのみ SSOT へ統合する。
    - 初案執筆後の交差監査においては、第1.1条の動的役割交代規約に従い、執筆者Codexの自己交差監査を排除し、Antigravity（第1監査官: アーキテクチャ・整合性）、Anthropic Claude（第2監査官: 労基法・分岐）、ローカルQwen 27B（第3監査官: 文脈・回帰）、およびC#決定論的リンターの独立4重体制で検証する。
-3. **物理的ハードゲートによる機械的強制 (PROC-005 & PROC-006)**:
+3. **物理的ハードゲートによる機械的強制 (PROC-005, PROC-006 & PROC-007)**:
    - Heavy Track資産の変更時、Gitステージングインデックス内に Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS_Integrity.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
-   - 実行時障害は `logs/incident_execution_trace.log` に自動記録され、未登録の失敗が存在する場合、またはログが改ざん・切断された場合は `[FATAL] [PROC-006]` により即時遮断される（詳細は `tools/rules/dual_hardgates_specification.md` 参照）。
+   - 実行時障害は `logs/incident_execution_trace.log` に自動記録され、未登録の失敗が存在する場合、またはログが改ざん・切断された場合は `[FATAL] [PROC-006]` により即時遮断される。
+   - **オーケストレーター自律抑制3大物理線 (`PROC-007`)**:
+     - ① **SSOT直接執筆遮断**: SSOT中核ファイル（`srs_specification_ssot.md`）の直接編集を厳禁とし、Heavy Trackは `pipeline_draft_and_integrate.ps1`、Fast Trackは `patch_ssot_editorial.ps1` の単一チョークポイント経由でのみ更新を許可する。
+     - ② **監査ログ物理結束ゲート**: Heavy Track資産の変更時、過去24時間以内の完了外部監査実機ログ（`audit/runs/` または `docs/audit_runs/` 内の非空ログ・`.done`）がディスク上に物理的に存在しない場合、C#リンターが `[FATAL] [PROC-007]` を送出してコミットを即時遮断する。
+     - ③ **実物証跡事前ブリーフィング義務**: コミット提案時、エージェントは口頭説明を排除し、外部監査生ログの絶対パス、欠陥0件証明、およびリンター合格出力をテーブル形式で事前提示する（詳細は `tools/rules/dual_hardgates_specification.md` 参照）。
 
 ---
 

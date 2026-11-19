@@ -1,0 +1,67 @@
+**Release verdict: hold PROC-007.** Asset A can truncate the live SSOT and can apply a substantive change through the editorial path. Asset B can accept a failed or unrelated audit as authorization for a Heavy Track change. Both defects affect the guarantees claimed in Section 4.
+
+This is a static inspection of the supplied excerpts. The execution policy blocked both workspace discovery and direct reading of `scratch/proc007_final_bundle.md`. I could not verify the full caller, compile the C# project, run the PowerShell script, or obtain an independent audit PASS.
+
+### Asset A — PowerShell editorial patch
+
+The excerpt has no apparent PowerShell syntax error. The highest-impact fixes concern how it decides a change is editorial and how it commits the result.
+
+| Finding | Production fix |
+|---|---|
+| **The live write can destroy the only good copy.** `WriteAllText` opens the existing destination for overwrite. Disk exhaustion, an I/O error, or process termination after truncation can leave an empty or partial SSOT. Two writers can also read the same original and silently overwrite each other’s changes. | Have both approved scripts acquire the same exclusive writer lock before reading and hold it through commit. Write a unique temporary file in the destination directory, flush and close it, validate its bytes, then call `[IO.File]::Replace($tempPath, $resolvedSSOT, $backupPath)` with a unique backup path. On replacement failure, surface the error and retain the original. Validate replacement semantics on the deployment filesystem. |
+| **The guard makes its decision on `$ReplacementText` alone.** It never examines what the patch removes or the full document it produces. Even checking both strings against the regexes would leave ordinary prose changes to wage rules undetected. | Enforce a narrow, mechanically verifiable set of editorial operations. Compare the original and candidate, preserve protected regions exactly, and send ambiguous free-text edits to Heavy Track. Keep the patterns as supplemental diagnostics. |
+| **A single request can change multiple locations.** `.Contains()` proves at least one match. `.Replace()` updates every non-overlapping occurrence. Identical target and replacement strings also produce a success message. | Require exactly one ordinal match and reject a no-op. Construct the candidate by splicing at the verified index. For intentional bulk normalization, use a separately defined transformation with a verifiable scope. |
+| **The encoding policy can silently alter untouched content.** `ReadAllText(path, Encoding.UTF8)` recognizes supported BOMs and uses a permissive UTF-8 decoder for BOM-less input. Writing with `UTF8Encoding($false)` removes a UTF-8 BOM, transcodes BOM-marked UTF-16 input, and can persist replacement characters from malformed input. Console encoding has no effect on these file APIs. | Read bytes, enforce the repository’s BOM policy explicitly, then decode with `[Text.UTF8Encoding]::new($false, $true)`. Reject malformed input before creating the candidate. Preserve the original BOM if the repository permits both UTF-8 forms. |
+| **The destination and process contract are too broad.** `$SSOTPath` lets the caller select another file, and `Join-Path` does not establish containment. `Write-Error` under `$ErrorActionPreference = 'Stop'` is terminating, so the following `exit 1` is ordinarily unreachable. `Write-Host` supplies human-readable status without a structured success result. | Pin the production entry point to the intended SSOT under a trusted root. If a path override is necessary, validate the canonical destination and account for reparse points. Use `throw` internally and one top-level error handler for the CLI exit code. Emit success only after replacement succeeds. |
+
+The replacement logic itself can be small. This assumes a validated, nonempty target and runs while the shared writer lock is held.
+
+```powershell
+$comparison = [StringComparison]::Ordinal
+$index = $content.IndexOf($TargetText, $comparison)
+if ($index -lt 0) {
+    throw 'Editorial target was not found.'
+}
+if ($content.IndexOf($TargetText, $index + 1, $comparison) -ge 0) {
+    throw 'Editorial target is ambiguous.'
+}
+if ([string]::Equals($TargetText, $ReplacementText, $comparison)) {
+    throw 'Editorial patch makes no change.'
+}
+
+$candidate = $content.Remove($index, $TargetText.Length).
+    Insert($index, $ReplacementText)
+```
+
+### Asset B — C# Phase 9
+
+**Replace the “any recent file exists” predicate first.** A nonempty `report.md` containing a failure satisfies the current condition. So does a partial report written before an auditor finishes. In `docs/audit_runs`, the `||` expressly permits either the marker or the report to authorize the change. Neither branch establishes what was reviewed.
+
+| Edge case | Behavior and correction |
+|---|---|
+| Freshness and audit identity | `DirectoryInfo.LastWriteTimeUtc` measures directory metadata. It does not establish when the audit completed, and the lower-bound-only comparison admits future timestamps. Require a final audit record containing the reviewed bundle hash, completion time, runner and prompt identities, model, endpoint, and semantic verdict. Compare the hash against the actual candidate and enforce both time bounds. |
+| Latest run and failed reviews | Enumeration stops at the first qualifying item. An older success can mask a newer failure or invalid run. Select the newest trusted run for the same candidate across both roots, then evaluate its state. Filtering to successful runs before selecting the newest would reproduce the defect. |
+| Empty, locked, or disappearing files | Empty roots, empty run folders, and zero-length files do not qualify. A nonzero `FileInfo.Length` only reads metadata and can succeed even when the report cannot be opened. Enumeration and later metadata access can also throw if permissions or contents change. Open and parse the evidence inside a narrow exception boundary. Convert I/O, access, and format failures affecting the decision into a `FATAL` finding with the path and cause. |
+| Paths, casing, and nulls | `@"audit\runs"` is valid for Windows .NET Framework 4.8. On a Unix runtime, the embedded backslash can be a literal filename character. Use `Path.Combine(projectRoot, "audit", "runs")` and `Path.Combine(projectRoot, "docs", "audit_runs")`. Validate `projectRoot` at the entry point. Successful `GetDirectories` and `GetFiles` calls return arrays, including empty arrays, so per-entry null checks add little. If suffix filtering remains, use `StringComparison.OrdinalIgnoreCase` for Windows-style matching. |
+| Enforcement outside the excerpt | The entire check depends on `isHeavyTrack`, and the shown failure path only appends a finding. Verify that the classifier covers every protected change and that a `FATAL` produces a nonzero verifier exit which the build and commit gate actually honor. |
+
+For .NET Framework 4.8, the core acceptance predicate can use `DateTimeOffset`. The example assumes the selected record has already passed strict schema validation and comes from a trusted audit writer.
+
+```csharp
+DateTimeOffset now = DateTimeOffset.UtcNow;
+bool accepted =
+    run.CompletedUtc >= now.AddHours(-24) &&
+    run.CompletedUtc <= now &&
+    run.StreamCompleted &&
+    run.ProcessExitCode == 0 &&
+    string.Equals(run.Verdict, "PASS", StringComparison.Ordinal) &&
+    run.DefectCount == 0 &&
+    string.Equals(run.BundleSha256, candidateSha256,
+                  StringComparison.OrdinalIgnoreCase);
+```
+
+Validate the required report sections and their consistency before evaluating that predicate. Publish the final record only after the runner closes and validates the report. If the orchestrator can write its own authoritative audit records, a schema and hash alone cannot establish independent approval. Protect the evidence location with a separate writer identity or verify a signature from the independent runner.
+
+### Release verification
+
+The highest-value checks are a forced temporary-write failure with a byte-for-byte unchanged SSOT, concurrent writer attempts with no lost update, ambiguous-target and invalid-UTF-8 rejection, and end-to-end verifier rejection of a failed, incomplete, future-dated, or wrong-bundle audit. Include a newer failed run after an older PASS and check the **actual build or commit exit status**. Finally, exercise a valid same-bundle PASS through the same entry point. The supplied excerpts contain no execution evidence for those cases or for Pillar 3’s explicit user-approval step.

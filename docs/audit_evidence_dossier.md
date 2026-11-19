@@ -1,7 +1,7 @@
 # 🛡️ KINTAI 多層AIハイブリッド交差検証 技術証跡書 (Living Audit Evidence Dossier)
 
 - **システム名**: 日本型シフト・勤怠・給与精算システム (KINTAI)
-- **文書バージョン**: v1.0.5 (Day 3 Slice 3 Attendance Domain & Role-Swap Quad-Audit Milestone)
+- **文書バージョン**: v1.0.7 (Day 3 Slice 3 Attendance Domain & PROC-007 Tri-Pillar Gate Milestone)
 - **ステータス**: AUDIT_VERIFIED_LIVING_DOCUMENT
 - **検証アーキテクチャ**: 4層AI交差検証（Antigravity, OpenAI Codex 6.2 Astra, Anthropic Claude 5.5, Local Qwen 27B）＋ C# Roslyn 確定論的リンター
 - **多言語ガバナンス**: GitHub公式正本は日本語（JA）標準、内部開発・確認用に対照版（`_KO.md`）をペアリング配置
@@ -169,6 +169,40 @@ Heavy Track規約に基づき、初案執筆者（OpenAI Codex）の自己承認
    - 民法第143条第2項および年齢計算に関する法律に基づき、平年における加齢起算日は「3月1日 00:00:00（2月28日 24:00:00）」として決定論的に計算することを数式仕様化。
 4. **[FINDING-CLAUDE-04] (P1) 二者承認における職務分掌（SoD）の明確化**:
    - 第1承認を店舗管理者（`ROLE_STORE_MANAGER`/`OWNER`）、第2承認を人事給与統括（`ROLE_PAYROLL_ADMIN`）とし、自己承認および同一人による二重承認をRBAC層で物理排除。
+
+---
+
+### 2.3 Day 3 (2026-11-19): Slice 3 打刻・勤怠ドメイン統合、動的役割交代規約、および2-Tier敵対的監査エンジンの確立
+
+#### ① 監査官別実測実行メトリクス (Physical Metrics)
+
+| 監査官 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 文字数 | 推論速度 | 判定結果 |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **Local Qwen 27B**<br>(2-Tier 敵対的実証) | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **142.11秒** | Input: 8,342 tok / Output: 6,718 tok | **47.3 tok/s** | **3大欠陥自律摘発** (P1, P2, P4) |
+| **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **240.5秒** | 12,850文字 (Slice 3 初案生成・DDL) | - | **PASS** (C#リンター検証通過) |
+| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **72.10秒** | Input: 12,410 tok / Output: 7,850 tok | - | **2-Tier 監査構造監修完了** |
+| **C# 決定論的リンター** | `VerifySRS_Deterministic.exe` | .NET Framework 4.8 実行バイナリ | **0.65秒** | 全17要件走査 (5大必須ヘッダー完全性) | - | **PASS (17/17)** (Zero-Korean 0件) |
+
+---
+
+#### ② 2-Tier 敵対的監査エンジン実証成果および自律摘発エビデンス
+ローカルモデル（Qwen 27B）に Claude 5.5 および Codex 監修の5段階機械的分解（`tools/rules/adversarial_audit_specification.md`）を導入し、脆弱草案（`draft.md`）に対する実証A/Bテストを実施した。
+
+- **摘発された3大核心論理欠陥**:
+  1. **P1 (Blocked-Terminator)**: 休憩復帰打刻（`BREAK_END`）がエラーで遮断された際、退勤打刻（`CLOCK_OUT`）への遷移が不可能なデッドロックを摘発。
+  2. **P2 (Record-vs-Reality Divergence)**: 年少者の深夜退勤打刻拒否により、物理的労働実績がシステム記録から消滅し労基法第24条（賃金全額払義務）違反を引き起こすゴーストワーク欠陥を自律摘発。
+  3. **P4 (Rule Collision)**: 連続勤務制約と休憩取得強制ルールの競合による運用不能状態を摘発。
+- **恒久配備**:
+  - 全域監査スクリプト（`audit_with_hermes.ps1` v1.2.0）およびリポジトリコントローラー（`hermes_controller.ps1`）に2-Tier敵対的監査プロンプトおよびJSON自動抽出エンジンを公式配備。
+
+---
+
+#### ③ オーケストレーター自律逸脱防止 3大物理的統制線（PROC-007）の配備
+オーケストレーター（Antigravity）の直接執筆・監査スキップ・自己証明の罠を完全に遮断するため、4層AI交差検証（Claude 5.5, Codex Astra, Qwen 27B, C#リンター）に基づき「PROC-007 3大物理線」を策定・配備した。
+
+1. **SSOT直接執筆遮断**: `patch_ssot_editorial.ps1`（Fast Track）および `pipeline_draft_and_integrate.ps1`（Heavy Track）による単一チョークポイント化。
+2. **監査ログ物理結束ゲート**: `VerifySRS_Integrity.cs` Phase 9 に、過去24時間以内の完了外部監査実機ログ（`audit/runs/`）存在を検証するハードゲート装填。
+3. **実物証跡事前ブリーフィング義務**: コミット前の口頭報告を排除し、外部監査生ログ絶対パスおよびリンター実行結果の提示を義務化。
 
 ---
 
