@@ -726,7 +726,7 @@ namespace SrsIntegrity.Engine
 
                         if (Directory.Exists(auditRunsDir))
                         {
-                            string[] rDirs = Directory.GetDirectories(auditRunsDir);
+                            string[] rDirs = Directory.GetDirectories(auditRunsDir, "*", SearchOption.AllDirectories);
                             foreach (string rd in rDirs)
                             {
                                 DirectoryInfo dInfo = new DirectoryInfo(rd);
@@ -762,7 +762,7 @@ namespace SrsIntegrity.Engine
 
                         if (!hasRecentAuditLog && Directory.Exists(docsAuditRunsDir))
                         {
-                            string[] rDirs = Directory.GetDirectories(docsAuditRunsDir);
+                            string[] rDirs = Directory.GetDirectories(docsAuditRunsDir, "*", SearchOption.AllDirectories);
                             foreach (string rd in rDirs)
                             {
                                 DirectoryInfo dInfo = new DirectoryInfo(rd);

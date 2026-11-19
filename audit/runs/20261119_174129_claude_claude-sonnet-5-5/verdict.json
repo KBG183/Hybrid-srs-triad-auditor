@@ -1,0 +1,62 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "claude",
+    "run_id":  "20261119_174129_claude",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "135244e8fd30d2acf4268de50a0b0ab894e9454650a2727bc65f62d293832ef4",
+    "verdict":  "WARN",
+    "findings_count":  7,
+    "p0_p1_count":  0,
+    "findings":  [
+                     {
+                         "id":  "F1",
+                         "severity":  "medium",
+                         "component":  "Check 9",
+                         "issue":  "BOM-less UTF-16 and UTF-32 BE files are not guarded; -Fix strips NUL bytes and corrupts them.",
+                         "recommendation":  "Skip or fail on files containing NUL bytes in report mode, and never auto-fix a file where NUL count is high or a UTF-16 pattern (alternating 0x00) is detected. Treat NUL as a distinct \u0027binary/wrong encoding\u0027 finding rather than a strip target."
+                     },
+                     {
+                         "id":  "F2",
+                         "severity":  "medium",
+                         "component":  "Check 9",
+                         "issue":  "UTF-16 files are skipped silently, so an encoding-policy violation passes the gate unreported.",
+                         "recommendation":  "Emit a warning or increment a separate counter for skipped UTF-16 files."
+                     },
+                     {
+                         "id":  "F3",
+                         "severity":  "medium",
+                         "component":  "Check 9",
+                         "issue":  "An exception from File.Replace aborts the entire check and is not counted toward the failure total.",
+                         "recommendation":  "Wrap the fix in try/catch, increment a failure counter, continue the loop, and fall back to Move-Item -Force if Replace is unsupported."
+                     },
+                     {
+                         "id":  "F4",
+                         "severity":  "low",
+                         "component":  "Check 9",
+                         "issue":  "Replace may not preserve ACLs or attributes on every platform; the temp file sits in the tracked directory.",
+                         "recommendation":  "Verify permission preservation on target environments; consider a temp name ignored by .gitignore."
+                     },
+                     {
+                         "id":  "F5",
+                         "severity":  "low",
+                         "component":  "Check 9",
+                         "issue":  "Stripping ESC/FF/BS silently alters content (for example ANSI sequences become literal text like \u0027[31m\u0027), and the file is rewritten with no backup. Control characters inside JSON string literals or CSV fields may be intentional.",
+                         "recommendation":  "Log the byte offsets and values removed, and consider requiring an explicit -Fix confirmation or preserving a .bak for the run."
+                     },
+                     {
+                         "id":  "F6",
+                         "severity":  "low",
+                         "component":  "patch_ssot_literal.ps1",
+                         "issue":  "The single-replace branch depends on $comparison, which is not shown. An empty $TargetText would infinite-loop in the AllowMultiple branch.",
+                         "recommendation":  "Confirm $comparison is [StringComparison]::Ordinal, and add a guard that throws if $TargetText is null or empty."
+                     },
+                     {
+                         "id":  "F7",
+                         "severity":  "info",
+                         "component":  "patch_ssot_literal.ps1",
+                         "issue":  "Ambiguity detection counts overlapping matches while replacement consumes non-overlapping ones.",
+                         "recommendation":  "Document the semantic difference."
+                     }
+                 ],
+    "created_utc":  "2026-11-19T08:41:29.3464463Z"
+}

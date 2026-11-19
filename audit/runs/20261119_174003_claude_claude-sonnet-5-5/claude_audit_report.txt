@@ -1,0 +1,82 @@
+Verdict: HOLD
+
+I can't issue PASS or WARN, because I can't inspect the fixes you describe. No patched `verify_repo_total_integrity.ps1` or `patch_ssot_literal.ps1`, no diff, and no access to `audit/runs/20261119_164051_claude/` came through in this conversation. I also have no memory of the earlier run. My original HOLD is therefore not contradicted by anything I can verify. A verdict based only on your description of the fixes would be a rubber stamp, and that defeats the purpose of a cross-audit.
+
+I'm also treating the premise skeptically in one place. Your summary says the fix for `patch_ssot_literal.ps1` replaced `String.Replace` because it was culture-sensitive. In .NET Framework 4.8, `String.Replace(string, string)` is ordinal. The culture-sensitive behavior only applies to the `Replace(string, string, StringComparison)` overload and to methods like `IndexOf(string)` and `StartsWith(string)`. If the original defect was real, the actual culprit was probably a different call, so I need to see the original code before I can tell whether the new loop fixes the real problem.
+
+What I would verify once I have the files:
+
+Check 9 (`verify_repo_total_integrity.ps1`):
+1. BOM detection only covers files with a BOM. BOM-less UTF-16 (common from Windows tools and some generators) will still be stripped and corrupted. Check for a heuristic fallback (null-byte ratio at even or odd offsets), or a policy that rejects BOM-less UTF-16 outright.
+2. Files shorter than 2 bytes must not throw on BOM inspection.
+3. UTF-32 LE (`FF FE 00 00`) begins with the UTF-16 LE BOM. A naive 2-byte check misclassifies it, which is harmless for skipping but should be an explicit decision.
+4. The 0xFF 0xFE guard must run before any stripping, not after the buffer has been modified.
+5. Atomic replace: the temp file must be in the same directory and volume as the target, because cross-volume `Move-Item` is not atomic. `File.Replace` or `File.Move` with overwrite should be preferred, since `Move-Item -Force` is not guaranteed atomic. Verify cleanup of the temp file in a `finally` block, and that file attributes, ACLs, and timestamps are preserved or intentionally reset.
+6. Rewriting must never happen when nothing changed. Check for a no-op short-circuit, since needless rewrites trigger churn and can race with other processes.
+7. Consider whether a verification script should mutate files at all. A check named "verify" that rewrites repository content is a design smell. It should report, and a separate fix step should repair.
+
+`patch_ssot_literal.ps1`:
+1. Confirm the loop uses `IndexOf(needle, pos, StringComparison.Ordinal)`. A hand-rolled loop that calls the culture-default overload `IndexOf(string, int)` would reintroduce the exact bug.
+2. Empty needle must be rejected, or the loop never advances.
+3. Overlapping matches and replacement text containing the needle must not cause re-scanning or an infinite loop. The position must advance past the inserted replacement.
+4. Preservation of BOM, encoding, and line endings on write-back.
+5. Behavior when zero matches are found, and when more than the expected number of matches occurs. An SSOT patcher should assert the expected match count.
+6. A regression test with a culture-sensitive trap string (for example, ignorable characters such as soft hyphen or zero-width joiner, run under a non-invariant culture) to prove ordinal behavior.
+
+Findings (JSON):
+
+```json
+{
+  "verdict": "HOLD",
+  "reason": "Fixes not available for inspection; verdict cannot be upgraded on self-reported claims.",
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "high",
+      "component": "verify_repo_total_integrity.ps1 / Check 9",
+      "status": "UNVERIFIED",
+      "issue": "Patched code not provided. BOM-only guard leaves BOM-less UTF-16 exposed to 0x00 stripping.",
+      "required_evidence": "Full diff plus test showing a BOM-less UTF-16 file is left byte-identical."
+    },
+    {
+      "id": "F-002",
+      "severity": "high",
+      "component": "verify_repo_total_integrity.ps1 / atomic replace",
+      "status": "UNVERIFIED",
+      "issue": "Atomicity depends on same-volume temp file and File.Replace/Move semantics; cannot confirm.",
+      "required_evidence": "Code showing temp path in target directory, finally-cleanup, and attribute/ACL handling."
+    },
+    {
+      "id": "F-003",
+      "severity": "high",
+      "component": "patch_ssot_literal.ps1",
+      "status": "UNVERIFIED",
+      "issue": "Patched code not provided. Original defect premise questionable: String.Replace(string,string) is ordinal on .NET 4.8. Real culture-sensitive call (if any) not identified.",
+      "required_evidence": "Original and patched source; confirmation that every IndexOf/StartsWith/Compare call passes StringComparison.Ordinal."
+    },
+    {
+      "id": "F-004",
+      "severity": "medium",
+      "component": "design",
+      "status": "OPEN",
+      "issue": "A verification script that mutates repository files violates separation of concerns and risks silent data change in CI.",
+      "recommendation": "Make Check 9 read-only (report and fail); move repair to an explicit opt-in fixer script."
+    },
+    {
+      "id": "F-005",
+      "severity": "medium",
+      "component": "patch_ssot_literal.ps1",
+      "status": "OPEN",
+      "issue": "No evidence of empty-needle guard, match-count assertion, or encoding/BOM/line-ending preservation.",
+      "recommendation": "Add guards and a regression test using culture-sensitive trap strings."
+    }
+  ],
+  "path_to_pass": [
+    "Provide the two patched scripts and the diff against the audited run.",
+    "Provide test evidence for: BOM-less UTF-16, UTF-16 LE/BE with BOM, UTF-8 with stray 0x00, empty file, 1-byte file.",
+    "Provide evidence that the ordinal loop advances correctly, rejects an empty needle, and passes under a non-invariant culture."
+  ]
+}
+```
+
+Send me the patched file contents and the diff, and I'll re-run the audit and upgrade to PASS or WARN if the code holds up.

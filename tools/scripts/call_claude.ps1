@@ -148,6 +148,37 @@ try {
     [System.IO.File]::WriteAllText($permReport, $outputText, [System.Text.Encoding]::UTF8)
     [System.IO.File]::WriteAllText($permRaw, $rawJson, [System.Text.Encoding]::UTF8)
 
+    # 3.1 Deterministic Sidecar Generation (verdict.json)
+    $detectedVerdict = "HOLD"
+    if ($outputText -match '(?i)(?:Stage\s*\d+\s*)?Verdict:\s*\*{0,2}(PASS|WARN|HOLD|FAIL)') {
+        $detectedVerdict = $matches[1].ToUpperInvariant()
+    }
+
+    $extractedFindings = @()
+    if ($outputText -match '(?s)```json\s*(\{.*?"findings".*?\})\s*```') {
+        try {
+            $parsedJson = $matches[1] | ConvertFrom-Json
+            if ($parsedJson.findings) {
+                $extractedFindings = @($parsedJson.findings)
+            }
+        } catch {}
+    }
+
+    $helperModule = Join-Path $scriptDir "AuditVerdictHelper.psm1"
+    if (Test-Path $helperModule) {
+        Import-Module $helperModule -Force
+        try {
+            New-AuditVerdictSidecar -OutputDir $permanentRunDir `
+                -Auditor "claude" `
+                -RunId "${runTimestamp}_claude" `
+                -RawResponsePath $permRaw `
+                -Verdict $detectedVerdict `
+                -Findings $extractedFindings | Out-Null
+        } catch {
+            Write-Warning "Failed to generate verdict sidecar: $_"
+        }
+    }
+
     $inputTokens = if ($response.usage -and $response.usage.input_tokens) { $response.usage.input_tokens } else { 0 }
     $outputTokens = if ($response.usage -and $response.usage.output_tokens) { $response.usage.output_tokens } else { 0 }
     $elapsedSec = [Math]::Max(0.01, $sw.Elapsed.TotalSeconds)

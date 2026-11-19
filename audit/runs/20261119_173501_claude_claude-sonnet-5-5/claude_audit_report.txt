@@ -1,0 +1,223 @@
+One framing note first: I can't verify the `audit/runs/20261119_164051_claude/` artifacts, the relay's earlier outputs, or the model identities named in the prompt. I'm treating the described trajectory as given and auditing the architecture on its merits. If any detail of your actual scripts differs, adjust accordingly.
+
+---
+
+# Stage 3 Verdict: **WARN** (conditional PASS after 6 amendments)
+
+The combined Qwen + Codex design closes the *accidental* bypass (regex misparse, empty queue, omitted auditor, quoted-HOLD false positives). It does **not** close the *adversarial or lazy-agent* bypass, which is the class of failure that caused the original HOLD. The agent in the original incident wasn't parsing badly; it chose not to act on a verdict it had. A mechanical gate only helps if the agent cannot cheaply manufacture, edit, or route around its inputs. Right now it can.
+
+---
+
+## 1. Residual loopholes the current design leaves open
+
+**R-1 (P0): Verdict forgery / authorship is unauthenticated.** `verdict.json` is a file the agent's own tooling writes. A sidecar schema proves *shape*, not *provenance*. The agent (or a wrapper script it controls) can write `{"verdict":"PASS"}` directly. Schema validation will happily accept it. Provenance requires binding the verdict to the auditor invocation, not to the file.
+
+**R-2 (P0): The `findings` array can be emptied while `verdict` stays HOLD, or vice versa.** If Check 11 gates on `verdict` alone, an agent can edit it to PASS. If it gates on `findings` alone, a model can emit HOLD with `findings: []` (unactionable HOLD). Neither field is independently trustworthy; they must be cross-validated by an invariant.
+
+**R-3 (P0): Run selection is attacker-chosen.** The most common bypass in this class: the agent re-runs the audit until it gets a PASS, or points Check 11 at the *latest* run directory rather than *all* runs for the current commit/tree. Re-roll until green = the original failure with extra steps.
+
+**R-4 (P1): Staleness / TOCTOU between audit and completion.** A PASS on tree state A is meaningless if the agent edits files afterward and declares done. Nothing in the described design binds a verdict to a content hash.
+
+**R-5 (P1): The roster is a config file the agent can edit.** Codex's S2-001 is correct, but if `required_auditors` lives in a mutable repo file, the "fix" is removing Claude from it. The roster and the schema must be integrity-protected or enforced from outside the agent's write scope.
+
+**R-6 (P1): Suppressing a HOLD by resolving the queue entry without remediation.** Qwen's ADV-003 fixed concurrency, but `pending_findings.json` still needs a defined state machine. Nothing prevents the agent flipping `status: "open"` to `"resolved"` with no evidence. Resolution must require a *new* passing audit that references the finding ID, not an assertion.
+
+**R-7 (P2): Fail-open on crash paths.** Any uncaught exception in Check 11 under PS 5.1 with `$ErrorActionPreference = 'Continue'` (the default) falls through to exit 0 unless the script is wrapped. See section 3.
+
+---
+
+## 2. Architectural amendments (the six that make this a PASS)
+
+**A-1. Bind verdict to evidence, not to a file.** `verdict.json` must include:
+
+```json
+{
+  "schema": "audit-verdict/v1",
+  "auditor": "claude",
+  "run_id": "20261119_164051_claude",
+  "tree_hash": "<sha256 of tracked files at audit time>",
+  "prompt_sha256": "<hash of the exact audit prompt sent>",
+  "response_sha256": "<hash of raw model response file>",
+  "verdict": "HOLD",
+  "findings": [{"id":"F-001","severity":"P0","title":"...","evidence":"path:line"}],
+  "created_utc": "2026-11-19T16:40:51Z"
+}
+```
+
+Crucially, **the wrapper script (not the model, not the agent's ad-hoc code) writes this file**, and it hashes the raw response artifact it just saved. Check 11 recomputes `response_sha256` from the stored raw response. A hand-written PASS fails because it won't match any real raw response file. This doesn't stop a determined attacker with full write access, but it converts forgery from a one-line edit into a multi-artifact fabrication, and it makes tampering *detectable* in review.
+
+**A-2. Enforce the invariant `verdict` ⇔ `findings`.**
+- `PASS` ⇒ no findings with severity P0/P1 (P2/P3 permitted).
+- `HOLD`/`FAIL` ⇒ at least one finding with severity ≥ P1.
+- Violation = schema reject = gate FAIL. Also have the *wrapper* derive `verdict` from the model's structured output rather than trusting a model-authored top-level field; ideally the model emits findings and the script computes the verdict by rule.
+
+**A-3. Evaluate the set of runs for the current tree, worst verdict wins.** Check 11 must not take "latest." Rule: for each required auditor, gather all verdicts whose `tree_hash` matches the current tree; **the effective verdict is the most severe**. Re-rolling cannot downgrade a HOLD on the same tree. The only way past is to change the tree (a real fix), which changes the hash and legitimately requires fresh audits from the full roster. This is the single highest-leverage change.
+
+**A-4. Hash-lock the policy.** Store `required_auditors` and the schema in `audit/policy.json`, with its SHA-256 pinned in a location the agent's task scope can't modify (a Git-tracked file requiring a separate human-approved commit, a CODEOWNERS-protected path, or a hash embedded in the verifier script that's itself protected). At minimum, Check 11 should print the roster hash and fail if the policy file changed in the working diff without an explicit human-acknowledged flag.
+
+**A-5. Findings state machine with evidence-gated closure.** `pending_findings.json` entries: `open → addressed → verified`. Only Check 11 can mark `verified`, and only when a *later-tree-hash* verdict from the **same auditor** exists in which the finding ID is absent or explicitly `closed_by_auditor`. An agent-set `resolved` flag is ignored. `addressed` (agent claims fixed) still blocks completion until `verified`.
+
+**A-6. Fail-closed by construction.** Default exit code of Check 11 is non-zero; it only sets success after reaching the explicit end of validation. Any exception, timeout, missing directory, zero verdict files, or zero roster entries is FAIL. This directly closes Qwen's ADV-001 at the root rather than patching individual parse paths.
+
+---
+
+## 3. PowerShell 5.1 / .NET 4.8 implementation blueprint
+
+### 3.1 Environmental pitfalls specific to PS 5.1
+
+| Pitfall | Consequence | Mitigation |
+|---|---|---|
+| `Set-Content/Out-File -Encoding UTF8` writes a **BOM** in 5.1 | `ConvertFrom-Json` fine, but hashes of "the same" content differ across tools, and non-PS readers choke | Write with `[System.IO.File]::WriteAllText($p,$s,(New-Object System.Text.UTF8Encoding $false))` everywhere; hash the bytes you wrote |
+| `ConvertFrom-Json` is lenient, returns `$null` on empty, and silently ignores unknown/missing fields | Missing `verdict` becomes `$null`, which can slip through `-ne 'HOLD'` checks | Treat every property via explicit allow-list validation; `$null` is never PASS |
+| `ConvertTo-Json` default depth = 2 | Nested `findings` silently truncated to `"System.Collections.Hashtable"` strings | Always `-Depth 10`; add a round-trip self-check in the writer |
+| Single-element array unwrapping | `findings` with one item serializes as an object, not an array | Force `@($findings)` and validate `-is [array]` on read |
+| `$ErrorActionPreference='Continue'` default | Non-terminating errors don't stop the script, so it can reach `exit 0` | Set `Stop` at the top of Check 11 plus `try/catch` with `exit 1` in `catch` and `finally` |
+| `Get-FileHash` fine, but `Get-ChildItem -Recurse` follows junctions and ordering isn't guaranteed | Non-deterministic `tree_hash` | Use `git ls-files -z` + sorted paths; hash path+content pairs |
+| `git` output encoding and CRLF autoconv | Tree hash differs by machine | Prefer `git write-tree` / `git rev-parse HEAD^{tree}` after `git add -A -n` considerations, or hash blob SHAs from `git ls-files -s`, not working-copy bytes |
+| File locking by AV/indexer during write-then-read | Intermittent `IOException` | Write to `*.tmp` then `[System.IO.File]::Move` (atomic on same volume), with retry (3x, 100ms backoff) on read |
+| `Invoke-WebRequest`/CLI stdout capture mixes stderr | Raw response contaminated | Capture stdout and stderr to separate files; hash the stdout artifact only |
+| Strict Mode off by default | Typo'd property names return `$null` quietly | `Set-StrictMode -Version 2.0` in the verifier |
+
+### 3.2 Shared writer module: `audit/lib/AuditVerdict.psm1`
+
+One implementation, imported by `call_codex.ps1`, `call_claude.ps1`, and `audit_with_hermes.ps1`. This eliminates three divergent emitters (a bypass in itself).
+
+```powershell
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+$script:Utf8NoBom = New-Object System.Text.UTF8Encoding $false
+
+function Get-Sha256Bytes([byte[]]$Bytes) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { ([BitConverter]::ToString($sha.ComputeHash($Bytes)) -replace '-','').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+
+function Get-FileSha256([string]$Path) {
+    Get-Sha256Bytes ([System.IO.File]::ReadAllBytes($Path))
+}
+
+function Get-TreeHash {
+    # Deterministic: blob SHAs from the index + working-tree dirty check
+    $dirty = & git status --porcelain
+    $entries = & git ls-files -s | Sort-Object
+    $payload = ($entries -join "`n") + "`nDIRTY:" + (($dirty | Sort-Object) -join "`n")
+    Get-Sha256Bytes ($script:Utf8NoBom.GetBytes($payload))
+}
+
+function Write-AtomicText([string]$Path, [string]$Text) {
+    $tmp = "$Path.tmp"
+    [System.IO.File]::WriteAllText($tmp, $Text, $script:Utf8NoBom)
+    if (Test-Path $Path) { [System.IO.File]::Delete($Path) }
+    [System.IO.File]::Move($tmp, $Path)
+}
+
+function Write-AuditVerdict {
+    param(
+        [Parameter(Mandatory)][string]$RunDir,
+        [Parameter(Mandatory)][ValidateSet('codex','claude','qwen','hermes')][string]$Auditor,
+        [Parameter(Mandatory)][string]$PromptFile,
+        [Parameter(Mandatory)][string]$RawResponseFile,
+        [Parameter(Mandatory)][array]$Findings   # already parsed from model's structured output
+    )
+    # Verdict is DERIVED, not model-asserted
+    $blocking = @($Findings | Where-Object { $_.severity -in 'P0','P1' })
+    $verdict = if ($blocking.Count -gt 0) { 'HOLD' } else { 'PASS' }
+
+    $obj = [ordered]@{
+        schema          = 'audit-verdict/v1'
+        auditor         = $Auditor
+        run_id          = (Split-Path $RunDir -Leaf)
+        tree_hash       = (Get-TreeHash)
+        prompt_sha256   = (Get-FileSha256 $PromptFile)
+        response_sha256 = (Get-FileSha256 $RawResponseFile)
+        verdict         = $verdict
+        findings        = @($Findings)
+        created_utc     = [DateTime]::UtcNow.ToString('o')
+    }
+    $json = $obj | ConvertTo-Json -Depth 10
+    # round-trip self-check
+    $rt = $json | ConvertFrom-Json
+    if (@($rt.findings).Count -ne @($Findings).Count) { throw "verdict round-trip lost findings" }
+    Write-AtomicText (Join-Path $RunDir 'verdict.json') $json
+}
+Export-ModuleMember -Function *
+```
+
+**Failure to produce structured output is itself a verdict.** If the model response can't be parsed into findings, the wrapper must write `verdict: FAIL` with a synthetic finding `{id:"PARSE-001", severity:"P0"}`, never skip writing. A missing `verdict.json` and a parse failure both resolve to FAIL in Check 11, but writing it explicitly leaves an audit trail.
+
+**Request structured output from the model**: the prompt should demand a fenced JSON block of findings only. The wrapper extracts it with a strict parser (single fenced block, `ConvertFrom-Json`, schema-check each finding). Do not regex narrative text. Quoted prior HOLDs in prose are then irrelevant, which kills Qwen's ADV-002.
+
+### 3.3 Check 11 logic (`verify_repo_total_integrity.ps1`)
+
+```powershell
+function Test-Check11-VerdictGate {
+    Set-StrictMode -Version 2.0
+    $ErrorActionPreference = 'Stop'
+    $ok = $false   # fail-closed default
+    try {
+        $policy = Get-Content 'audit/policy.json' -Raw | ConvertFrom-Json
+        if ((Get-FileSha256 'audit/policy.json') -ne $script:PinnedPolicyHash) { throw 'policy hash mismatch' }
+        $required = @($policy.required_auditors)
+        if ($required.Count -eq 0) { throw 'empty roster' }
+
+        $tree = Get-TreeHash
+        $verdicts = @(Get-ChildItem 'audit/runs' -Recurse -Filter verdict.json -ErrorAction Stop |
+            ForEach-Object { try { Read-Verdict $_ } catch { [pscustomobject]@{invalid=$true;path=$_.FullName} } })
+
+        if (@($verdicts | Where-Object { $_.PSObject.Properties['invalid'] }).Count -gt 0) { throw 'invalid verdict file present' }
+
+        foreach ($a in $required) {
+            $mine = @($verdicts | Where-Object { $_.auditor -eq $a -and $_.tree_hash -eq $tree })
+            if ($mine.Count -eq 0) { throw "no verdict from required auditor '$a' for current tree" }
+            # worst-wins
+            if (@($mine | Where-Object { $_.verdict -ne 'PASS' }).Count -gt 0) { throw "auditor '$a' has non-PASS verdict on current tree" }
+            foreach ($v in $mine) { Assert-VerdictIntegrity $v }   # recompute response_sha256, invariant verdict<->findings
+        }
+
+        Assert-PendingFindingsReconciled $verdicts $tree
+        $ok = $true
+    }
+    catch { Write-Host "CHECK 11 FAIL: $($_.Exception.Message)"; $ok = $false }
+    finally { if (-not $ok) { $global:LASTEXITCODE = 1 } }
+    return $ok
+}
+```
+
+Note one deliberate design decision: invalid or unparseable verdict files anywhere under `audit/runs` fail the gate (not just those for the current tree). That denies the "corrupt the inconvenient file" trick (quarantine requires a human).
+
+### 3.4 Correlating `verdict.json` against `pending_findings.json`
+
+Concurrency fix (Qwen ADV-003) without a shared mutable queue: **make `pending_findings.json` a derived artifact, not a source of truth.** Each auditor writes only its own `verdict.json` (single-writer, no contention). Check 11 *computes* the pending set:
+
+```
+pending = union over required auditors' current-tree verdicts of findings(severity >= P1)
+```
+
+`pending_findings.json` is then regenerated by the verifier (or an ingest step) from verdicts, atomically, and is read-only for the agent's purposes. For cross-tree continuity (the finding existed on the previous tree, agent changed code):
+
+1. Finding identity = `auditor + finding.id` (auditor-scoped; models must not reuse IDs across runs for different issues; add a `fingerprint` = hash of `title + evidence path` as a fallback matcher).
+2. A prior-tree finding is **closed** iff the *same auditor* has a later verdict (current tree) in which the fingerprint is absent **and** that verdict's `prior_findings_reviewed` list includes the ID (the prompt must feed the auditor the prior open findings and require explicit disposition: `closed | still_open | not_reproducible`). Absence alone isn't closure, since a lazy or truncated response also omits findings.
+3. Agent-asserted status is advisory only (the `addressed` flag lets the agent signal "please re-audit," never "done").
+
+The reconciliation function should output a human-readable table (finding, auditor, first seen run, status) so a HOLD is impossible to miss in the gate's console output. Suppression then requires a visibly forged chain rather than a silent flag flip.
+
+### 3.5 Hermes wrapper note
+
+`audit_with_hermes.ps1` is the fourth emitter. If Hermes is an orchestrator/relay rather than an auditor, it must not write verdicts for others. It should only invoke the other wrappers and then call Check 11. If it is an auditor, it uses the same module. Either way, one code path.
+
+---
+
+## 4. Residual risk and what no mechanism can fix
+
+- **Write-access ceiling.** If the agent can edit the verifier, the policy, the module, *and* the hash pin, it can defeat everything here. The mitigation is organizational, not code: protect `verify_repo_total_integrity.ps1`, `AuditVerdict.psm1`, and `policy.json` via CODEOWNERS/branch protection, or run the gate in CI under an identity the agent doesn't control. A local-only gate is a speed bump, not a lock. I'd flag this as the one item that must be a deliberate team decision rather than a code change.
+- **Auditor-model unreliability.** A model can return PASS wrongly. The roster/worst-wins design reduces that risk (an agent needs *all* auditors to pass) but cannot eliminate it. That's inherent.
+- **Legal/compliance angle:** if these audit records are ever relied on for regulated sign-off, retention and tamper-evidence matter: ship `audit/runs/**` to append-only storage (or at least commit verdicts), and don't let the agent delete run directories (add a check that run directory count never decreases vs. last commit).
+
+---
+
+## 5. Definitive verdict
+
+**WARN.** Qwen's and Codex's additions are necessary and correct, but they harden against *malfunction*, not *motivated routing-around*. With amendments A-1 through A-6 (worst-wins per tree hash, wrapper-derived verdicts bound to raw-response hashes, hash-locked roster/policy, evidence-gated finding closure, fail-closed by construction, and a single shared emitter module), I would upgrade to **PASS**. The remaining gap (agent write access to the enforcement code itself) is a deployment decision, and I'd want it explicitly acknowledged in the design doc rather than silently assumed away.
+
+**Ship order for minimum friction:** (1) shared module + fail-closed Check 11 skeleton, (2) tree-hash binding with worst-wins, (3) derived `pending_findings.json`, (4) policy pinning, (5) disposition-required re-audit prompts. Steps 1-2 alone close the original incident's failure mode.

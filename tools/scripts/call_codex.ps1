@@ -174,6 +174,37 @@ if ($exitCode -eq 0 -and (-not [string]::IsNullOrWhiteSpace($lastMsg))) {
     [System.IO.File]::WriteAllText($permReport, $lastMsg, [System.Text.Encoding]::UTF8)
     [System.IO.File]::WriteAllText($permLog, $allLogs, [System.Text.Encoding]::UTF8)
 
+    # 4.1 Deterministic Sidecar Generation (verdict.json)
+    $detectedVerdict = "HOLD"
+    if ($lastMsg -match '(?i)(?:Stage\s*\d+\s*)?Verdict[\s—:\*]+(PASS|WARN|HOLD|FAIL)') {
+        $detectedVerdict = $matches[1].ToUpperInvariant()
+    }
+
+    $extractedFindings = @()
+    if ($lastMsg -match '(?s)```json\s*(\{.*?"findings".*?\})\s*```') {
+        try {
+            $parsedJson = $matches[1] | ConvertFrom-Json
+            if ($parsedJson.findings) {
+                $extractedFindings = @($parsedJson.findings)
+            }
+        } catch {}
+    }
+
+    $helperModule = Join-Path $scriptDir "AuditVerdictHelper.psm1"
+    if (Test-Path $helperModule) {
+        Import-Module $helperModule -Force
+        try {
+            New-AuditVerdictSidecar -OutputDir $permanentRunDir `
+                -Auditor "codex" `
+                -RunId "${runTimestamp}_codex" `
+                -RawResponsePath $permReport `
+                -Verdict $detectedVerdict `
+                -Findings $extractedFindings | Out-Null
+        } catch {
+            Write-Warning "Failed to generate verdict sidecar: $_"
+        }
+    }
+
     $summary = "[CODEX SUMMARY] Status: SUCCESS | Elapsed: ${elapsedSec}s | Length: ${msgLength} chars | PermanentArchive: $permReport"
     Write-Output $summary
     if ($VerboseOutput) {

@@ -81,7 +81,16 @@ if (-not $AllowMultiple) {
     }
     $newContent = $content.Remove($firstIndex, $TargetText.Length).Insert($firstIndex, $ReplacementText)
 } else {
-    $newContent = $content.Replace($TargetText, $ReplacementText)
+    # Enforce pure ordinal replacement to avoid culture-sensitive behavior in .NET Framework 4.8
+    $sb = New-Object System.Text.StringBuilder
+    $pos = 0
+    while (($idx = $content.IndexOf($TargetText, $pos, [System.StringComparison]::Ordinal)) -ge 0) {
+        $null = $sb.Append($content.Substring($pos, $idx - $pos))
+        $null = $sb.Append($ReplacementText)
+        $pos = $idx + $TargetText.Length
+    }
+    $null = $sb.Append($content.Substring($pos))
+    $newContent = $sb.ToString()
 }
 
 # 6. Post-Patch Integrity Scan (Control characters check)

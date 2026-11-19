@@ -32,7 +32,7 @@ $hasFailure = $false
 # -------------------------------------------------------------------------
 # Test 1: Tracked Files Sensitive Data & Zero-Korean Scan
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 1/10] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 1/11] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
 $trackedFiles = git ls-files
 if (-not $trackedFiles -or $trackedFiles.Count -eq 0) {
     Write-Host "  [FATAL ERROR] git ls-files returned 0 files! Repository unreadable." -ForegroundColor Red
@@ -88,7 +88,7 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 2: CSV Column Cardinality & RFC 4180 Integrity
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 2/10] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 2/11] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
 $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
 $csvFiles = @("logs\local_token_ledger.csv", "logs\cloud_api_token_ledger.csv", "logs\codex_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
 $csvFail = $false
@@ -111,7 +111,7 @@ if (-not $csvFail) {
 # -------------------------------------------------------------------------
 # Test 3: Dashboard Matrix Mathematical & Logical Consistency
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 3/10] Verifying Dashboard Matrix Logical Coherence..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 3/11] Verifying Dashboard Matrix Logical Coherence..." -ForegroundColor Yellow
 $metricsPath = Join-Path $projectRoot "logs\pipeline_metrics.md"
 $metricsContent = [System.IO.File]::ReadAllText($metricsPath, [System.Text.Encoding]::UTF8)
 
@@ -150,7 +150,7 @@ if ($matrixError) {
 # -------------------------------------------------------------------------
 # Test 4: Dual-Linter Pipeline Hard-Gate Wiring
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 4/10] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 4/11] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
 $controllerPath = Join-Path $scriptDir "hermes_controller.ps1"
 $controllerText = [System.IO.File]::ReadAllText($controllerPath, [System.Text.Encoding]::UTF8)
 
@@ -167,7 +167,7 @@ if ($hasIntegrity -and $hasDeterministic) {
 # -------------------------------------------------------------------------
 # Test 5: C# Deterministic Regression Testbed (11/11)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 5/10] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 5/11] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
 $regExe = Join-Path $scriptDir "TestV52Suite_Regression.exe"
 $regOut = & $regExe 2>&1
 if ($LASTEXITCODE -eq 0) {
@@ -180,7 +180,7 @@ if ($LASTEXITCODE -eq 0) {
 # -------------------------------------------------------------------------
 # Test 6: UTF-8 BOM Zero Tolerance Hard-Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 6/10] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 6/11] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
 $bomHits = 0
 foreach ($f in $trackedFiles) {
     $fullPath = Join-Path $projectRoot $f
@@ -209,7 +209,7 @@ if ($bomHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 7: PowerShell Scripts Syntax & Fail-Fast Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 7/10] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 7/11] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
 $ps1Files = Get-ChildItem -Path (Join-Path $projectRoot "tools\scripts") -Filter "*.ps1"
 $ps1Fail = 0
 foreach ($ps in $ps1Files) {
@@ -240,7 +240,7 @@ if ($ps1Fail -eq 0) {
 # -------------------------------------------------------------------------
 # Test 8: Status Ledger Duplicate Bullet & Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 8/10] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 8/11] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
 $csPath = Join-Path $projectRoot "logs\CURRENT_STATUS.md"
 if (-not (Test-Path $csPath)) {
     Write-Host "  [INTEGRITY ERROR] CURRENT_STATUS.md does not exist at: $csPath" -ForegroundColor Red
@@ -264,7 +264,7 @@ if (-not (Test-Path $csPath)) {
 }
 
 # -------------------------------------------------------------------------
-# Test 8.1: Daily Audit Evidence Dossier Freshness Gate
+# Test 8.1: Daily Audit Evidence Dossier Freshness Gate (JA & KO Dual-Gate)
 # -------------------------------------------------------------------------
 $dossierPath = Join-Path $projectRoot "docs\audit_evidence_dossier.md"
 if (Test-Path $dossierPath) {
@@ -278,16 +278,35 @@ if (Test-Path $dossierPath) {
     }
 }
 
+$koDossierPath = Join-Path $projectRoot "docs\audit_evidence_dossier_KO.md"
+if (Test-Path $koDossierPath) {
+    $todayStr = (Get-Date).ToString("yyyy-MM-dd")
+    $koDossierText = [System.IO.File]::ReadAllText($koDossierPath, [System.Text.Encoding]::UTF8)
+    if ($koDossierText -notmatch [regex]::Escape($todayStr)) {
+        Write-Host "  [FATAL DOSSIER STALE] audit_evidence_dossier_KO.md is missing today's date ($todayStr) section!" -ForegroundColor Red
+        $hasFailure = $true
+    } else {
+        Write-Host "  -> PASS: audit_evidence_dossier_KO.md firmly contains today's ($todayStr) audit evidence section." -ForegroundColor Green
+    }
+}
+
 # -------------------------------------------------------------------------
 # Test 9: Invisible Control Characters Gate (BEL/BS/FF/ESC etc.)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 9/10] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 9/11] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
 $ctrlScanFiles = $trackedFiles | Where-Object { $_ -match '\.(md|java|json|ps1|csv)$' }
 $ctrlHits = 0
 foreach ($f in $ctrlScanFiles) {
     $fullPath = Join-Path $projectRoot $f
     if (-not (Test-Path $fullPath)) { continue }
     $bytes = [System.IO.File]::ReadAllBytes($fullPath)
+    
+    # 1. Guard against UTF-16 BOM (LE: 0xFF 0xFE, BE: 0xFE 0xFF)
+    # Avoid stripping 0x00 (NUL) bytes in UTF-16 encoded files
+    if ($bytes.Length -ge 2 -and (($bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) -or ($bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF))) {
+        continue
+    }
+
     $hasCtrl = $false
     for ($i = 0; $i -lt $bytes.Length; $i++) {
         $b = $bytes[$i]
@@ -305,8 +324,17 @@ foreach ($f in $ctrlScanFiles) {
                     $cleaned.Add($byteVal)
                 }
             }
-            [System.IO.File]::WriteAllBytes($fullPath, $cleaned.ToArray())
-            Write-Host "  [AUTO-FIXED] ${f}: Stripped invisible control characters." -ForegroundColor Cyan
+            # Atomic file replace (Avoid in-place write corruption)
+            $tempPath = "$fullPath.tmp.$([System.Guid]::NewGuid().ToString('N'))"
+            try {
+                [System.IO.File]::WriteAllBytes($tempPath, $cleaned.ToArray())
+                [System.IO.File]::Replace($tempPath, $fullPath, $null)
+                Write-Host "  [AUTO-FIXED] ${f}: Stripped invisible control characters." -ForegroundColor Cyan
+            } finally {
+                if (Test-Path $tempPath) {
+                    Remove-Item -Force $tempPath -ErrorAction SilentlyContinue
+                }
+            }
         } else {
             Write-Host "  [CONTROL CHAR DETECTED] ${f} has non-printable control characters!" -ForegroundColor Red
             $ctrlHits++
@@ -323,7 +351,7 @@ if ($ctrlHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 10: Markdown Relative Link Physical Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 10/10] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 10/11] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
 $allMdFiles = Get-ChildItem -Path $projectRoot -Filter "*.md" -Recurse | Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.FullName -notmatch '\\scratch\\' }
 $brokenCount = 0
 $checkedLinkCount = 0
@@ -351,6 +379,83 @@ if ($brokenCount -eq 0) {
 } else {
     Write-Host "  -> FAIL: Found $brokenCount broken relative hyperlinks in repository." -ForegroundColor Red
     $hasFailure = $true
+}
+
+# -------------------------------------------------------------------------
+# Test 11: External Audit Verdict & Sidecar Fail-Closed Gate (Worst Verdict Wins)
+# -------------------------------------------------------------------------
+Write-Host "`n>>> [Check 11/11] Verifying External Audit Verdicts & Sidecars (Worst Verdict Wins)..." -ForegroundColor Yellow
+$auditRunsDirs = @(
+    (Join-Path $projectRoot "audit\runs"),
+    (Join-Path $projectRoot "docs\audit_runs")
+)
+
+$thresholdTime = [System.DateTime]::UtcNow.AddHours(-24)
+$recentVerdicts = @()
+$sidecarFails = 0
+
+foreach ($ard in $auditRunsDirs) {
+    if (-not (Test-Path $ard)) { continue }
+    $verdictFiles = Get-ChildItem -Path $ard -Filter "verdict.json" -Recurse
+    foreach ($vf in $verdictFiles) {
+        if ($vf.LastWriteTimeUtc -ge $thresholdTime) {
+            try {
+                $vJson = [System.IO.File]::ReadAllText($vf.FullName, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+                if ($vJson.schema -ne "audit-verdict/v1" -or (-not $vJson.verdict)) {
+                    Write-Host "  [INVALID SIDECAR] $($vf.FullName) does not conform to audit-verdict/v1 schema." -ForegroundColor Red
+                    $sidecarFails++
+                    continue
+                }
+
+                # Verify response hash binding if raw response path is present
+                $runDir = $vf.DirectoryName
+                $possibleRaws = Get-ChildItem -Path $runDir -Filter "*raw*.json"
+                if ($possibleRaws.Count -gt 0) {
+                    $rawBytes = [System.IO.File]::ReadAllBytes($possibleRaws[0].FullName)
+                    $sha = [System.Security.Cryptography.SHA256]::Create()
+                    $calcSha = ([BitConverter]::ToString($sha.ComputeHash($rawBytes)) -replace '-', '').ToLowerInvariant()
+                    $sha.Dispose()
+                    if ($vJson.response_sha256 -ne "NONE" -and $calcSha -ne $vJson.response_sha256) {
+                        Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 mismatch! Raw artifact was modified." -ForegroundColor Red
+                        $sidecarFails++
+                        continue
+                    }
+                }
+
+                $recentVerdicts += [PSCustomObject]@{
+                    Auditor = $vJson.auditor
+                    Verdict = $vJson.verdict.ToString().ToUpperInvariant()
+                    RunId = $vJson.run_id
+                    P0P1Count = $vJson.p0_p1_count
+                    Path = $vf.FullName
+                    Time = $vf.LastWriteTimeUtc
+                }
+            } catch {
+                Write-Host "  [CORRUPT SIDECAR] $($vf.FullName): $_" -ForegroundColor Red
+                $sidecarFails++
+            }
+        }
+    }
+}
+
+# Group by auditor and evaluate Worst Verdict Wins
+$hasAdverseVerdict = $false
+$auditorGroups = $recentVerdicts | Group-Object -Property Auditor
+
+foreach ($ag in $auditorGroups) {
+    $latest = $ag.Group | Sort-Object -Property Time -Descending | Select-Object -First 1
+    # Check if latest verdict in the active window on this auditor issued HOLD or FAIL
+    if ($latest.Verdict -eq "HOLD" -or $latest.Verdict -eq "FAIL") {
+        Write-Host "  [UNRESOLVED ADVERSE VERDICT] Auditor '$($ag.Name)' has unresolved $($latest.Verdict) verdict in: $($latest.Path)" -ForegroundColor Red
+        $hasAdverseVerdict = $true
+    }
+}
+
+if ($sidecarFails -gt 0 -or $hasAdverseVerdict) {
+    Write-Host "  -> FAIL: Active adverse external audit verdicts exist! Fix defects and obtain a PASS verdict." -ForegroundColor Red
+    $hasFailure = $true
+} else {
+    Write-Host "  -> PASS: All active external audit sidecars ($($recentVerdicts.Count) found) satisfy Fail-Closed clean integrity." -ForegroundColor Green
 }
 
 Write-Host "`n=================================================================" -ForegroundColor Cyan

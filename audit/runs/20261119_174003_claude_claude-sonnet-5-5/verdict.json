@@ -1,0 +1,53 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "claude",
+    "run_id":  "20261119_174003_claude",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "2f160c48c3762cf0b1e3bb197f01f3a163185f28eeae4069b18834689cdffb4c",
+    "verdict":  "HOLD",
+    "findings_count":  5,
+    "p0_p1_count":  0,
+    "findings":  [
+                     {
+                         "id":  "F-001",
+                         "severity":  "high",
+                         "component":  "verify_repo_total_integrity.ps1 / Check 9",
+                         "status":  "UNVERIFIED",
+                         "issue":  "Patched code not provided. BOM-only guard leaves BOM-less UTF-16 exposed to 0x00 stripping.",
+                         "required_evidence":  "Full diff plus test showing a BOM-less UTF-16 file is left byte-identical."
+                     },
+                     {
+                         "id":  "F-002",
+                         "severity":  "high",
+                         "component":  "verify_repo_total_integrity.ps1 / atomic replace",
+                         "status":  "UNVERIFIED",
+                         "issue":  "Atomicity depends on same-volume temp file and File.Replace/Move semantics; cannot confirm.",
+                         "required_evidence":  "Code showing temp path in target directory, finally-cleanup, and attribute/ACL handling."
+                     },
+                     {
+                         "id":  "F-003",
+                         "severity":  "high",
+                         "component":  "patch_ssot_literal.ps1",
+                         "status":  "UNVERIFIED",
+                         "issue":  "Patched code not provided. Original defect premise questionable: String.Replace(string,string) is ordinal on .NET 4.8. Real culture-sensitive call (if any) not identified.",
+                         "required_evidence":  "Original and patched source; confirmation that every IndexOf/StartsWith/Compare call passes StringComparison.Ordinal."
+                     },
+                     {
+                         "id":  "F-004",
+                         "severity":  "medium",
+                         "component":  "design",
+                         "status":  "OPEN",
+                         "issue":  "A verification script that mutates repository files violates separation of concerns and risks silent data change in CI.",
+                         "recommendation":  "Make Check 9 read-only (report and fail); move repair to an explicit opt-in fixer script."
+                     },
+                     {
+                         "id":  "F-005",
+                         "severity":  "medium",
+                         "component":  "patch_ssot_literal.ps1",
+                         "status":  "OPEN",
+                         "issue":  "No evidence of empty-needle guard, match-count assertion, or encoding/BOM/line-ending preservation.",
+                         "recommendation":  "Add guards and a regression test using culture-sensitive trap strings."
+                     }
+                 ],
+    "created_utc":  "2026-11-19T08:40:03.9720600Z"
+}
