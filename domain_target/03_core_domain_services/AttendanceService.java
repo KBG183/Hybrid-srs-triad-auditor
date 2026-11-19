@@ -18,6 +18,10 @@ import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * 勤怠管理コアサービス
+ * @requirement REQ-ATTEND-001 (リアルタイム打刻および打刻変更申請・承認ワークフロー)
+ */
 public class AttendanceService {
 
     private final AttendanceMapper attendanceMapper;
@@ -30,6 +34,9 @@ public class AttendanceService {
      * リアルタイム打刻処理（出勤・休憩開始・休憩終了・退勤）
      */
     @Transactional
+    /**
+     * @requirement REQ-ATTEND-001 (打刻トランザクション・悲観的ロック・二重打刻防止)
+     */
     public AttendanceDto punch(AttendancePunchDto punchDto) {
         if (punchDto == null) {
             throw new IllegalArgumentException("打刻データは必須です。");
@@ -184,6 +191,9 @@ public class AttendanceService {
      * 勤怠修正申請の登録（スタッフ申請）
      */
     @Transactional
+    /**
+     * @requirement REQ-ATTEND-001 (打刻修正申請・整合性検証)
+     */
     public Long requestModification(AttendanceModRequestDto requestDto) {
         if (requestDto == null) {
             throw new IllegalArgumentException("修正申請データが空です。");
@@ -368,6 +378,9 @@ public class AttendanceService {
      * 店長による勤怠修正申請の承認または却下処理
      */
     @Transactional
+    /**
+     * @requirement REQ-ATTEND-001 (打刻修正承認・不変スナップショット適用)
+     */
     public void reviewModification(Long modRequestId, Long reviewerId, AttendanceModReviewDto reviewDto) {
         if (reviewDto == null || reviewDto.getAction() == null) {
             throw new IllegalArgumentException("審査アクションは必須です。");

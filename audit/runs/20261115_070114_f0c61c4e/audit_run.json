@@ -14,7 +14,7 @@
     "num_ctx":  24576,
     "seed":  42,
     "temperature":  0.1,
-    "target_file":  "<PROJECT_ROOT>\\config/\srs_specification_ssot.md",
+    "target_file":  "<PROJECT_ROOT>/config/srs_specification_ssot.md",
     "target_sha256":  "f0c61c4e1be6cfc0b837bb74951996eed269cae3640ca36fc07fc85d4b5b583f",
     "git_head":  "UNKNOWN",
     "script_sha256":  "d94df24a6df2c97a51d25c5016403eb44f676cbd456f648752b3e2cbc5841b0e",

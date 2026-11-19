@@ -321,7 +321,7 @@ flowchart TD
 | R-19 | 36協定の2〜6か月連続平均と協定起算日境界 | 起算日をまたぐ連続期間の単体テスト |
 | R-20 | プロジェクトで固定されたGradle Wrapper 9.8.1と公開済みGradle 9.8.2の差分・互換性 | リリースノート確認後、Wrapper更新と全ビルド・テスト・CIを実行するか判断 |
 | R-21 | `build.gradle`のSpring Boot 4.0.8と公開済み4.0.9のバグ修正・依存関係・BOM互換性 | 変更内容を確認し、依存関係解決・起動・コンパイル・テストを実施してから更新判断 |
-| R-22 | `audit_prompt_spec.md`、`hermes_*_audit.md`、Ollama原本ログ、監査時点ソーススナップショットの保存先・Git版 | 実リポジトリ内の存在、相対リンク、コミットおよびファイルハッシュを確認 |
+| R-22 | `kintai_master_srs.md`、`hermes_*_audit.md`、Ollama原本ログ、監査時点ソーススナップショットの保存先・Git版 | 実リポジトリ内の存在、相対リンク、コミットおよびファイルハッシュを確認 |
 
 
 ### 【Sprint Day 5: 2026-11-06】 店長向けシフト一括確定・勤怠対照エンジンおよびThinking抑制高速化
@@ -422,7 +422,7 @@ flowchart TD
 #### 2. 主要検出事項および解決措置
 - **ローカルHermes監査によるN+1クエリ欠陥の検出と即時解決**:
   - getModRequestsにおいて修正申請一覧取得後、各申請の休憩区間を個別にSQL呼出していた欠陥に対し、Hermes 27Bが「Code Quality: N+1 Query Problem」としてWARN警告を検出。
-  - indModBreaksByRequestIds（一括IN句クエリ）およびO(1)インメモリマッピングへ即時リファクタリングを断行し、2次再監査にて完全PASS（解消確認）を獲得。
+  - findModBreaksByRequestIds（一括IN句クエリ）およびO(1)インメモリマッピングへ即時リファクタリングを断行し、2次再監査にて完全PASS（解消確認）を獲得。
 - **勤務時間帯の重複防御（R-03 / Overlapping Detection）の実装**:
   - 申請時および承認時の両段階において、同一従業員の他勤務記録との時間帯重複（countOverlappingAttendances）を厳格に検証・遮断。
 - **給与確定衝突防御及び悲観的・楽観的並行制御（CAS UPDATE & SELECT ... FOR UPDATE）**:
@@ -822,7 +822,7 @@ flowchart TD
 
 
 
-- 証拠バンドル最終整合監査: Hermes v1.1.1 / Qwen 27B IQ3_M、リモート <TAILSCALE_OLLAMA_HOST>:11434。Run ID 20261113_231841_e3e0981e、30.19秒、入力3162/出力1169トークン。バンドルSHA-256 3e0981eaac3a4f47314aa2c9164c2cdfb1ec18f4541622ca27d8f4f40f4a7f0、報告書 docs/audit_runs/day13_calendar_20261114/qwen27b_final/report.md、SHA-256 41087C2A78D80FFA37B50A79BF8CA5F46B2DA9E3BC6EB9B0967974C7CFE40A9。最終Verdict PASS。リモート /api/ps とローカルOllamaが空である実測は qwen27b_remote_ps_final.json。
+- 証拠バンドル最終整合監査: Hermes v1.1.1 / Qwen 27B IQ3_M、リモート <TAILSCALE_OLLAMA_HOST>:11434。Run ID 20261113_231841_e3e0981e、30.19秒、入力3162/出力1169トークン。バンドルSHA-256 3e0981eaac3a4f47314aa2c9164c2cdfb1ec18f4541622ca27d8f4f40f4a7f0、報告書 docs/audit_runs/day13_calendar_20261114/qwen27b_final/report.md、SHA-256 41087C2A78D80FFA37B50A79BF8CA5F46B2DA9E3BC6EB9B0967974C7CFE40A9。最終Verdict PASS。リモート /api/ps とローカルOllamaが空である実測は qwen27b_remote_ps_final.json。
 
 
 - ブラウザーDLの最終確認: ChromeでExcel出力をクリックすると /api/payroll/excel?storeId=1&yearMonth=2026-01 で ERR_BLOCKED_BY_CLIENT となった。ブラウザーツールのURLポリシーは chrome://downloads/ への移動と代替経路・回避を明示的に拒否した。原因をアプリまたは拡張機能と断定しない。認証APIのXLSXは正常・有効だが、browser-managed保存は未確認。Qwen最終Run ID 20261113_232151_a808922d は対象範囲PASS、この検証項目のみP2 WARN/Unresolved。報告書SHA-256 1CBA641563D0BD88CCE21E41C71F97E7A563C550EBFDEA9DF9FB6A09F646D61E。
@@ -1086,7 +1086,7 @@ Day 4以降の記録を追加する際は、既存の数値を上書きせず、
 |---|---|
 | **監査日時 / タイムゾーン** | `2026-11-04 13:44:08 JST (Asia/Tokyo)` |
 | **コード生成AI (Generator)** | Google Antigravity（AI開発プラットフォーム）。実際の選択モデルは未確認（Day別UI・実行ログ証跡の取得が必要） |
-| **監査スクリプト / プロンプト** | `%USERPROFILE%\.gemini\scripts\audit_with_hermes.ps1`<br>- システムプロンプトおよび点検基準仕様: [audit_prompt_spec.md](audit_prompt_spec.md) に全文分離収録<br>- 出力形式: 100% Pure English Markdown Table（構文解析一貫性確保） |
+| **監査スクリプト / プロンプト** | `%USERPROFILE%\.gemini\scripts\audit_with_hermes.ps1`<br>- システムプロンプトおよび点検基準仕様: [kintai_master_srs.md](kintai_master_srs.md) に全文分離収録<br>- 出力形式: 100% Pure English Markdown Table（構文解析一貫性確保） |
 | **ローカルモデルタグ** | `qwen3.8:27b`（Ollamaローカル独自ビルドタグ） |
 | **ベースモデルおよびライセンス** | `Qwen/Qwen3.8-27B`（Denseアーキテクチャ、Apache 2.0 License） |
 | **モデルDigest / 量子化仕様** | `09cc8d22875814a35616535bfc36682380cc7e40632ded57d6fdb888567b508c`（Ollama Digestとして記録された値。`/api/tags`または`ollama show`の原本出力との照合が必要）<br>- GGUFファイル容量: 13,965,176,339 bytes（約13.97GB）<br>- 量子化方式: `IQ3_M`（GGUF）<br>- パラメータ表記: Ollama `ollama show`の27.3BとQwen公式モデルカード/ModelScopeの約27.8Bを出典別に区別。算定基準が同一か確認できないため、単一値に統合しない。 |

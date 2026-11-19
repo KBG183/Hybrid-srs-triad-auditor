@@ -13,6 +13,8 @@ import java.util.List;
  * 日本労働基準法第37条（時間外・深夜・休日割増）および第34条（休憩）に基づく勤怠労働時間精密算定ユーティリティ。
  * 秒単位の高精度タイムライン・スライシングにより、実労働時間、所定内深夜、法定外残業、および深夜残業（重畳割増: 150%）を
  * 1秒の誤差もなく厳密に分離算定し、DTOレベルで秒精度を完全保持する。
+ * @requirement REQ-LABOR-001 (実労働・休憩時間算定)
+ * @requirement REQ-LABOR-002 (深夜割増時間帯 22:00-05:00 判定)
  */
 public final class AttendanceTimeCalculator {
 

@@ -9,10 +9,10 @@
 | 資料 | 内容 |
 |---|---|
 | [デモ動画](https://youtu.be/LepOoQU8LgI) | スタッフの打刻からオーナーの給与確定・Excel出力まで |
-| [20枚プレゼンテーション](docs/presentation-prototype/index.html) | プロジェクトの機能、問題解決、検証過程 |
-| [プロジェクト要約書](docs/final-portfolio/portfolio_summary_JA.md) | 主要な成果と制約を短く確認 |
-| [技術証跡書](docs/legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md) | 実装・監査・修正・再検証の記録 |
-| [デモ操作ガイド](docs/final-portfolio/demo_guide_ja.md) | ローカルでの確認手順 |
+| 20枚プレゼンテーション（デモ付属資料） | プロジェクトの機能、問題解決、検証過程 |
+| [プロジェクト要約・技術証跡書](portfolio_audit_evidence.md) | 主要な成果と制約を短く確認 |
+| [技術証跡書](portfolio_audit_evidence.md) | 実装・監査・修正・再検証の記録 |
+| デモ操作ガイド（ローカル起動手順参照） | ローカルでの確認手順 |
 
 ## プロジェクトの業務フロー
 
@@ -146,17 +146,17 @@ mysql -u root -p kintai_db < domain_target/02_database_schema_ssot/schema.sql
 mysql -u root -p kintai_db < domain_target/02_database_schema_ssot/data.sql
 ```
 
-設定完了後、`src/main/resources/application.properties` の接続情報を確認してアプリケーションを起動してください。詳しい画面操作と期待結果は、[日本語デモガイド](docs/final-portfolio/demo_guide_ja.md)を参照してください。
+設定完了後、`src/main/resources/application.properties` の接続情報を確認してアプリケーションを起動してください。詳しい画面操作と期待結果は、デモガイド（README記載の起動手順）を参照してください。
 
 ## 検証資料
 
-- [SRS](kintai_requirements_specification.md)
-- [日本語プロジェクト要約](docs/final-portfolio/portfolio_summary_JA.md)
-- [日本語技術証跡書](docs/legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md)
-- [RTM（日本語）](docs/rtm_ledger.md)
-- [監査・テスト原本](docs/audit_runs)
-- [監査原本の読み方](docs/audit_runs/README.md)
-- [プレゼンテーション](docs/presentation-prototype/index.html)
+- [SRS正本](kintai_master_srs.md)
+- [日本語技術証跡書](portfolio_audit_evidence.md)
+- [日本語技術証跡書](portfolio_audit_evidence.md)
+- [RTM要件トレーサビリティ](rtm_ledger.md)
+- [監査原本束](../../audit/runs/)
+- [監査原本束](../../audit/runs/)
+- プレゼンテーション（デモ付属資料）
 
 ## 資料の使い分け
 

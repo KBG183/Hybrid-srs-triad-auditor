@@ -29,14 +29,25 @@ $hasFailure = $false
 # -------------------------------------------------------------------------
 # Test 1: Tracked Files Sensitive Data & Zero-Korean Scan
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 1/8] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 1/10] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
 $trackedFiles = git ls-files
 if (-not $trackedFiles -or $trackedFiles.Count -eq 0) {
     Write-Host "  [FATAL ERROR] git ls-files returned 0 files! Repository unreadable." -ForegroundColor Red
     exit 1
 }
 
-$sensitivePattern = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("KDEwMFwuOTF8MTAwXC4xMTF8MTAwXC44MnwxOTJcLjE2OHxrbGFkM3xGYXR0eUxpdmVyfEZTSVF8RHVuc2FuKQ=="))
+# Generalized private IP ranges (RFC 1918 + Tailscale CGNAT range) & dynamic local user token
+$privateIpPattern = '\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3})\b'
+$userPatterns = @()
+if ($env:USERNAME) { $userPatterns += [regex]::Escape($env:USERNAME) }
+if ($env:AUDIT_SENSITIVE_KEYWORDS) {
+    $env:AUDIT_SENSITIVE_KEYWORDS.Split('|;,') | Where-Object { $_.Trim() } | ForEach-Object { $userPatterns += [regex]::Escape($_.Trim()) }
+}
+$sensitivePattern = if ($userPatterns.Count -gt 0) {
+    "($privateIpPattern|" + ($userPatterns -join '|') + ")"
+} else {
+    $privateIpPattern
+}
 $koreanPattern = '[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF\uFFA0-\uFFDC]'
 
 $sensitiveHits = 0
@@ -74,7 +85,7 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 2: CSV Column Cardinality & RFC 4180 Integrity
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 2/5] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 2/10] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
 $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
 $csvFiles = @("logs\local_token_ledger.csv", "logs\cloud_api_token_ledger.csv", "logs\codex_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
 $csvFail = $false
@@ -95,26 +106,48 @@ if (-not $csvFail) {
 }
 
 # -------------------------------------------------------------------------
-# Test 3: Dashboard vs Audit Ledger State Alignment
+# Test 3: Dashboard Matrix Mathematical & Logical Consistency
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 3/5] Verifying Dashboard vs Audit Ledger Consistency..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 3/10] Verifying Dashboard Matrix Logical Coherence..." -ForegroundColor Yellow
 $metricsPath = Join-Path $projectRoot "logs\pipeline_metrics.md"
 $metricsContent = [System.IO.File]::ReadAllText($metricsPath, [System.Text.Encoding]::UTF8)
 
-if ($metricsContent -match 'REQ-LABOR-001.+\|\s+\*\*PASS\*\*\s*\|') {
-    Write-Host "  [DASHBOARD ERROR] REQ-LABOR-001 is erroneously marked as final PASS in pipeline_metrics.md table." -ForegroundColor Red
+$tableLines = $metricsContent -split "`r?`n" | Where-Object { $_ -match '^\|\s*REQ-[A-Z]+-\d+\s*\|' }
+$matrixError = $false
+
+foreach ($row in $tableLines) {
+    $cols = $row.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    if ($cols.Count -ge 7) {
+        $id = $cols[0]
+        $linter = $cols[2]
+        $qwen = $cols[3]
+        $codex = $cols[4]
+        $claude = $cols[5]
+        $finalVerdict = $cols[6]
+
+        $hasAnyFinding = ($linter -ne "PASS") -or ($qwen -like "*FINDINGS*") -or ($codex -like "*FINDINGS*") -or ($claude -like "*FINDINGS*")
+        $expectedVerdict = if ($hasAnyFinding) { "**REVISE_PENDING**" } else { "**PASS**" }
+
+        if ($finalVerdict -ne $expectedVerdict) {
+            Write-Host "  [DASHBOARD ERROR] Row $id verdict mismatch! Expected: $expectedVerdict, Found: $finalVerdict" -ForegroundColor Red
+            $matrixError = $true
+        }
+    }
+}
+
+if ($matrixError) {
     $hasFailure = $true
-} elseif ($metricsContent -notmatch 'Claude 5\.5') {
-    Write-Host "  [DASHBOARD ERROR] Claude 5.5 column is missing from pipeline_metrics.md table." -ForegroundColor Red
+} elseif ($tableLines.Count -eq 0) {
+    Write-Host "  [DASHBOARD ERROR] No requirement verification rows found in pipeline_metrics.md table." -ForegroundColor Red
     $hasFailure = $true
 } else {
-    Write-Host "  -> PASS: Dashboard table correctly reflects 4-layer audit findings (REVISE_PENDING)." -ForegroundColor Green
+    Write-Host "  -> PASS: All $($tableLines.Count) requirement matrix rows satisfy Fail-Closed boolean logic coherence." -ForegroundColor Green
 }
 
 # -------------------------------------------------------------------------
 # Test 4: Dual-Linter Pipeline Hard-Gate Wiring
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 4/5] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 4/10] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
 $controllerPath = Join-Path $scriptDir "hermes_controller.ps1"
 $controllerText = [System.IO.File]::ReadAllText($controllerPath, [System.Text.Encoding]::UTF8)
 
@@ -131,7 +164,7 @@ if ($hasIntegrity -and $hasDeterministic) {
 # -------------------------------------------------------------------------
 # Test 5: C# Deterministic Regression Testbed (11/11)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 5/8] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 5/10] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
 $regExe = Join-Path $scriptDir "TestV52Suite_Regression.exe"
 $regOut = & $regExe 2>&1
 if ($LASTEXITCODE -eq 0) {
@@ -144,7 +177,7 @@ if ($LASTEXITCODE -eq 0) {
 # -------------------------------------------------------------------------
 # Test 6: UTF-8 BOM Zero Tolerance Hard-Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 6/8] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 6/10] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
 $bomHits = 0
 foreach ($f in $trackedFiles) {
     $fullPath = Join-Path $projectRoot $f
@@ -166,7 +199,7 @@ if ($bomHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 7: PowerShell Scripts Syntax & Fail-Fast Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 7/8] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 7/10] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
 $ps1Files = Get-ChildItem -Path (Join-Path $projectRoot "tools\scripts") -Filter "*.ps1"
 $ps1Fail = 0
 foreach ($ps in $ps1Files) {
@@ -197,7 +230,7 @@ if ($ps1Fail -eq 0) {
 # -------------------------------------------------------------------------
 # Test 8: Status Ledger Duplicate Bullet & Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 8/8] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 8/10] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
 $csPath = Join-Path $projectRoot "logs\CURRENT_STATUS.md"
 if (-not (Test-Path $csPath)) {
     Write-Host "  [INTEGRITY ERROR] CURRENT_STATUS.md does not exist at: $csPath" -ForegroundColor Red
@@ -218,6 +251,65 @@ if (-not (Test-Path $csPath)) {
     } else {
         Write-Host "  -> PASS: CURRENT_STATUS.md has exactly $healthLineCount health check line (Zero duplication, Valid structure)." -ForegroundColor Green
     }
+}
+
+# -------------------------------------------------------------------------
+# Test 9: Invisible Control Characters Gate (BEL/BS/FF/ESC etc.)
+# -------------------------------------------------------------------------
+Write-Host "`n>>> [Check 9/10] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
+$ctrlScanFiles = $trackedFiles | Where-Object { $_ -match '\.(md|java|json|ps1|csv)$' }
+$ctrlHits = 0
+foreach ($f in $ctrlScanFiles) {
+    $fullPath = Join-Path $projectRoot $f
+    if (-not (Test-Path $fullPath)) { continue }
+    $bytes = [System.IO.File]::ReadAllBytes($fullPath)
+    for ($i = 0; $i -lt $bytes.Length; $i++) {
+        $b = $bytes[$i]
+        if ($b -lt 32 -and $b -ne 9 -and $b -ne 10 -and $b -ne 13) {
+            Write-Host "  [CONTROL CHAR DETECTED] ${f} byte offset $($i): 0x$($b.ToString('X2'))" -ForegroundColor Red
+            $ctrlHits++
+            break
+        }
+    }
+}
+if ($ctrlHits -eq 0) {
+    Write-Host "  -> PASS: 0 Invisible control characters detected across $($ctrlScanFiles.Count) text/source files." -ForegroundColor Green
+} else {
+    Write-Host "  -> FAIL: Found $ctrlHits files contaminated with non-printable control characters." -ForegroundColor Red
+    $hasFailure = $true
+}
+
+# -------------------------------------------------------------------------
+# Test 10: Markdown Relative Link Physical Integrity Gate
+# -------------------------------------------------------------------------
+Write-Host "`n>>> [Check 10/10] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
+$allMdFiles = Get-ChildItem -Path $projectRoot -Filter "*.md" -Recurse | Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.FullName -notmatch '\\scratch\\' }
+$brokenCount = 0
+$checkedLinkCount = 0
+
+foreach ($mf in $allMdFiles) {
+    $content = [System.IO.File]::ReadAllText($mf.FullName, [System.Text.Encoding]::UTF8)
+    $dir = $mf.DirectoryName
+    $linkMatches = [regex]::Matches($content, '\[([^\]]+)\]\(([^)]+)\)')
+    foreach ($m in $linkMatches) {
+        $linkPath = $m.Groups[2].Value.Trim()
+        if ($linkPath -match '^(http|https|mailto|ftp):' -or $linkPath -match '^#') { continue }
+        $checkedLinkCount++
+        $cleanPath = $linkPath.Split('#')[0]
+        if (-not $cleanPath) { continue }
+        
+        $resolved = [System.IO.Path]::Combine($dir, $cleanPath)
+        if (-not (Test-Path $resolved)) {
+            Write-Host "  [BROKEN LINK] $($mf.Name) -> '$linkPath' (Cannot resolve: $resolved)" -ForegroundColor Red
+            $brokenCount++
+        }
+    }
+}
+if ($brokenCount -eq 0) {
+    Write-Host "  -> PASS: All $checkedLinkCount relative hyperlinks across $($allMdFiles.Count) markdown files physically exist." -ForegroundColor Green
+} else {
+    Write-Host "  -> FAIL: Found $brokenCount broken relative hyperlinks in repository." -ForegroundColor Red
+    $hasFailure = $true
 }
 
 Write-Host "`n=================================================================" -ForegroundColor Cyan

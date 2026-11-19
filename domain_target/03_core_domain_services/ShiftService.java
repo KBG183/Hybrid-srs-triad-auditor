@@ -26,6 +26,11 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * シフト管理サービス
+ * @requirement REQ-MEMBER-001 (シフト希望提出・確定および多店舗交差排他制御)
+ * @requirement REQ-STAFF-002 (店舗スタッフ契約条件連動)
+ */
 public class ShiftService {
 
     private final ShiftMapper shiftMapper;

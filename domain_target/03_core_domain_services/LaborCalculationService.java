@@ -19,6 +19,13 @@ import java.util.List;
  */
 @Service
 @Transactional(readOnly = true)
+/**
+ * 労働基準法第37条割増計算サービス
+ * @requirement REQ-LABOR-001 (法定内・法定外労働算定)
+ * @requirement REQ-LABOR-002 (深夜労働時間算定)
+ * @requirement REQ-LABOR-003 (法定休日労働算定)
+ * @requirement REQ-LABOR-004 (時間外割増率・高精度端数処理)
+ */
 public class LaborCalculationService {
 
     @Value("${kintai.legal.min-hourly-wage:1280}")

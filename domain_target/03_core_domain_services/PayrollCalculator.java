@@ -12,6 +12,10 @@ import java.time.format.DateTimeParseException;
  * 日本労働基準法第37条および昭和62年3月14日付 基発第150号（行政通達: 賃金計算等の端数処理）に準拠した給与算定ユーティリティ。
  * 時間外（25%）、深夜（25%）、深夜残業（重畳割増: 50%）および法定端数処理（50銭・30分境界）を厳密に処理する。
  * （※なお、労働基準法関係解釈例の一般通達は昭和63年3月14日付 基発第150号・婦発第47号）
+ * @requirement REQ-LABOR-001 (基本労働給与計算)
+ * @requirement REQ-LABOR-002 (深夜割増手当 25% 算定)
+ * @requirement REQ-LABOR-003 (休日割増手当 35% 算定)
+ * @requirement REQ-LABOR-004 (複合割増 50%/60% および端数処理通達準拠)
  */
 public final class PayrollCalculator {
 

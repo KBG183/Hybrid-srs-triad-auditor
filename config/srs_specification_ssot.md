@@ -12,7 +12,7 @@
 1. **GitHub対外公式正本**: すべての公式SRS仕様書、README.md、アーキテクチャ図、およびコミットメッセージは、日本のエンタープライズ技術評価基準（ビジネス日本語）に準拠して策定される。
 2. **監査確認用対照版**: 開発者の直観的な検証および多角確認のため、主要ドキュメントごとに対照版（`_KO.md`）をローカルに常時ペアリング配置する。
 3. **技術スタックおよび検証エンジンの責務分離**:
-   - **システム実装基盤 (Target Architecture)**: Java 21 / Spring Boot 3.x / MyBatis 3.5 / PostgreSQL 16（トランザクション境界、悲観的ロック、BigDecimal高精度有理数演算）。
+   - **システム実装基盤 (Target Architecture)**: Java 21 / Spring Boot 3.x / MyBatis 3.5 / MySQL 8.4 (InnoDB, REPEATABLE READ, 悲観的ロック `FOR UPDATE NOWAIT`, BigDecimal高精度有理数演算; 代替参照: PostgreSQL 16 GiST排他制約)。
    - **品質検証エンジン (Verification Toolchain)**: C# Roslyn 決定論的リンター（`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`）、ローカルGPU Qwen 27B、OpenAI Codex CLI、Anthropic Claude 5.5。
 
 ---
@@ -121,7 +121,7 @@
 
 #### [REQ-STAFF-002] 給与算定用契約条件（時給・交通費）履歴管理および期間排他制御
 - **区分**: データ整合性および並行性制御 (Data Integrity & Concurrency)
-- **概要**: スタッフの時給改定や通勤手当の変更が行われた際、過去の確定給与計算の不変性を担保するため、適用開始日・終了日（無期限契約は `effective_to IS NULL`）を持つ契約履歴テーブル（`store_staff_contract_history`）へ履歴保存し、PostgreSQLのGiST排他制約および悲観的ロックで期間重複を完全排除する。
+- **概要**: スタッフの時給改定や通勤手当の変更が行われた際、過去の確定給与計算の不変性を担保するため、適用開始日・終了日（無期限契約は `effective_to IS NULL`）を持つ契約履歴テーブル（`store_staff_contract_history`）へ履歴保存し、MySQL 8.4のトランザクション悲観的ロックおよびアプリケーション排他検証（代替参照環境: PostgreSQL GiST排他制約）で期間重複を完全排除する。
 - **入力**:
   - `storeStaffId` (店舗スタッフFK, BIGINT)
   - `effectiveFrom` (適用開始日, DATE, 必須)
@@ -134,7 +134,7 @@
   3. 新規 `effectiveFrom` が既存契約の `effective_from` より未来日であることを検証する（過去遡及による期間逆転の防止）。
   4. 既存契約の `effective_to` を新規 `effectiveFrom` の前日日付で確定更新する。
   5. 新規契約レコードを `effective_to = NULL` で新規作成し、コミットする。
-  6. DB層における防御線として、`btree_gist` 拡張を有効化し、`store_staff_contract_history` に排他制約（`CONSTRAINT ex_contract_period EXCLUDE USING gist (store_staff_id WITH =, daterange(effective_from, effective_to, '[]') WITH &&)`）を強制適用し、期間重複の挿入を物理的に遮断する。
+  6. DB層・トランザクション防御線として、MySQL 8.4では `SELECT ... FOR UPDATE` による行ロックと期間重複チェッククエリ（NOT EXISTSガード）を必須化する（PostgreSQL 16移行時は `btree_gist` 拡張による `CONSTRAINT ex_contract_period EXCLUDE USING gist (store_staff_id WITH =, daterange(effective_from, effective_to, '[]') WITH &&)` を適用可能）。
 - **出力**:
   - `contractHistoryId` (契約履歴PK, BIGINT)
   - `effectiveFrom` (適用開始確定日, DATE)
@@ -195,7 +195,7 @@
   2. 対象スタッフの先行排他ロック（`SELECT member_id FROM store_staff WHERE store_staff_id = ? FOR UPDATE`）を獲得し、多店舗並行確定や同一スタッフへの同時調停トランザクションを直列化する。
   3. 対象 `shift_schedule` レコードを行排他ロック（`SELECT ... FOR UPDATE`）で取得する。
   4. 拘束時間（`grossMinutes = Duration.between(startAt, endAt).toMinutes()`）を算出し、最大16時間以内であることを検証する。
-  5. アプリケーション層およびDB排他制約（PostgreSQL: `EXCLUDE USING gist (member_id WITH =, tstzrange(confirmed_start_at, confirmed_end_at, '[)') WITH &&) WHERE (status = 'CONFIRMED')`）により、同一人物（`member_id`）が複数店舗で同時刻に重複確定される競合を二重防御線で遮断する（他店舗競合時は店舗詳細を伏せてHTTP 409を返却）。
+  5. アプリケーション層の交差時間重複検証およびDB悲観的ロック（MySQL 8.4: `member_id` 対象の行ロック待機＋`REPEATABLE READ` 整合性検証；PostgreSQL 16環境では `EXCLUDE USING gist` 制約）により、同一人物（`member_id`）が複数店舗で同時刻に重複確定される競合を二重防御線で遮断する（他店舗競合時は店舗詳細を伏せてHTTP 409を返却）。
   6. 労働基準法第34条に基づく法定休憩時間の完全Fail-Closed評価：
      - 未指定時の自動算定推奨値：拘束時間 `<= 360分`（6時間以下）は `0分`、`360分 < 拘束時間 <= 525分`（6時間超8時間以下）は `45分`、`拘束時間 > 525分`（8時間超）は `60分`。
      - 手動指定時：実労働時間（`grossMinutes - plannedBreakMinutes`）に対し、`実労働 > 8時間` で休憩60分未満、または `実労働 > 6時間` で休憩45分未満の場合、警告にとどめず `BREAK_TIME_DEFICIT`（HTTP 422 Unprocessable Entity）を送出し、確定（CONFIRMED）への状態遷移を即時拒否・遮断する。
@@ -381,7 +381,7 @@
   2. **ロック階層の固定と遡及打刻の凍結防護**: デッドロック防止および精算期間中の遡及打刻割り込みを防ぐため、システム全体のロック獲得順序を「`store` → `store_staff` → `payroll_settlement`」に厳格統一する。給与精算中は店舗ロックの保護下で対象月の全打刻・休憩登録が排他待機となり、精算対象データの決定論的凍結（Snapshot Consistency）を担保する。
   3. 給与精算テーブル（`payroll_settlement`）において `(store_id, target_month)` を指定して既存レコードを取得する（`SELECT ... FOR UPDATE`）。
   4. 初回確定時（レコード未存在時）：
-     - PostgreSQLの複合一意制約（`CONSTRAINT uq_settlement_store_month UNIQUE (store_id, target_month)`）の保護下で、初期ステータス `'OPEN'` の精算ヘッダーレコードを安全に発行する。
+     - MySQL 8.4の複合一意制約（`CONSTRAINT uq_settlement_store_month UNIQUE (store_id, target_month)`）の保護下で、初期ステータス `'OPEN'` の精算ヘッダーレコードを安全に発行する。
   5. 締め状態の検証および不変スナップショット永続化：
      - ステータスが `'CONFIRMED'` または `'CLOSED'` の場合、確定済み給与の不正改変として `ALREADY_CONFIRMED`（HTTP 409）で即座に更新を拒否する。
      - 確定計算結果および参照契約のスナップショットを不変明細テーブル（`payroll_settlement_line`）へ永続化し、以後の打刻変更から給与計算結果を完全隔離する。
@@ -391,8 +391,8 @@
   - `settlementStatus` (確定ステータス 'CONFIRMED', VARCHAR(20))
 - **例外処理**:
   - オーナー以外のユーザーによる給与確定リクエストは `AccessDeniedException`（HTTP 403）を送出し、セキュリティ監査ログへ記録する。
-  - 3秒のロック獲得待機がタイムアウトした場合（SQLSTATE `55P03`）、二重確定と誤認させず `SETTLEMENT_LOCK_BUSY`（HTTP 503 Service Unavailable、再試行ヘッダー付与）を返却する。
-  - 複合一意制約衝突（SQLSTATE `23505`, 制約名 `uq_settlement_store_month`）または既に確定済みの場合は `DuplicateSettlementException`（HTTP 409 Conflict）を送出し、二重支払いを確実に阻止する。
+  - 3秒のロック獲得待機がタイムアウトした場合（MySQL: Error 1205 / ER_LOCK_WAIT_TIMEOUT, PostgreSQL: SQLSTATE `55P03`）、二重確定と誤認させず `SETTLEMENT_LOCK_BUSY`（HTTP 503 Service Unavailable、再試行ヘッダー付与）を返却する。
+  - 複合一意制約衝突（MySQL: Error 1062, PostgreSQL: SQLSTATE `23505`, 制約名 `uq_settlement_store_month`）または既に確定済みの場合は `DuplicateSettlementException`（HTTP 409 Conflict）を送出し、二重支払いを確実に阻止する。
 - **完了基準 (DoD)**:
   - 給与確定レコードが初期状態（未作成）であっても、2件の並行確定リクエストが同時に実行された際に確実に1件のみが成功し、もう1件は重複衝突として HTTP 409 で遮断されること。
   - C#リンター規則に100%適合し、確定後の過去勤務データ変更が確定済み給与額に一切影響を与えないこと。

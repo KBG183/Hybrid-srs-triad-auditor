@@ -23,6 +23,6 @@
 ---
 
 ## 3. 監査・障害対応履歴
-* **実運用障害・再発防止台帳**: [`logs/incident_history_ledger.md`](incident_history_ledger.md)（全23件の技術課題・恒久対策を記録）
-* **監査実行台帳**: [`logs/enterprise_audit_ledger.csv`](enterprise_audit_ledger.csv)
-* **クラウドトークン消費台帳**: [`logs/cloud_api_token_ledger.csv`](cloud_api_token_ledger.csv)
+* **実運用障害・再発防止台帳**: [`incident_history_ledger.md`](../../logs/incident_history_ledger.md)（全26件の技術課題・恒久対策を記録）
+* **監査実行台帳**: [`enterprise_audit_ledger.csv`](../../logs/enterprise_audit_ledger.csv)
+* **クラウドトークン消費台帳**: [`cloud_api_token_ledger.csv`](../../logs/cloud_api_token_ledger.csv)

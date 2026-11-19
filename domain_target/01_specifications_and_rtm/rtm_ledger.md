@@ -10,7 +10,20 @@ KINTAIの要件、実装、テスト、監査証跡を対応付ける日本語�
 - DEFERRED: MySQL 8.4/Testcontainers、クラウドデプロイ、現行SRS外の法令・運用要件
 - 過去の92件・83件・79件などは、その時点のチェックポイントとして原文ログに保存
 
-## 要件と証拠の対応
+## 公式要件トレーサビリティ（REQ-* 仕様・実装・テスト対応マトリクス）
+
+| 要求仕様ID | 仕様項目名 | 対象ソースコード（実装） | DB/DDL制約 | 検証テスト・証跡 | 判定 |
+|---|---|---|---|---|---|
+| REQ-MEMBER-001 | 多店舗重複シフト申請・確定排他制御 | `ShiftService.java` (`requestShift`, `confirmShift`) | `shift_schedule`, 複合外部キー・行排他ロック | `ShiftServiceConcurrencyTest` | VERIFIED |
+| REQ-STAFF-002 | 契約条件履歴管理および期間排他制御 | `PayrollService.java`, `ShiftService.java` | `store_staff_contract_history`, 悲観的ロック | `AnnualPayrollScenarioIntegrationTest` | VERIFIED |
+| REQ-ATTEND-001 | リアルタイム打刻および打刻変更申請・承認 | `AttendanceService.java` (`punch`, `requestModification`, `reviewModification`) | `attendance`, `attendance_break`, 行排他ロック | `AttendanceServiceConcurrencyIntegrationTest` | VERIFIED |
+| REQ-LABOR-001 | 法定内外労働時間・法定休憩算定 | `AttendanceTimeCalculator.java`, `LaborCalculationService.java` | 拘束時間・休憩時間整合性 | `LaborCalculationEngineTest` | VERIFIED |
+| REQ-LABOR-002 | 深夜割増時間帯（22:00-05:00）判定・25%算定 | `AttendanceTimeCalculator.java`, `PayrollCalculator.java` | `attendance_break` 分割計算 | `LaborCalculationEngineTest` | VERIFIED |
+| REQ-LABOR-003 | 法定休日労働算定・35%割増 | `LaborCalculationService.java`, `PayrollCalculator.java` | カレンダー休日判定 | `LaborCalculationEngineTest` | VERIFIED |
+| REQ-LABOR-004 | 複合割増率（50%/60%）・50銭端数処理 | `PayrollCalculator.java`, `LaborCalculationService.java` | BigDecimal ROUND_HALF_UP | `SplitShiftOvertimeDefectTest` | VERIFIED |
+| REQ-SETTLE-001 | 月次給与精算確定トランザクション・二重確定遮断 | `PayrollService.java` (`confirmPayroll`) | `payroll_settlement` 複合一意制約 (`uq_settlement_store_month`) | `PayrollSettlementConcurrencyTest` | VERIFIED |
+
+## 検証項目とエビデンス対応（個別監査記録）
 
 | ID | 確認対象 | 状態 | 実装・検証の概要 | 主な証拠 |
 |---|---|---|---|---|
@@ -41,6 +54,6 @@ KINTAIの要件、実装、テスト、監査証跡を対応付ける日本語�
 - 過去ログにあるBLOCKED、PARTIALLY_VERIFIED、旧テスト件数は履歴であり、最新状態を上書きしない
 - 94/94 PASSは、対象テスト範囲の結果であり、UI全体・本番環境・法令全体の保証ではない
 
-詳細な時系列、入力ハッシュ、監査レポート原文は[日本語技術証跡書](legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md)と[監査実行原本一覧](audit_runs/README.md)を参照してください。
+詳細な時系列、入力ハッシュ、監査レポート原文は[日本語技術証跡書](portfolio_audit_evidence.md)と[監査実行原本一覧](../../audit/runs/)を参照してください。
 
 韓国語の旧RTMはGitHub公開資料から除外し、ローカル作業用の保管ファイルとしてのみ保持します。

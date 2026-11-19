@@ -1,7 +1,7 @@
 # 🛡️ KINTAI 多層AIハイブリッド交差検証 技術証跡書 (Living Audit Evidence Dossier)
 
 - **システム名**: 日本型シフト・勤怠・給与精算システム (KINTAI)
-- **文書バージョン**: v1.0.3 (Day 2 Cumulative Milestone)
+- **文書バージョン**: v1.0.4 (Day 3 Self-Remediation & 10-Gate Milestone)
 - **ステータス**: AUDIT_VERIFIED_LIVING_DOCUMENT
 - **検証アーキテクチャ**: 4層AI交差検証（Antigravity, OpenAI Codex 6.2 Astra, Anthropic Claude 5.5, Local Qwen 27B）＋ C# Roslyn 確定論的リンター
 - **多言語ガバナンス**: GitHub公式正本は日本語（JA）標準、内部開発・確認用に対照版（`_KO.md`）をペアリング配置
@@ -112,6 +112,30 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 | **SEC-02** | **P0** | `REQ-STAFF-001`<br>`REQ-SHIFT-002` | **店舗・所属の独立参照による機微情報漏洩**: シフトテーブルに店舗・所属の一致制約がなく、他店スタッフのメモが開示される恐れ。 | `FOREIGN KEY (store_staff_id, store_id) REFERENCES store_staff(store_staff_id, store_id)` 複合外部キー制約を強制し、行単位認可ロジックを確立。 |
 | **SEC-03** | **P0** | `REQ-STORE-001` | **静的QRトークンの複製および未退勤二重出勤リスク**: 固定トークンの画面写真共有による代理打刻および重複出勤。 | 未退勤状態での重複出勤をDBレベルで物理遮断する部分一意インデックス（`CREATE UNIQUE INDEX uq_open_attendance ON attendance (store_staff_id) WHERE clock_out_at IS NULL;`）を明記。 |
 | **SHIFT-01** | **P0** | `REQ-SHIFT-002` | **法定休憩不足の確定バイパス**: 実労働8時間超に対し休憩60分未満でも警告再確認のみで確定（CONFIRMED）に遷移できていた。 | 労基法第34条の完全Fail-Closed評価: 実労働8h超で休憩60分未満、または6h超で45分未満の場合は `HTTP 422 BREAK_TIME_DEFICIT` を送出して確定を強制遮断。 |
+
+### 2.3 Day 3 (2026-11-19): 11大欠陥の自律的1-Shot全面是正・10大マスターゲート確立・最終全数検証
+
+#### ① 監査官別実測実行メトリクス (Physical Execution Metrics)
+
+| 監査官 / 検証エンジン | 使用モデル / バイナリ | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 走査数 | 推論速度 | 判定結果 | 物理保存先アーカイブ |
+|---|---|---|:---:|:---:|:---:|:---:|---|
+| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **39.69秒** | Input: 12,437 tok / Output: 1,601 tok | **48.6 tok/s** | **ALL PASS (F-001~010 全10項目合格)** | `docs/audit_runs/20261119_043558_3c3b2c46/` |
+| **C# 決定論的リンター** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 実行バイナリ | **0.42秒** | SSOT 399行 / 欠陥キュー全11件 RESOLVED | - | **PASS (Clean Integrity, Zero Defects)** | `tools/scripts/VerifySRS_Integrity.exe` |
+| **Master Integrity Verifier** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.3秒** | 10大検証項目 / 89追跡ファイル全数走査 | - | **ALL PASS (10/10 PASS 完全合格)** | `tools/scripts/verify_repo_total_integrity.ps1` |
+
+#### ② 自律摘発された11大欠陥の是正およびガバナンス拡張内容一覧
+
+1. **[SEC-04] 機微情報パターンの汎用化**: `verify_repo_total_integrity.ps1` 内のハードコード文字列を RFC 1918 / CGNAT 正規表現および動的ユーザーバインドへ置換（機微文字列 0件化）。
+2. **[TRACE-01] ドメイン実装とSSOTの双方向追跡性確立**: `domain_target/03_core_domain_services` の全6クラスへ `@requirement REQ-*` を注入し、`rtm_ledger.md` へ公式8要件マトリクスを新設。
+3. **[PIPE-01] ダッシュボード判定の動的化**: `sync_dashboard.ps1` のハードコード分期を排除し、リンター実機実行およびレポート抽出に基づく論理積/論理和検証へ刷新。
+4. **[AI-01] Qwen 27B パラメータ確定**: `call_qwen.ps1` の `seed=42`, `temperature=0.1` を確定バインドし、ローカルフォールバックの Fail-Closed 制御を実装。
+5. **[REPRO-01] 自己完結型実行基盤の確立**: `hermes_controller.ps1` のレポジトリ内完結、`tools/hooks/pre-commit` のバージョン管理化および `install_hooks.ps1` の配備。
+6. **[SSOT-01] 本番DBMSの MySQL 8.4 統一**: SSOT内の本番標準を MySQL 8.4 とし、PostgreSQL 16 は代替参照アーキテクチャとして定義・整流化。
+7. **[METRIC-01] 実測インシデント台帳の一致**: READMEおよび関連文書のインシデント数を実測26件へ統一し、Codexモデル移行系図を整理。
+8. **[DATA-07] 実行束JSONエスケープ破損の修復**: `audit_run.json` および `bundle.manifest.json` 内の `/\s` パスエスケープを正規化。
+9. **[HYGIENE-01] 不可視制御文字スキャナーの公式ゲート化 (Check 9)**: `kintai_master_srs.md` 内の BEL/BS 等18箇所の制御文字を完全修復し、`verify_repo_total_integrity.ps1` Check 9 へ恒久統合。
+10. **[HYGIENE-02] 相対リンク完全検証ゲートの公式化 (Check 10)**: 全36件の相対リンクを検査・是正し、Check 10 として壊れたリンクをコミット直前で遮断するゲートを配備。
+11. **[ENV-01] 環境設定テンプレートの外在化**: ルート直下に `.env.example` を配備し、外部クローン環境でのオンボーディングと再現性を保証。
 
 ---
 

@@ -23,6 +23,15 @@ param(
     [int]$TimeoutSeconds = 300,
 
     [Parameter(Mandatory = $false)]
+    [double]$Temperature = 0.1,
+
+    [Parameter(Mandatory = $false)]
+    [int]$Seed = 42,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AllowFallback,
+
+    [Parameter(Mandatory = $false)]
     [switch]$Think,
 
     [Parameter(Mandatory = $false)]
@@ -49,45 +58,49 @@ if ($PromptFile -and (Test-Path -LiteralPath $PromptFile)) {
 }
 
 # 2. Endpoint and model resolution
-$remoteHost = $env:OLLAMA_REMOTE_HOST
-$primaryUrl = if ($remoteHost) { "http://${remoteHost}:11434" } else { "" }
+$remoteHost = if ($env:OLLAMA_REMOTE_HOST) { $env:OLLAMA_REMOTE_HOST } else { $env:OLLAMA_HOST_OVERRIDE }
+$primaryUrl = "http://${remoteHost}:11434"
 $fallbackUrl = "http://127.0.0.1:11434"
 $targetUrl = ""
 $targetModel = $Model
+$isFallbackActive = $false
 
-# Priority 1: Remote accelerated host (if OLLAMA_REMOTE_HOST set)
+# Priority 1: Remote accelerated host (qwen3.8:27b on RTX 5070 Ti)
 $remoteOk = $false
-if ($remoteHost) {
-    try {
-        $testResult = Test-NetConnection -ComputerName $remoteHost -Port 11434 -WarningAction SilentlyContinue
-        if ($testResult.TcpTestSucceeded) {
-            $healthCheck = Invoke-RestMethod -Uri "$primaryUrl/api/tags" -Method Get -TimeoutSec 3 -ErrorAction Stop
-            $remoteOk = $true
-            $targetUrl = $primaryUrl
-            if (-not $targetModel) { 
-                $hasExact = $healthCheck.models | Where-Object { $_.name -like "qwen3.8:27b*" }
-                if ($hasExact) {
-                    $targetModel = $hasExact[0].name
-                } else {
-                    $targetModel = "qwen27b:latest"
-                }
+try {
+    $testResult = Test-NetConnection -ComputerName $remoteHost -Port 11434 -WarningAction SilentlyContinue
+    if ($testResult.TcpTestSucceeded) {
+        $healthCheck = Invoke-RestMethod -Uri "$primaryUrl/api/tags" -Method Get -TimeoutSec 3 -ErrorAction Stop
+        $remoteOk = $true
+        $targetUrl = $primaryUrl
+        if (-not $targetModel) { 
+            $hasExact = $healthCheck.models | Where-Object { $_.name -like "qwen3.8:27b*" }
+            if ($hasExact) {
+                $targetModel = $hasExact[0].name
+            } else {
+                $targetModel = "qwen27b:latest"
             }
-            if (-not $Quiet) { Write-Host "[ENDPOINT] Priority 1 Remote GPU connected ($targetUrl, Model: $targetModel)" -ForegroundColor Green }
         }
-    } catch {
-        $remoteOk = $false
+        if (-not $Quiet) { Write-Host "[ENDPOINT] Priority 1 Remote GPU connected ($targetUrl, Model: $targetModel)" -ForegroundColor Green }
     }
+} catch {
+    $remoteOk = $false
 }
 
-# Priority 2: Local fallback
+# Priority 2: Controlled Emergency Fallback
 if (-not $remoteOk) {
+    if (-not $AllowFallback) {
+        Write-Error "[FAIL-CLOSED] Remote accelerated host ($primaryUrl) unreachable. Automatic silent downgrade to 7B is blocked. Pass -AllowFallback to permit emergency local fallback."
+        exit 2
+    }
     try {
         $localCheck = Invoke-RestMethod -Uri "$fallbackUrl/api/tags" -Method Get -TimeoutSec 2 -ErrorAction Stop
         $targetUrl = $fallbackUrl
+        $isFallbackActive = $true
         if (-not $targetModel) { $targetModel = "qwen2.5:7b" }
-        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK] Remote unavailable. Falling back to local ($targetUrl, Model: $targetModel)" }
+        if (-not $Quiet) { Write-Warning "[ENDPOINT FALLBACK - EXPLICIT] Remote unavailable. Using local fallback ($targetUrl, Model: $targetModel)" }
     } catch {
-        Write-Error "Ollama connection failed: Both remote and local endpoints are unreachable."
+        Write-Error "Ollama connection failed: Both remote ($primaryUrl) and local fallback ($fallbackUrl) endpoints are unreachable."
         exit 2
     }
 }
@@ -106,12 +119,21 @@ $requestObj = @{
     prompt = $effectivePrompt
     stream = $true
     options = @{
-        temperature = 0.3
+        temperature = $Temperature
+        seed = $Seed
         top_p = 0.9
         num_predict = 4096
     }
 }
 $requestJson = $requestObj | ConvertTo-Json -Depth 5
+
+# Validate JSON serialization integrity (Pre-flight Schema Guard)
+try {
+    $null = $requestJson | ConvertFrom-Json
+} catch {
+    Write-Error "[FATAL] Request JSON serialization failed: $_"
+    exit 1
+}
 
 $scratchDir = Join-Path $projectRoot "scratch"
 if (-not (Test-Path $scratchDir)) { New-Item -ItemType Directory -Path $scratchDir -Force | Out-Null }
@@ -182,6 +204,8 @@ $metricsOutput = @"
 ================ [Execution Metrics] ================
 Endpoint: $targetUrl
 Model: $targetModel
+Seed: $Seed
+Temperature: $Temperature
 Elapsed: $($elapsedSec.ToString('F2'))s
 Prompt Tokens: $promptTokens
 Eval Tokens: $totalTokens

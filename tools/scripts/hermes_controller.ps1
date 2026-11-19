@@ -126,30 +126,41 @@ if ($UseCache -and (Test-Path $qwenCacheFile)) {
     $qwenStatus = "COMPLETED (CACHE HIT)"
     Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Qwen audit result (0ms, 0 tokens)." -ForegroundColor Cyan
 } else {
+    $repoQwenScript = Join-Path $scriptDir "call_qwen.ps1"
     $globalHermesScript = Join-Path $env:USERPROFILE ".gemini\scripts\audit_with_hermes.ps1"
     $hermesReportPath = ""
     $hermesOutputText = ""
 
+    $hermesTempDir = Join-Path $projectRoot "scratch\hermes_run_${timestampStr}"
+    if (-not (Test-Path $hermesTempDir)) { New-Item -ItemType Directory -Path $hermesTempDir -Force | Out-Null }
+    $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
+
     if (Test-Path $globalHermesScript) {
-        $hermesTempDir = Join-Path $projectRoot "scratch\hermes_run_${timestampStr}"
-        if (-not (Test-Path $hermesTempDir)) { New-Item -ItemType Directory -Path $hermesTempDir -Force | Out-Null }
-        $hermesReportCandidate = Join-Path $hermesTempDir "report.md"
+        # Path A: Global Hermes controller if available in local environment
         & powershell -ExecutionPolicy Bypass -File $globalHermesScript -TargetFile $resolvedTarget -OutputDir $hermesTempDir -OutputFile $hermesReportCandidate | Out-Null
-        if (Test-Path $hermesReportCandidate) {
-            $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
-            $qwenStatus = "COMPLETED"
-            [System.IO.File]::WriteAllText($qwenCacheFile, $hermesOutputText, [System.Text.Encoding]::UTF8)
-            Write-Host "  -> Qwen 27B Main Audit Completed" -ForegroundColor Green
-        } else {
-            $hermesOutputText = "Qwen audit report file was not generated."
-            $qwenStatus = "FAIL (Report Not Generated)"
-            Write-Warning "  -> Qwen result report missing"
-        }
+    } elseif (Test-Path $repoQwenScript) {
+        # Path B: Repository self-contained standalone execution (Zero-External-Dependency)
+        $auditPrompt = "Inspect the following specification/source code for architectural integrity, Labor Standards Act compliance, concurrency controls, and boundary conditions.`nTarget: $resolvedTarget`nContent:`n" + [System.IO.File]::ReadAllText($resolvedTarget, [System.Text.Encoding]::UTF8)
+        $auditPromptFile = Join-Path $hermesTempDir "prompt.txt"
+        [System.IO.File]::WriteAllText($auditPromptFile, $auditPrompt, [System.Text.Encoding]::UTF8)
+        $qwenRaw = & powershell -ExecutionPolicy Bypass -File $repoQwenScript -PromptFile $auditPromptFile -Seed 42 -Temperature 0.1 -Quiet
+        [System.IO.File]::WriteAllText($hermesReportCandidate, $qwenRaw, [System.Text.Encoding]::UTF8)
     } else {
-        $hermesOutputText = "Global Hermes script ($globalHermesScript) not found."
+        $hermesOutputText = "Neither global Hermes script ($globalHermesScript) nor repository runner ($repoQwenScript) found."
         $qwenStatus = "FAIL (Script Missing)"
-        Write-Error "  -> Global Hermes script not found: Fail-Closed enforcement"
+        Write-Error "  -> Hermes audit script not found: Fail-Closed enforcement"
         exit 2
+    }
+
+    if (Test-Path $hermesReportCandidate) {
+        $hermesOutputText = [System.IO.File]::ReadAllText($hermesReportCandidate, [System.Text.Encoding]::UTF8)
+        $qwenStatus = "COMPLETED"
+        [System.IO.File]::WriteAllText($qwenCacheFile, $hermesOutputText, [System.Text.Encoding]::UTF8)
+        Write-Host "  -> Qwen 27B Main Audit Completed" -ForegroundColor Green
+    } else {
+        $hermesOutputText = "Qwen audit report file was not generated."
+        $qwenStatus = "FAIL (Report Not Generated)"
+        Write-Warning "  -> Qwen result report missing"
     }
 }
 

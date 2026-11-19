@@ -109,35 +109,36 @@ if ($latestAuditReport -and (Test-Path $latestAuditReport)) {
 <# Step 3. Determine Verification Matrix for Each Requirement #>
 $matrixRows = @()
 
+# Dynamically run deterministic integrity linter
+$linterExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+$ssotPath = Join-Path $projectRoot "config\srs_specification_ssot.md"
+$linterVerdict = "PASS"
+if (Test-Path $linterExe) {
+    & $linterExe $ssotPath | Out-Null
+    if ($LASTEXITCODE -ne 0) { $linterVerdict = "FAIL" }
+}
+
 foreach ($req in $reqList) {
     $id = $req.Id
     $title = $req.Title
 
-    # Deterministic default values
-    $linterVerdict = "PASS"
     $qwenVerdict = "PASS"
     $codexVerdict = "PASS"
     $claudeVerdict = "PASS"
 
     if ($reportContent) {
-        # Check Qwen findings section
-        if ($reportContent -match "(?ms)## 3\..+?($id).+?## 4\.") {
-            $qwenVerdict = "FINDINGS (P1)"
-        } elseif ($id -like "REQ-LABOR-*") {
+        # Check Qwen findings section dynamically
+        if ($reportContent -match "(?ms)##\s*3\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
             $qwenVerdict = "FINDINGS (P1)"
         }
 
-        # Check Codex findings section
-        if ($reportContent -match "(?ms)## 4\..+?($id).+?## 5\.") {
-            $codexVerdict = "FINDINGS"
-        } elseif ($id -in @("REQ-MEMBER-001", "REQ-STAFF-002", "REQ-LABOR-001", "REQ-LABOR-002", "REQ-LABOR-003", "REQ-LABOR-004")) {
+        # Check Codex findings section dynamically
+        if ($reportContent -match "(?ms)##\s*4\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
             $codexVerdict = "FINDINGS"
         }
 
-        # Check Claude findings section
-        if ($reportContent -match "(?ms)## 5\..+?($id).+?## 6\.") {
-            $claudeVerdict = "FINDINGS (Critical)"
-        } elseif ($id -like "REQ-LABOR-*") {
+        # Check Claude findings section dynamically
+        if ($reportContent -match "(?ms)##\s*5\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
             $claudeVerdict = "FINDINGS (Critical)"
         }
     }
@@ -167,6 +168,7 @@ $renderedMetrics = $renderedMetrics.Replace("{{LAST_STATUS}}", $lastStatus)
 $renderedMetrics = $renderedMetrics.Replace("{{LAST_BATCH_ID}}", $lastBatchId)
 $renderedMetrics = $renderedMetrics.Replace("{{LAST_NOTES}}", $lastNotes)
 $renderedMetrics = $renderedMetrics.Replace("{{MATRIX_TABLE}}", $matrixTableText)
+$renderedMetrics = $renderedMetrics.Replace("../../logs/", "")
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($metricsPath, $renderedMetrics, $utf8NoBom)

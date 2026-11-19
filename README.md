@@ -16,9 +16,9 @@
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
 本システムは、突如としてゼロから作られたものではありません。  
-数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity ＋ VerifySRS_Deterministic）、11/11回帰テストスイート、23件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
+数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity ＋ VerifySRS_Deterministic）、11/11回帰テストスイート、26件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **23件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **26件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
 - **C#決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
 - **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
@@ -112,7 +112,7 @@ flowchart TD
 1. **総括オーケストレーター (Antigravity / Gemini)**: ワークスペース全体のタスク調停、ファイル入出力制御、単一真実原書（SSOT）の排他的管理
 2. **L1 高速文脈分析器 (ローカル Qwen 27B, RTX 5070 Ti)**: 低遅延P2Pリモートアクセラレーションにより、数万トークンのドメインドラフト・境界条件の骨子を追加コスト0円で超高速生成
 3. **L2 独立交差監査官 (OpenAI Codex CLI, Read-Only Sandbox)**: 読み取り専用隔離サンドボックスにおいて、DDL制約、DTO契約、並行性デッドロック等のコードレベル整合性を交差監査（トークン保護ファイルポインタ適用）
-4. **L3 深層論理監査官 (Anthropic Claude 5.5)**: 日本労働基準法第37条への準拠性、端数処理（50銭未満切捨て・50銭以上切上げ）、労使紛争シナリオの深層監査（[GEMINI.md](file:///GEMINI.md) 運営規約に基づく4重交差検証の常時監査官）
+4. **L3 深層論理監査官 (Anthropic Claude 5.5)**: 日本労働基準法第37条への準拠性、端数処理（50銭未満切捨て・50銭以上切上げ）、労使紛争シナリオの深層監査（[GEMINI.md](GEMINI.md) 運営規約に基づく4重交差検証の常時監査官）
 5. **C#決定論的リンター (`VerifySRS_Deterministic.cs`)**: AIが見落としやすいスペースなし波線（` ~ `）、TBD/TODOの残存、5大必須要素（入力・処理・出力・例外・DoD）の欠落をコンパイラレベルで機械的に完全遮断（Fail-Closed原則）
 
 ---
@@ -134,7 +134,7 @@ flowchart TD
 │   └── runs/                                   # 実行別マニフェスト・エビデンス束
 ├── logs/
 │   ├── CURRENT_STATUS.md             # プロジェクト統括ステータス台帳
-│   ├── incident_history_ledger.md    # 23件実障害インシデント・耐障害性解決台帳 (実物)
+│   ├── incident_history_ledger.md    # 26件実障害インシデント・耐障害性解決台帳 (実物)
 │   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス
 │   ├── cloud_api_token_ledger.csv    # クラウドAPI消費トークン・コスト実測原帳
 │   ├── local_token_ledger.csv        # ローカルGPU推論速度・トークン実測原帳
