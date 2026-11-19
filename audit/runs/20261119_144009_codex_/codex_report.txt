@@ -1,0 +1,184 @@
+# Slice 3 要求仕様書 — 客観的打刻・勤怠管理およびドメイン整合性強化
+
+| 項目 | 定義 |
+|---|---|
+| 対象 | KINTAI SaaS、Day 3、BL-DAY3-001〜BL-DAY3-005 |
+| 文書状態 | 実装用仕様案。バックログの承認状態は `APPROVED_FOR_DAY3_IMPLEMENTATION` |
+| SSOT 統合先 | `config/srs_specification_ssot.md` |
+| 依存先 | Slice 1 の店舗・スタッフ・認可、Slice 2 のシフト確定、Slice 4 の賃金・割増計算 |
+| 時間基準 | 保存・比較は UTC の絶対時刻、日本の勤務日・年齢・深夜窓・賃金発効日は `Asia/Tokyo` |
+| DDL 記法 | PostgreSQL 方言による論理仕様。既存テーブル名・キー型は統合時に既存 SSOT と照合する |
+| 完了証跡 | 本文は仕様案であり、SSOT 統合、検証機の実行結果、独立監査の裁定結果は未確認 |
+
+## 1. 要求トレーサビリティ
+
+| バックログ | 既存要求 | 本仕様の要求 | 主な永続化対象 |
+|---|---|---|---|
+| BL-DAY3-001 | `REQ-ATTEND-001` | [REQ-ATT-001]、[REQ-ATT-002] | [DDL-001]〜[DDL-006] |
+| BL-DAY3-002 | `REQ-ATTEND-002` | [REQ-ATT-003]、[REQ-ATT-004] | [DDL-005]〜[DDL-007] |
+| BL-DAY3-003 | `REQ-STORE-002` | [REQ-ATT-005] | [DDL-001]、[DDL-005]、[DDL-007] |
+| BL-DAY3-004 | `REQ-LABOR-001` | [REQ-ATT-006]、[REQ-ATT-007] | [DDL-008]〜[DDL-010] |
+| BL-DAY3-005 | `REQ-ATTEND-003` | [REQ-ATT-008]、[REQ-ATT-009] | [DDL-005]〜[DDL-007]、[DDL-011]〜[DDL-013] |
+
+## 2. 入力契約および共通境界
+
+### [REQ-ATT-001] 打刻受付・本人端末の確認
+
+1. 打刻 API は認証済みスタッフから `store_id`、`device_uuid`、`event_type`、`qr_token`、`latitude`、`longitude`、`idempotency_key` を受け取る。スタッフ・テナントの識別には認証コンテキストを使う。申告された識別子で代理打刻できてはならない。
+2. `event_type` の許容値は `CLOCK_IN`、`BREAK_START`、`BREAK_END`、`CLOCK_OUT` とする。UUID は構文を検証する。失効した端末、他人の端末、対象店舗への有効な所属がない利用者の要求を拒否する。UUID の一致に加え、登録鍵による要求署名または同等の認証済み端末セッションを検証する。
+3. 打刻時刻には API 受付時に一度取得した信頼済みサーバー時刻を用いる。端末時刻を任意で受け取る場合は参考値として識別する。通信断後の過去時刻申告は [REQ-ATT-008] の対象とする。
+4. 外部日時はオフセットまたは `Z` を含む厳密な ISO 8601 とし、最大精度はマイクロ秒とする。存在しない日付、オフセット欠落、精度超過を拒否する。Java 境界では `DateTimeParseException` を捕捉し `INVALID_TIMESTAMP` に変換する。日付専用項目は厳密な `YYYY-MM-DD` とする。
+5. 同一テナント・スタッフ・冪等キーの再送では、本人認証後に正規化要求のダイジェストを比較する。同一内容なら、QR の再失効判定や状態更新を行わず、確定済みの結果を返す。異なる内容なら `IDEMPOTENCY_CONFLICT` とする。イベント、状態、判定に使用した証跡は同じトランザクションで確定する。
+6. 初回成功は HTTP 201 とし、`event_id`、`session_id`、`effective_at`、`business_date`、`state`、`version` を返す。エラーには `code`、`request_id`、必要に応じて `field` を含める。秘密鍵、QR 本文、生年月日、正確な位置をエラーログに出力しない。
+
+### [REQ-ATT-002] 動的 QR および 100 m ジオフェンス
+
+| 項目 | 判定仕様 |
+|---|---|
+| トークン | 店舗端末ごとの秘密鍵と HMAC-SHA256 を使用する。TOTP は Unix epoch 起点、30 秒ステップ、8 バイト big-endian カウンタ、動的切り出し、8 桁ゼロ埋めとする。QR にプロトコル版、端末 ID、鍵版、スロット、コードを含める。 |
+| 許容窓 | `s = floor(server_epoch_seconds / 30)` とする。申告スロットが `{s−1,s,s+1}` に含まれ、そのスロットに対するコードが定時間比較で一致すること。店舗・端末・鍵の組を照合し、失効済み鍵を直ちに拒否する。 |
+| 鍵管理 | 店舗表示端末のみが対応する発行鍵を利用できること。スタッフ端末に鍵を配布しない。鍵版の有効区間は `[valid_from,valid_until)` とする。検証失敗を利用者・端末単位でレート制限する。 |
+| 座標 | WGS84 十進度。緯度は `[-90,90]`、経度は `[-180,180]`。欠落、非有限値、範囲外を拒否する。店舗基準座標が未整備の場合は打刻を確定しない。 |
+| 距離 | 緯度・経度をラジアン化する。`a = sin²(Δφ/2) + cos φ₁ cos φ₂ sin²(Δλ/2)`、`d = 2 × 6371000 × asin(sqrt(clamp(a,0,1)))` メートルとする。経度差は日付変更線をまたぐ最短差に正規化する。 |
+| 閾値 | 丸める前の `d ≤ 100` を許可し、`d > 100` を `LOCATION_OUT_OF_BOUNDS`（HTTP 422）とする。表示用の丸めや GPS 精度値で半径を拡張しない。 |
+| 共有と再利用 | 同じ表示 QR を複数スタッフが各自の打刻に使用できる。同一スタッフによる同じ端末・鍵版・スロット・イベント種別の重複受理は一意制約で防ぐ。別の冪等キーによる再利用は HTTP 409 とする。 |
+| 証跡 | 打刻時の店舗基準座標、観測座標、計算距離、端末、鍵版、スロットを保存する。端末位置情報は取得元を識別できるようにし、アクセスを権限管理する。 |
+
+## 3. 状態と時間区間
+
+### [REQ-ATT-003] 打刻状態機械
+
+| 現在状態 | 受理イベント | 次状態 | 処理 |
+|---|---|---|---|
+| 開いている勤務なし | `CLOCK_IN` | `WORKING` | 勤務を作成し、日本時間の始業日を勤務基準日に固定する |
+| `WORKING` | `BREAK_START` | `ON_BREAK` | 休憩開始を記録する |
+| `ON_BREAK` | `BREAK_END` | `WORKING` | 正の長さの休憩を閉じる |
+| `WORKING` | `CLOCK_OUT` | `CLOSED` | 勤務を閉じ、実働区間と集計対象を確定する |
+
+- 表にない遷移は `INVALID_ATTENDANCE_TRANSITION` とする。休憩がなければ直接退勤できる。複数休憩では開始・終了の対が必要となる。退勤後の新たな出勤は別勤務とする。
+- 同一スタッフの全店舗を通じて開いた勤務は最大一件とする。勤務途中の通常打刻は開始店舗に属すること。人を店舗間で一意に識別できる既存の雇用主体内スタッフキーを使用する。
+- スタッフ単位の安定した親行をロックし、最初の出勤を含めて並行要求を直列化する。各イベントは勤務内で直前の有効イベントより後でなければならない。遷移、バージョン、区間、集計更新の一部だけをコミットしてはならない。
+
+### [REQ-ATT-004] 休憩・日跨ぎ・深夜区間
+
+1. 勤務を `[in,out)`、休憩を `[start,end)` で表す。終了が開始以前である勤務・休憩、または休憩控除後の実働がゼロ以下の確定勤務には `InvalidWorkTimeException` を送出し、API では `INVALID_WORK_TIME` とする。
+2. 休憩はソート後、勤務外・逆転・重複を検証する。開始が直前の終了より早ければ重複として拒否する。隣接区間は和集合で結合する。重複を先にマージして入力違反を隠してはならない。
+3. 実働集合 `W` は勤務区間から有効休憩の和集合を引いたものとする。日跨ぎ勤務の所属日は始業日とする。翌日 00:00 や 05:00 を理由に勤務を自動終了しない。
+4. 深夜実働は `W` と各日本時間日付 `d` の `[d 22:00, d+1 05:00)` の積集合の総和とする。早朝始業では前日開始の深夜窓も列挙する。22:00 を含み、05:00 を含まない。
+5. 秒・小数秒を含む元時刻は保存する。時間計算は正確な経過時間で行い、分単位入力は正確な分数として扱う。日次の切捨てや、イベント別・区間別の不利益な丸めを禁止する。
+
+## 4. 年少者保護
+
+### [REQ-ATT-005] 年齢・深夜・日週上限
+
+- `store_staff.birth_date` を必須とし、未来日を拒否する。本人確認済み生年月日から日本の年齢計算規則に従って対象勤務時点の満年齢を判定する。年齢は固定フラグとして保存しない。2 月 29 日生まれと満 18 歳到達境界を受入試験に含める。
+- シフト登録・変更・確定時に、18 歳未満の対象区間と深夜窓に正の長さの共通部分があれば `YOUTH_NIGHT_WORK_PROHIBITED`（HTTP 422）とする。深夜を含むシフトは予定休憩によって許可しない。22:00 終了、05:00 開始は深夜に該当しない。
+- 同じ雇用主体の対象店舗を横断し、勤務基準日で日次、既存の就業規則に登録された固定週起算日で週次集計する。予定実働と既実働の同一部分を二重計上しない。重複するシフトは先に拒否する。更新時は旧版を候補から除き、新版で再評価する。
+- 年少者の実働は 1 日 8 時間、週 40 時間を上限とする。上限ちょうどは許可し、超過するシフトの登録・変更・確定を拒否する。変形労働時間制による上限拡張を適用しない。
+- 実打刻時も残余時間・深夜境界を評価する。違反となる就労の開始・再開を拒否し、勤務継続中は最も早い制限到達時刻までに本人と店長へ停止通知する。予定外勤務でも同じガードを適用する。
+- 退勤・休憩開始時に既発生の超過が判明した場合、就労継続は許可せず、実際の停止打刻と違反事実を保存し店長へ通知する。上限時刻による自動退勤、超過時間の削除、賃金対象からの除外を禁止する。事後修正で判明した違反も同様に扱う。
+- シフト確定、実打刻、修正適用は同じスタッフ集計ロックを取得する。生年月日または週設定が欠けて判定できない場合は新規就労を許可せず、既発生労働の申告は事後修正経路で受け付ける。
+
+## 5. 最低賃金と割増賃金
+
+### [REQ-ATT-006] 地域別最低賃金の履歴適用
+
+1. 勤務店舗の都道府県と勤務基準日を使い、`effective_date ≤ business_date` を満たす最大の発効日を選ぶ。各版の適用期間は当該発効日以上、次の発効日未満とする。発効月日を固定しない。
+2. 改定日前に始まり改定日以降に終わる勤務は、指定された始業日基準で一つの履歴版を参照する。店舗所在地・契約時給も対象勤務に適用される履歴または確定スナップショットから取得する。
+3. `applied_rate = max(contract_rate, minimum_rate)` とする。契約時給が低いときは補正後時給で基本賃金と割増額を算定し、明細に警告、補正前後時給、時給差、補正による賃金差額を記録する。等しい場合は補正フラグを立てない。
+4. 補正明細と店長通知の送信待ちレコードを同一トランザクションで保存する。通知失敗時は再試行し、同じ明細版の通知を重複発行しない。
+5. 適用可能な履歴がない場合は `MINIMUM_WAGE_HISTORY_MISSING` とし、当該明細を要解決状態に置いて給与担当へ通知する。ゼロ円または推測値で確定しない。勤怠記録は受理し、履歴補完後に再計算できること。
+6. 将来版の追加で過去の確定明細を書き換えない。遡及改定・勤怠訂正では再計算版を作成し、元明細、参照した履歴版、差額を追跡可能にする。
+
+### [REQ-ATT-007] 割増率・重複・丸め
+
+| 実働区分 | 基礎時給に対する加算 | 合計倍率 |
+|---|---:|---:|
+| 通常 | 0% | 1.00 |
+| 深夜のみ | 25% | 1.25 |
+| 法定時間外のみ | 25% | 1.25 |
+| 法定時間外かつ深夜 | 50% | 1.50 |
+| 月 60 時間超の法定時間外 | 50% | 1.50 |
+| 月 60 時間超の法定時間外かつ深夜 | 75% | 1.75 |
+
+- 日 8 時間または週 40 時間を超える実働の和集合を法定時間外とする。日超過と週超過の共通部分を二重計上しない。日超過として算入済みの時間を除いて週超過分を特定する。
+- 月の法定時間外累計が 60 時間に到達する点で区間を分け、超えた部分に上位率を適用する。深夜開始・終了、休憩、日週超過開始、月 60 時間到達の全境界で同一の実働集合を分割する。既存 Slice 4 の休日区分・給与期間定義と連携し、同一加算の重複を防ぐ。
+- 演算には整数時間単位と十進数または有理数を用いる。区間別の円未満額を保持し、月間賃金の最終集計でのみ 50 銭未満を切り捨て、50 銭以上 1 円未満を 1 円に切り上げる。訂正差額は訂正前後の確定月額の差とし、差額単体を再丸めしない。
+
+## 6. 打刻事後修正
+
+### [REQ-ATT-008] 二者承認と原記録の保存
+
+1. スタッフまたは権限を持つ担当者が、勤務、基準バージョン、理由、変更対象、変更後のイベント列を指定して申請する。打刻漏れの追加・時刻訂正・誤打刻の取消を扱う。原打刻を物理更新・削除しない。勤務全体が未記録の場合は、対象スタッフ・店舗を指定し、基準版 `0` の修正対象を作成する。
+2. 本仕様の二者承認は、申請者と対象スタッフを除く異なる二名の承認を必要とする。第一承認者は店舗管理権限、第二承認者は勤怠監督または給与管理権限を持つこと。各操作時点で同一テナント・対象店舗に対する権限を再確認する。
+3. `PENDING_FIRST → PENDING_SECOND → APPLIED` を正常経路とする。いずれの段階でも権限者の否認で `REJECTED`、申請者の取下げで `WITHDRAWN` とする。終端状態から再開しない。申請内容を変える場合は新規申請とする。
+4. 第二承認時に勤務をロックし、基準版、イベント列、勤務重複、区間、年少者判定、影響する給与期間を再評価する。基準版が古ければ `STALE` として適用せず、再申請を要する。既に発生した年少者違反を隠す訂正を行ってはならない。
+5. 第二承認の記録、訂正版の追加、有効投影の更新、監査記録、再計算依頼を原子的に確定する。再送は同じ結果を返す。確定済み明細は新しい版で調整する。訂正によるイベントの取得元は `APPROVED_CORRECTION` とし、GPS・QR の観測値を捏造しない。
+
+### [REQ-ATT-009] 不変監査ログ
+
+申請、各承認、否認、取下げ、競合失効、適用、賃金再計算を追跡できること。操作主体、対象、旧新版、理由、要求 ID、サーバー時刻、変更前後のダイジェストを保存する。監査表・原イベント・承認記録には実行ロールから `UPDATE`、`DELETE`、`TRUNCATE` を禁止する。テナント別の連番と前レコードのハッシュを連結し、定期的に別権限の追記専用保管先へチェックポイントを保存する。検証時には順序、欠落、内容変更、末尾削除を照合する。必要な監査書込みが失敗した業務更新はロールバックする。
+
+## 7. 永続化仕様
+
+下表で `!` は `NOT NULL`、`?` は `NULL` 許容を表す。`ts` は `timestamptz(6)`、`id` は `uuid`、`hash` は長さ 32 バイトの `bytea`、`rate` は `numeric(12,4)` とする。各 `PK`・`UQ` は対応する一意索引を持つ。テナント別参照では `t = tenant_id` をキーの先頭に含める。外部キー削除は `RESTRICT` とする。既存親表 `store`、`staff`、`principal`、`payroll_line` は `(t,id)`、`store_staff` は `(t,store_id,staff_id)` を一意に識別するものとする。
+
+| ID・表 | 列・型・NULL 性 | PK・FK・制約 | 追加索引 |
+|---|---|---|---|
+| [DDL-001] `store_staff` / `store` 拡張 | `store_staff.birth_date date!`。`store.latitude double precision!`、`longitude double precision!`、`prefecture_code char(2)!` | 既存 PK・FK 維持。座標は [REQ-ATT-002] の範囲、都道府県は `01`〜`47`。同一人物の生年月日は所属間で整合させる | `store_staff(t,staff_id,store_id)` |
+| [DDL-002] `attendance_device` | `t id!`, `device_uuid id!`, `staff_id id!`, `credential_ref text!`, `registered_at ts!`, `revoked_at ts?` | PK `(t,device_uuid)`、FK `(t,staff_id)→staff`、UQ `(t,credential_ref)`。失効は登録以降 | `(t,staff_id) WHERE revoked_at IS NULL` |
+| [DDL-003] `qr_terminal` | `t id!`, `terminal_id id!`, `store_id id!`, `registered_at ts!`, `revoked_at ts?` | PK `(t,terminal_id)`、FK `(t,store_id)→store`。端末の店舗間転用は禁止 | `(t,store_id)` |
+| [DDL-004] `qr_terminal_key` | `t id!`, `terminal_id id!`, `key_version integer!`, `secret_ref text!`, `valid_from ts!`, `valid_until ts?`, `revoked_at ts?` | PK `(t,terminal_id,key_version)`、FK `(t,terminal_id)→qr_terminal`。`key_version>0`、終了は開始後。鍵素材は秘密管理基盤に置く | `(t,terminal_id,valid_from)` |
+| [DDL-005] `attendance_session` | `t id!`, `session_id id!`, `store_id id!`, `staff_id id!`, `business_date date!`, `state text!`, `version bigint!`, `started_at ts?`, `ended_at ts?` | PK `(t,session_id)`、FK `(t,store_id,staff_id)→store_staff`。`WORKING/ON_BREAK` は開始のみ、`CLOSED` は終了>開始。未記録勤務の申請用 `DRAFT` は版 0・両時刻 NULL、全取消済みの `VOID` は両時刻 NULL | UQ `(t,staff_id) WHERE state IN ('WORKING','ON_BREAK')`、`(t,staff_id,business_date)`。有効勤務区間には同一スタッフの重複排除制約 |
+| [DDL-006] `attendance_event` | `t id!`, `event_id id!`, `session_id id!`, `staff_id id!`, `kind text!`, `effective_at ts!`, `received_at ts!`, `device_uuid id!`, `terminal_id id!`, `key_version integer!`, `slot bigint!`, `latitude double precision!`, `longitude double precision!`, `store_lat double precision!`, `store_lon double precision!`, `distance_m double precision!`, `location_source text!`, `idempotency_key id!`, `request_hash hash!`, `result_json jsonb!` | PK `(t,event_id)`、FK→対象勤務、スタッフ、登録端末、端末鍵版。UQ `(t,staff_id,idempotency_key)`、UQ `(t,staff_id,terminal_id,key_version,slot,kind)`。イベント種別は [REQ-ATT-001]。参照先スタッフ・店舗一致を強制。追記専用 | `(t,session_id,effective_at)` |
+| [DDL-007] `attendance_revision` | `t id!`, `session_id id!`, `version bigint!`, `source text!`, `event_id id?`, `request_id id?`, `timeline jsonb!`, `created_at ts!` | PK `(t,session_id,version)`、FK→勤務、原イベント、修正申請。`OBJECTIVE` はイベントのみ、`APPROVED_CORRECTION` は申請のみ参照。時系列の各要素は種別・絶対時刻・由来を必須とする。追記専用 | UQ `(t,event_id)`、UQ `(t,request_id)`（各非 NULL 時） |
+| [DDL-008] `minimum_wage_history` | `prefecture_code char(2)!`, `effective_date date!`, `hourly_wage rate!` | PK `(prefecture_code,effective_date)`、都道府県 `01`〜`47`、`hourly_wage>0`。地域別共通マスタ | PK で発効日降順検索 |
+| [DDL-009] `attendance_wage_basis` | `t id!`, `basis_id id!`, `payroll_line_id id!`, `session_id id!`, `session_version bigint!`, `line_version bigint!`, `business_date date!`, `prefecture_code char(2)!`, `effective_date date!`, `contract_rate rate!`, `minimum_rate rate!`, `applied_rate rate!`, `rate_difference rate!`, `adjustment_numerator numeric!`, `adjustment_denominator numeric!`, `warning boolean!`, `previous_basis_id id?`, `created_at ts!` | PK `(t,basis_id)`、FK→給与明細、勤務版、地域・発効日、前版。UQ `(t,payroll_line_id,session_id,line_version)`。適用額は両時給の最大値、時給差は適用額−契約額、警告は差>0。差額は円単位の整数分子／正整数分母。追記専用 | `(t,session_id,session_version)` |
+| [DDL-010] `attendance_outbox` | `t id!`, `message_id id!`, `kind text!`, `dedupe_key text!`, `payload jsonb!`, `created_at ts!`, `available_at ts!`, `attempts integer!`, `delivered_at ts?`, `last_error_code text?` | PK `(t,message_id)`、UQ `(t,kind,dedupe_key)`、`attempts≥0`。給与・店舗・対象勤務の識別子を種別別ペイロードで検証 | `(available_at,message_id) WHERE delivered_at IS NULL` |
+| [DDL-011] `attendance_correction` | `t id!`, `request_id id!`, `session_id id!`, `base_version bigint!`, `applicant_id id!`, `reason text!`, `proposed_timeline jsonb!`, `proposal_hash hash!`, `status text!`, `created_at ts!`, `resolved_at ts?` | PK `(t,request_id)`、FK→勤務、申請主体。`base_version≥0`。状態は [REQ-ATT-008]。理由は空白のみ不可。申請内容は作成後不変 | `(t,session_id,base_version)`、`(t,status,created_at)` |
+| [DDL-012] `attendance_decision` | `t id!`, `request_id id!`, `stage smallint!`, `actor_id id!`, `decision text!`, `reason text?`, `proposal_hash hash!`, `decided_at ts!` | PK `(t,request_id,stage)`、UQ `(t,request_id,actor_id)`、FK→申請、主体。`stage IN (1,2)`、`decision IN ('APPROVE','REJECT')`。否認理由必須。追記専用 | `(t,actor_id,decided_at)` |
+| [DDL-013] `attendance_audit_log` | `t id!`, `sequence_no bigint!`, `action text!`, `actor_id id!`, `entity_type text!`, `entity_id id!`, `correlation_id id!`, `occurred_at ts!`, `reason text?`, `old_version bigint?`, `new_version bigint?`, `before_hash hash?`, `after_hash hash?`, `previous_hash hash!`, `entry_hash hash!` | PK `(t,sequence_no)`、FK→主体（自動処理はサービス主体）。テナント別直列採番。初項の前ハッシュは 32 バイトのゼロ。各項は版固定の正規化表現を SHA-256 で連結。追記専用 | `(t,entity_type,entity_id,sequence_no)`、`(t,correlation_id)` |
+
+**移行条件。** 既存行には確認済み生年月日・店舗座標・都道府県を段階的に補完し、欠損件数と不整合件数がともにゼロであることを照合してから `NOT NULL` を有効化する。架空の生年月日や仮の店舗位置を初期値に使用しない。履歴マスタにはサポートする最古の給与再計算日を覆う版を投入する。既存勤怠の移行では出所を保持し、原データに存在しない端末検証・GPS 検証の成功を記録しない。
+
+## 8. エラー契約
+
+| HTTP | 安定コード | 条件・結果 |
+|---:|---|---|
+| 400 | `INVALID_TIMESTAMP` | 日時構文、オフセット、精度または暦日が不正 |
+| 400 | `INVALID_PAYLOAD` | UUID、列挙値、必須項目、座標の形式・範囲が不正 |
+| 401 | `AUTHENTICATION_REQUIRED` | 本人認証が成立しない |
+| 403 | `DEVICE_BINDING_INVALID` / `STORE_ACCESS_DENIED` | 端末証明、登録、失効または所属の検証に失敗 |
+| 403 | `APPROVAL_FORBIDDEN` | 自己承認、対象者承認、同一人の二重承認、権限不足 |
+| 404 | `ATTENDANCE_NOT_FOUND` | テナント内で参照可能な勤務・申請がない |
+| 409 | `IDEMPOTENCY_CONFLICT` / `QR_ALREADY_USED` | 冪等キーの内容不一致または同一打刻用途の QR 再利用 |
+| 409 | `INVALID_ATTENDANCE_TRANSITION` / `SESSION_OVERLAP` | 状態遷移違反または他の勤務と重複 |
+| 409 | `STALE_VERSION` / `CORRECTION_STATE_CONFLICT` | 勤務版または申請段階の競合 |
+| 422 | `QR_TOKEN_INVALID` | 署名相当コード、許容窓、店舗端末または鍵の有効性が不一致 |
+| 422 | `LOCATION_OUT_OF_BOUNDS` | 検証済み座標間の距離が 100 m を超える |
+| 422 | `INVALID_WORK_TIME` | `InvalidWorkTimeException`。勤務、休憩または確定実働の長さがゼロ以下 |
+| 422 | `BREAK_OUTSIDE_WORK` / `BREAK_OVERLAP` | 休憩が勤務外または相互に重複 |
+| 422 | `YOUTH_NIGHT_WORK_PROHIBITED` | 年少者の深夜就労 |
+| 422 | `YOUTH_DAILY_LIMIT_EXCEEDED` / `YOUTH_WEEKLY_LIMIT_EXCEEDED` | 年少者の日 8 時間または週 40 時間超過 |
+| 422 | `STAFF_BIRTH_DATE_INVALID` | 生年月日が未確認・欠落・未来日 |
+| 422 | `MINIMUM_WAGE_HISTORY_MISSING` | 当該地域・勤務基準日に適用できる履歴がない |
+| 429 | `RATE_LIMIT_EXCEEDED` | トークン検証試行上限。再試行可能時刻を返す |
+| 503 | `ATTENDANCE_CONFIGURATION_UNAVAILABLE` / `ATTENDANCE_WRITE_UNAVAILABLE` | 店舗座標・週設定・鍵基盤が利用できない、または原子的な書込みに失敗。同一冪等キーで再試行可能 |
+
+## 9. 受入試験とリリース判定
+
+| 検証対象 | 必須試験と期待結果 |
+|---|---|
+| QR・端末 | 固定時計・既知鍵でコードを照合する。スロット差 `−1,0,+1` は許可、`−2,+2` は拒否。失効鍵、他店 QR、他人の UUID、署名不一致は拒否。同一 QR を異なる正規スタッフが使用できる。 |
+| GPS | 同一点、100 m の内側・境界・外側、日付変更線、極付近、非有限値を試す。判定関数に正確な `100` を入力した境界試験と、既知座標からの距離計算試験を分ける。 |
+| 冪等性・並行性 | 成功応答喪失後に QR 期限を越えて再送しても原結果を一度だけ返す。異なる店舗からの同時出勤で開く勤務は一件。監査書込み失敗時に部分更新が残らない。 |
+| 状態・区間 | 休憩なし、複数休憩、二重出勤、休憩中退勤、逆転、ゼロ長、勤務外、重複、隣接を網羅する。日本時間 21:00〜翌 06:00、休憩 01:00〜02:00 は始業日所属、実働 8 時間、深夜実働 6 時間。 |
+| 年少者 | 17 歳と満 18 歳の到達境界、閏日生まれ、22:00 終了と 22:00 開始、05:00 開始を確認する。日 8 時間・週 40 時間ちょうどと各上限超過、複数店舗の並行確定、超過後の退勤記録保全を確認する。 |
+| 賃金履歴 | 発効日前日・当日、日跨ぎ、非 10 月改定、履歴欠落・補完、契約額が最低額未満・同額・超過を確認する。補正時は通知と明細が一組だけ生成される。 |
+| 割増・丸め | 全 6 区分、日週時間外重複、月 60 時間到達前後を試す。月時間外 59 時間 30 分から深夜時間外をさらに 1 時間勤務した場合、30 分ずつ 1.50 倍・1.75 倍。月額 `1000.49` 円は `1000` 円、`1000.50` 円は `1001` 円。 |
+| 二者承認 | 一人目のみでは有効勤務が変わらない。自己承認、同一人による第二承認、古い版、否認後の適用を拒否する。正規第二承認で訂正版・監査・再計算依頼が一度だけ確定し、原イベントを再現できる。 |
+| 監査証跡 | ログ変更・中間欠落・末尾削除を独立チェックポイントとの照合で検出する。通知配信の一時障害後も給与補正が保持され、同一通知 ID で再配送できる。 |
+
+**完了条件。** 5 件すべての SSOT 統合差分と受入試験結果を保存し、`VerifySRS_Deterministic.exe` と `VerifySRS_Integrity.exe` の全項目 PASS を取得する。決定論的検証、Qwen 27B、Codex、Claude 5.5 の各結果を対応付け、全要求を対象とした最終裁定で残余 P0 が 0 件であることを示す。
+
+**独立監査の証跡。** Qwen 実行前に `C:\dev\kintai\scripts\audit_config.json` と実際の呼出しスクリプトを照合する。使用先は `http://127.0.0.1:11434`、モデルは `qwen27b:latest` とする。各実行の入力バンドル・プロンプト・実ランナーの SHA-256、ランナー絶対パス、日時、接続先、モデル、プロセス終了状態、構造化報告、意味上の判定を追記保存する。接続失敗、出力不正、指摘あり、PASS を区別する。分割監査は全節の結果を集約し、指摘修正後の再検証と独立再監査が通過した版のみを完了版とする。

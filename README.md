@@ -18,7 +18,7 @@
 本システムは、突如としてゼロから作られたものではありません。  
 数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#決定論的リンター（VerifySRS_Integrity ＋ VerifySRS_Deterministic）、11/11回帰テストスイート、30件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **30件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **31件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、スキーマ不整合をC#ハードゲートで迎撃した全記録)*
 - **C#決定論的静的解析エンジン（VerifySRS_Integrity.cs）**: [`tools/scripts/VerifySRS_Integrity.cs`](tools/scripts/VerifySRS_Integrity.cs)
 - **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
@@ -134,7 +134,7 @@ flowchart TD
 │   └── runs/                                   # 実行別マニフェスト・エビデンス束
 ├── logs/
 │   ├── CURRENT_STATUS.md             # プロジェクト統括ステータス台帳
-│   ├── incident_history_ledger.md    # 30件実障害インシデント・耐障害性解決台帳 (実物)
+│   ├── incident_history_ledger.md    # 31件実障害インシデント・耐障害性解決台帳 (実物)
 │   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス
 │   ├── cloud_api_token_ledger.csv    # クラウドAPI消費トークン・コスト実測原帳
 │   ├── local_token_ledger.csv        # ローカルGPU推論速度・トークン実測原帳

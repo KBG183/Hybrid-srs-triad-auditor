@@ -76,6 +76,14 @@ Include:
 - Business logic & edge case processing
 - Boundary exceptions and error codes
 
+MANDATORY LINTER STRUCTURE PER REQUIREMENT (RULE-REQ-03):
+Each and every requirement block (### [REQ-...]) MUST strictly contain the following 5 bullet sections:
+- **入力**: (Detailed input parameters, types, sources; use SecurityContext for staff/tenant to avoid IDOR)
+- **処理**: (Step-by-step logic, pessimistic locking 'FOR UPDATE', state transitions using '→')
+- **出力**: (Return fields, DTOs, generated keys, status codes)
+- **例外処理**: (Exact exception classes, HTTP status codes e.g. HTTP 400/403/409/422, error codes)
+- **完了基準 (DoD)**: (Verifiable boundary conditions, concrete test criteria)
+
 Write ONLY the pure markdown content.
 "@
 
@@ -103,12 +111,20 @@ $draftContent = [System.IO.File]::ReadAllText($codexLastMsg, [System.Text.Encodi
 Move-Item -Path $tmpDraftPath -Destination $finalDraftPath -Force
 Write-Host "[PIPELINE] Draft successfully authored and verified: $finalDraftPath ($($draftContent.Length) chars, $($codexSw.Elapsed.TotalSeconds.ToString('F1'))s)"
 
-# 5. Execute Deterministic Linter Gate
+# 5. Execute Deterministic Linter Gate (Fail-Closed)
 $linterBin = Join-Path $projectRoot "tools\scripts\VerifySRS_Deterministic.exe"
 if (Test-Path $linterBin) {
     Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
-    & $linterBin $finalDraftPath | Out-File -FilePath $lintReportPath -Encoding UTF8
-    Get-Content -Path $lintReportPath -Encoding UTF8 | Select-Object -First 10
+    $lintOutput = & $linterBin $finalDraftPath
+    $lintOutput | Out-File -FilePath $lintReportPath -Encoding UTF8
+    $lintOutput | Select-Object -First 15 | ForEach-Object { Write-Host $_ }
+
+    $fatalMatches = @($lintOutput | Select-String -Pattern '\[FATAL\]')
+    if ($fatalMatches.Count -gt 0) {
+        Write-Error "[PIPELINE FAIL-CLOSED] Deterministic Linter detected $($fatalMatches.Count) FATAL errors in draft! Aborting pipeline."
+        exit 1
+    }
+    Write-Host "[PIPELINE PASS] Deterministic Linter passed with 0 FATAL errors."
 } else {
     Write-Host "[PIPELINE WARN] VerifySRS_Deterministic.exe not found at standard path."
 }

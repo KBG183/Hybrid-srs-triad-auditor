@@ -264,7 +264,195 @@
 
 ---
 
-### 2.3 [Slice 4] 労働基準法第37条 割増賃金算定エンジンおよび並行性制御 (Payroll Engine)
+### 2.3 [Slice 3] 客観的打刻・勤怠管理およびドメイン整合性強化 (Attendance & Time Tracking)
+
+#### [REQ-ATT-001] 30秒回転型TOTP QR打刻およびGPSジオフェンシング統制
+- **入力**:
+  - `storeId` (店舗識別子, BIGINT, パスパラメータ)
+  - `deviceUuid` (登録済みスタッフ端末UUID, UUID v4, 必須)
+  - `eventType` (打刻種別, `CLOCK_IN`, `BREAK_START`, `BREAK_END`, `CLOCK_OUT`, 必須)
+  - `qrToken` (店舗表示端末生成TOTPワンタイムトークン, 8桁数値文字列, 必須)
+  - `latitude` (打刻時GPS緯度, WGS84十進度, double precision `[-90.0, 90.0]`, 必須)
+  - `longitude` (打刻時GPS経度, WGS84十進度, double precision `[-180.0, 180.0]`, 必須)
+  - `idempotencyKey` (クライアント生成冪等性キー, UUID v4, 必須)
+  - *(注: スタッフ本人およびテナントの識別は `SecurityContext` から抽出した認証済み `Principal` に限定し、クライアントからの生 staffId 指定による IDOR 脆弱性を遮断する)*
+- **処理**:
+  1. **本人端末バインド検証**: `attendance_device` テーブルを検索し、認証済みスタッフに紐づく `device_uuid` が有効かつ未失効（`revoked_at IS NULL`）であることを検証。不一致または失効済みの場合は即時拒否。
+  2. **30秒回転型TOTP検証**: 店舗端末の固有秘密鍵（HMAC-SHA256）を用い、サーバー基準時刻におけるスロット `s = floor(epoch_seconds / 30)` を算出。申告された `qrToken` が許容時間ウィンドウ `{s - 1, s, s + 1}` のいずれかと定時間比較（Constant-time comparison）で合致することを照合。
+  3. **Haversine球面三角法によるGPSジオフェンシング**:
+     - 店舗基準座標 `(store_lat, store_lon)` と打刻座標 `(lat, lon)` から直線距離 $d$ を算出：
+       $$a = \sin^2\left(\frac{\Delta\phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta\lambda}{2}\right)$$
+       $$d = 2 \times 6371000 \times \arcsin\left(\sqrt{\min(1.0, a)}\right) \text{ (meters)}$$
+     - 許容半径 $d \le 100\text{ m}$ を満たす場合のみ打刻を許可。$d > 100\text{ m}$ の場合は代理打刻・店舗外打刻と判定し遮断。
+  4. **打刻イベントおよびセッション永続化**: 判定結果、観測座標、計算距離、スロット番号を `attendance_event` に追記専用（Append-Only）で記録。
+- **出力**:
+  - `eventId` (打刻イベント識別子, UUID)
+  - `sessionId` (勤怠勤務セッション識別子, UUID)
+  - `effectiveAt` (サーバー確定打刻時刻, ISO 8601 UTC)
+  - `businessDate` (所属勤務基準日, YYYY-MM-DD `Asia/Tokyo`)
+  - `currentState` (更新後勤怠状態, VARCHAR(20))
+- **例外処理**:
+  - 端末未登録・失効・他者端末の場合: `SecurityException` (HTTP 403 `DEVICE_BINDING_INVALID`)
+  - TOTP不一致・期限切れの場合: `IllegalArgumentException` (HTTP 422 `QR_TOKEN_INVALID`)
+  - GPS距離100m超過の場合: `ValidationException` (HTTP 422 `LOCATION_OUT_OF_BOUNDS`)
+  - 冪等キー重複かつ要求内容不一致: `DuplicateResourceException` (HTTP 409 `IDEMPOTENCY_CONFLICT`)
+- **完了基準 (DoD)**:
+  - 距離計算において 100.0m は許可、100.1m は拒否される単体テストが存在すること。
+  - 同一店舗QRを同一スロット内で複数スタッフが正当打刻できる一方、同一スタッフの多重打刻は一意制約で遮断されること。
+
+---
+
+#### [REQ-ATT-002] 打刻状態遷移機械および実労働・休憩区間代数検証
+- **入力**:
+  - `sessionId` (勤務セッション識別子, UUID, 必須)
+  - `eventType` (打刻イベント種別, 列挙型, 必須)
+  - `eventTime` (打刻サーバー確定時刻, `timestamptz`, 必須)
+- **処理**:
+  1. **悲観的行ロック（Pessimistic Locking）**: `attendance_session` テーブルの対象行を `SELECT ... FOR UPDATE` でロックし、並行打刻のレースコンディションを完全直列化。
+  2. **厳格な状態遷移統制**:
+     - `UNCLOCK` → `WORKING` (出勤打刻: `CLOCK_IN`)
+     - `WORKING` → `ON_BREAK` (休憩開始打刻: `BREAK_START`)
+     - `ON_BREAK` → `WORKING` (休憩終了打刻: `BREAK_END`)
+     - `WORKING` → `CLOSED` (退勤打刻: `CLOCK_OUT`)
+     - 上記以外の不正遷移（例: 休憩中の退勤、出勤前の休憩、二重出勤等）は即時拒否。
+  3. **区間代数検証（Interval Algebra）**:
+     - 実勤務区間 $W = [T_{\text{in}}, T_{\text{out}})$ および 休憩区間集合 $\{[B_{s,i}, B_{e,i})\}$ を構築。
+     - 休憩区間の逆転（$B_{s} \ge B_{e}$）、勤務区間外の休憩、および休憩区間相互の重複を排他的に検証。
+     - 休憩区間を和集合（Union）でマージし、実労働時間 $T_{\text{actual}} = |W \setminus \bigcup B_i|$ を算出。$T_{\text{actual}} \le 0$ の場合は `InvalidWorkTimeException` を送出。
+  4. **日跨ぎ夜勤の始業日基準固定**: 22:00〜翌日07:00等の日跨ぎ勤務について、所属する勤務基準日（`business_date`）を労働基準法通達（昭63.1.1基発1号）に基づき「始業時刻が属する暦日」に決定論的に固定。
+- **出力**:
+  - `sessionId` (勤務セッション識別子, UUID)
+  - `state` (遷移後勤怠状態, `WORKING` / `ON_BREAK` / `CLOSED`)
+  - `totalActualMinutes` (確定実労働分数, 整数)
+  - `totalBreakMinutes` (確定合計休憩分数, 整数)
+- **例外処理**:
+  - 不正な状態遷移を試みた場合: `IllegalStateException` (HTTP 409 `INVALID_ATTENDANCE_TRANSITION`)
+  - 実労働時間がゼロ以下または休憩重複の場合: `InvalidWorkTimeException` (HTTP 422 `INVALID_WORK_TIME`)
+  - 他店舗を含め既に開いた勤務セッションが存在する場合: `SessionConflictException` (HTTP 409 `SESSION_OVERLAP`)
+- **完了基準 (DoD)**:
+  - 休憩開始・終了が複数回存在する勤務において、休憩時間の重複や逆転が正しく検出・遮断されること。
+  - 日跨ぎ勤務において日付変更（24:00）をまたいでも同一セッションとして集計されること。
+
+---
+
+#### [REQ-STORE-002] 満18歳未満（年少者）深夜労働・時間外労働遮断ガード
+- **入力**:
+  - `staffId` (スタッフ識別子, BIGINT, パスパラメータ)
+  - `birthDate` (生年月日, DATE, 必須)
+  - `targetWorkStart` (就業開始予定日時, `timestamptz`, 必須)
+  - `targetWorkEnd` (就業終了予定日時, `timestamptz`, 必須)
+- **処理**:
+  1. **生年月日必須マスタ管理**: `store_staff.birth_date`（DATE NOT NULL）を導入し、未来日および不正日付を拒否。うるう年（2月29日生まれ）の平年における加齢起算日は、民法第143条第2項および年齢計算に関する法律に基づき「3月1日 00:00:00（2月28日 24:00:00）」として決定論的に計算する。
+  2. **年齢層別二層ガード（Per-segment区分判定）**:
+     - 勤務区間をJST日付境界（00:00）および時間帯境界でセグメント分割し、各区間の就労時点における実年齢を判定（勤務開始日固定判定を排除）。
+     - **児童区分（満15歳に達した日以後の最初の3月31日を迎えていない者, 労基法第56条）**: 原則雇用禁止（所轄労基署長の許可軽労働を除く）。深夜労働は 20:00〜05:00 を完全遮断（労基法第61条第5項）。
+     - **年少者区分（満15歳超〜満18歳未満, 労基法第61条第1項）**: 深夜時間帯（22:00〜05:00）の就労を禁止。
+  3. **事前遮断（Fail-Closed）と事後実績保護の二元統制**:
+     - シフト登録・確定および出勤打刻（`CLOCK_IN`）は、深夜帯を含む場合 `YOUTH_NIGHT_WORK_PROHIBITED`（HTTP 422）で事前遮断する。
+     - 実勤務において22:00（児童は20:00）を超過して稼働継続した場合、退勤打刻（`CLOCK_OUT`）をエラーで拒絶することは厳禁とする（労働時間の不法隠蔽および労基法第24条賃金全額払いの原則違反を防止）。退勤は真実の時刻で確定記録し、同時に `youth_night_violation_flag = TRUE` を記録して店長へ即時通知を発行し、実労働に対する割増賃金を全額支給する。
+  4. **労働基準法第60条 法定労働時間上限ガード**:
+     - 満18歳未満の年少者について、1日8時間、週40時間を超えるシフト登録・確定を禁止（変形労働時間制の適用を排他的に除外）。
+- **出力**:
+  - `isYouth` (年少者該当判定フラグ, BOOLEAN)
+  - `youthClass` (年少者区分, `CHILD_UNDER_15_PRE_MARCH`, `MINOR_15_TO_17`, `ADULT`)
+  - `exactAge` (勤務時点満年齢, 整数)
+  - `allowedMaxDurationMinutes` (就労許容残分数, 整数)
+- **例外処理**:
+  - 18歳未満の深夜就労シフト登録・出勤打刻: `YouthLaborViolationException` (HTTP 422 `YOUTH_NIGHT_WORK_PROHIBITED`)
+  - 1日8時間または週40時間を超過するシフト登録: `YouthLaborViolationException` (HTTP 422 `YOUTH_DAILY_LIMIT_EXCEEDED` / `YOUTH_WEEKLY_LIMIT_EXCEEDED`)
+  - 生年月日が未登録または未来日の場合: `IllegalArgumentException` (HTTP 422 `STAFF_BIRTH_DATE_INVALID`)
+- **完了基準 (DoD)**:
+  - 誕生日前日の23:00から誕生日当日の03:00に及ぶ跨ぎシフトにおいて、23:00〜24:00が違法遮断され、00:00〜03:00（18歳到達後）が適法承認される区間分割テストが存在すること。
+  - 2月29日生まれの者が平年の2月28日23:00時点では17歳（遮断）、3月1日00:00以降は18歳（適法）として評価されること。
+  - 実労働が22:00を超過した場合でも退勤打刻が正常受理され、違反フラグとともに賃金が全額算定されること。
+
+---
+
+#### [REQ-LABOR-005] 地域別最低賃金改定日履歴マスタおよび自動補正統制
+- **入力**:
+  - `storeId` (店舗識別子, BIGINT, 必須)
+  - `businessDate` (勤務基準日, DATE, 必須)
+  - `contractHourlyWage` (契約基本時給, BIGINT, 必須)
+- **処理**:
+  1. **最低賃金改定日履歴マスタ検索**:
+     - 店舗所在地の `prefecture_code`（01〜47）および `business_date` をキーとし、`minimum_wage_history` テーブルを検索。
+     - `effective_date <= business_date` を満たす発効日の中で最大（最新）の行から法定最低時給 `minimum_wage` を決定論的に取得。
+  2. **フェイルセーフ自動補正ロジック**:
+     - 契約時給が法定最低賃金を下回る場合（`contract_rate < minimum_rate`）、計算をエラー終了させて給与未払いを引き起こすのではなく、適用時給を法定最低賃金へ自動引き上げ：
+       $$\text{applied\_rate} = \max(\text{contract\_rate}, \text{minimum\_rate})$$
+     - 給与明細行に `wage_adjusted = TRUE`、補正前契約時給、法定額、差額を明記し、店長・管理者宛てに警告通知（Outboxイベント）を発行。
+  3. **改定日跨ぎ勤務の単一所属整合性**: 10月1日の改定日跨ぎ勤務については、始業日基準の同一発効日マスタを一貫して適用し、日途中での時給分裂を防止。
+- **出力**:
+  - `appliedHourlyWage` (適用基本時給, BIGINT)
+  - `isAdjusted` (最低賃金自動補正フラグ, BOOLEAN)
+  - `adjustmentDifference` (時給差額補正分, BIGINT)
+  - `effectiveDate` (適用された最低賃金発効日, DATE)
+- **例外処理**:
+  - 店舗の都道府県に該当する履歴データが一切存在しない場合: `IllegalStateException` (HTTP 422 `MINIMUM_WAGE_HISTORY_MISSING`)
+- **完了基準 (DoD)**:
+  - 契約時給950円の店舗で最低賃金が1,000円に改定された場合、自動的に1,000円で計算され差額50円の補正証跡が残ること。
+  - 発効日前日と当日で正確にマスタが切り替わるテストが存在すること。
+
+---
+
+#### [REQ-ATT-003] 打刻事後修正の二者承認フローおよび不変監査ログ
+- **入力**:
+  - `sessionId` (修正対象勤務セッションUUID, 必須)
+  - `baseVersion` (修正要求の基準バージョン, BIGINT, 必須)
+  - `correctionReason` (修正申請理由, 文字列, 必須)
+  - `proposedEvents` (修正後打刻イベント列, JSON配列, 必須)
+  - *(注: 申請者の識別は認証コンテキストの `Principal` から取得)*
+- **処理**:
+  1. **職務分掌（SoD）に基づく厳格な二者承認フロー統制**:
+     - `PENDING_FIRST` → `PENDING_SECOND` → `APPLIED` (正常承認フロー)
+     - 修正申請は `PENDING_FIRST`（第1承認待ち）として登録。
+     - **第1承認（一次承認）**: 店舗管理者（`ROLE_STORE_MANAGER` または `ROLE_OWNER`）がシフト計画および店舗事実関係を照合して承認。
+     - **第2承認（最終統括承認）**: 人事労務・給与統括責任者（`ROLE_PAYROLL_ADMIN`）が労働基準法準拠性および給与影響を照合して確定承認（`APPLIED` へ遷移）。
+     - **自己承認および同一人承認の完全排除**: 申請者本人による承認、および同一人物による第1・第2二重承認をRBAC層およびサービス層で排他的に拒否（異なる2名の承認権限者を義務化）。
+  2. **楽観的並行性制御（OCC）**: 承認反映時、セッションの現行バージョンが `base_version` と一致することを検証。不一致の場合は `StaleObjectStateException` を送出し競合を遮断。
+  3. **SHA-256ハッシュ連鎖による不変監査ログ**:
+     - 承認・否認・適用の各イベントを `attendance_audit_log` に追記（`UPDATE` / `DELETE` 権限を剥奪）。
+     - 前レコードの `entry_hash` と現レコード内容を連結して SHA-256 を計算し、ブロックチェーン型の改ざん防止チェーンを形成。
+- **出力**:
+  - `requestId` (修正申請識別子, UUID)
+  - `status` (申請状態, `PENDING_FIRST`, `PENDING_SECOND`, `APPLIED`, `REJECTED`)
+  - `newVersion` (適用後新バージョン, BIGINT)
+  - `auditEntryHash` (生成された不変監査ハッシュ, HEX文字列)
+- **例外処理**:
+  - 申請者本人による承認、同一人の重複承認: `SecurityException` (HTTP 403 `APPROVAL_FORBIDDEN`)
+  - 承認権限（第1: `ROLE_STORE_MANAGER`, 第2: `ROLE_PAYROLL_ADMIN`）不足: `AccessDeniedException` (HTTP 403 `INSUFFICIENT_APPROVAL_ROLE`)
+  - 承認反映時にバージョン競合が発生した場合: `OptimisticLockingFailureException` (HTTP 409 `STALE_VERSION`)
+  - 承認済みの修正により年少者深夜違反が生じる場合: `YouthLaborViolationException` (HTTP 422 `YOUTH_NIGHT_WORK_PROHIBITED`)
+- **完了基準 (DoD)**:
+  - 店長（`ROLE_STORE_MANAGER`）と給与管理者（`ROLE_PAYROLL_ADMIN`）の異なる2名が承認して初めて実勤務時間が訂正され、給与再計算Outboxが発火すること。
+  - 申請者本人が承認ボタンを押下した場合に HTTP 403 で確実に遮断されること。
+  - 監査ログのハッシュ連鎖を検証するスクリプトが1レコードの改ざん・欠落も検知できること。
+
+---
+
+### 2.3.1 Slice 3 永続化仕様 (DDL & Schema Definitions)
+
+下表で `!` は `NOT NULL`、`?` は `NULL` 許容を表す。`ts` は `timestamptz(6)`、`id` は `uuid`、`hash` は長さ 32 バイトの `bytea`、`rate` は `numeric(12,4)` とする。各 `PK`・`UQ` は対応する一意索引を持つ。テナント別参照では `t = tenant_id` をキーの先頭に含める。外部キー削除は `RESTRICT` とする。
+
+| ID・表 | 列・型・NULL 性 | PK・FK・制約 | 追加索引 |
+|---|---|---|---|
+| [DDL-001] `store_staff` / `store` 拡張 | `store_staff.birth_date date!`。`store.latitude double precision!`、`longitude double precision!`、`prefecture_code char(2)!` | 既存 PK・FK 維持。座標は [REQ-ATT-001] の範囲、都道府県は `01`〜`47`。同一人物の生年月日は所属間で整合させる | `store_staff(t,staff_id,store_id)` |
+| [DDL-002] `attendance_device` | `t id!`, `device_uuid id!`, `staff_id id!`, `credential_ref text!`, `registered_at ts!`, `revoked_at ts?` | PK `(t,device_uuid)`、FK `(t,staff_id)→staff`、UQ `(t,credential_ref)`。失効は登録以降 | `(t,staff_id) WHERE revoked_at IS NULL` |
+| [DDL-003] `qr_terminal` | `t id!`, `terminal_id id!`, `store_id id!`, `registered_at ts!`, `revoked_at ts?` | PK `(t,terminal_id)`、FK `(t,store_id)→store`。端末の店舗間転用は禁止 | `(t,store_id)` |
+| [DDL-004] `qr_terminal_key` | `t id!`, `terminal_id id!`, `key_version integer!`, `secret_ref text!`, `valid_from ts!`, `valid_until ts?`, `revoked_at ts?` | PK `(t,terminal_id,key_version)`、FK `(t,terminal_id)→qr_terminal`。`key_version>0`、終了は開始後。鍵素材は秘密管理基盤に置く | `(t,terminal_id,valid_from)` |
+| [DDL-005] `attendance_session` | `t id!`, `session_id id!`, `store_id id!`, `staff_id id!`, `business_date date!`, `state text!`, `version bigint!`, `started_at ts?`, `ended_at ts?` | PK `(t,session_id)`、FK `(t,store_id,staff_id)→store_staff`。`WORKING/ON_BREAK` は開始のみ、`CLOSED` は終了>開始。未記録勤務の申請用 `DRAFT` は版 0・両時刻 NULL、全取消済みの `VOID` は両時刻 NULL | UQ `(t,staff_id) WHERE state IN ('WORKING','ON_BREAK')`、`(t,staff_id,business_date)`。有効勤務区間には同一スタッフの重複排除制約 |
+| [DDL-006] `attendance_event` | `t id!`, `event_id id!`, `session_id id!`, `staff_id id!`, `kind text!`, `effective_at ts!`, `received_at ts!`, `device_uuid id!`, `terminal_id id!`, `key_version integer!`, `slot bigint!`, `latitude double precision!`, `longitude double precision!`, `store_lat double precision!`, `store_lon double precision!`, `distance_m double precision!`, `location_source text!`, `idempotency_key id!`, `request_hash hash!`, `result_json jsonb!` | PK `(t,event_id)`、FK→対象勤務、スタッフ、登録端末、端末鍵版。UQ `(t,staff_id,idempotency_key)`、UQ `(t,staff_id,terminal_id,key_version,slot,kind)`。イベント種別は [REQ-ATT-001]。参照先スタッフ・店舗一致を強制。追記専用 | `(t,session_id,effective_at)` |
+| [DDL-007] `attendance_revision` | `t id!`, `session_id id!`, `version bigint!`, `source text!`, `event_id id?`, `request_id id?`, `timeline jsonb!`, `created_at ts!` | PK `(t,session_id,version)`、FK→勤務、原イベント、修正申請。`OBJECTIVE` はイベントのみ、`APPROVED_CORRECTION` は申請のみ参照。時系列の各要素は種別・絶対時刻・由来を必須とする。追記専用 | UQ `(t,event_id)`、UQ `(t,request_id)`（各非 NULL 時） |
+| [DDL-008] `minimum_wage_history` | `prefecture_code char(2)!`, `effective_date date!`, `hourly_wage rate!` | PK `(prefecture_code,effective_date)`、都道府県 `01`〜`47`、`hourly_wage>0`。地域別共通マスタ | PK で発効日降順検索 |
+| [DDL-009] `attendance_wage_basis` | `t id!`, `basis_id id!`, `payroll_line_id id!`, `session_id id!`, `session_version bigint!`, `line_version bigint!`, `business_date date!`, `prefecture_code char(2)!`, `effective_date date!`, `contract_rate rate!`, `minimum_rate rate!`, `applied_rate rate!`, `rate_difference rate!`, `adjustment_numerator numeric!`, `adjustment_denominator numeric!`, `warning boolean!`, `previous_basis_id id?`, `created_at ts!` | PK `(t,basis_id)`、FK→給与明細、勤務版、地域・発効日、前版。UQ `(t,payroll_line_id,session_id,line_version)`。適用額は両時給の最大値、時給差は適用額−契約額、警告は差>0。差額は円単位の整数分子／正整数分母。追記専用 | `(t,session_id,session_version)` |
+| [DDL-010] `attendance_outbox` | `t id!`, `message_id id!`, `kind text!`, `dedupe_key text!`, `payload jsonb!`, `created_at ts!`, `available_at ts!`, `attempts integer!`, `delivered_at ts?`, `last_error_code text?` | PK `(t,message_id)`、UQ `(t,kind,dedupe_key)`、`attempts≥0`。給与・店舗・対象勤務の識別子を種別別ペイロードで検証 | `(available_at,message_id) WHERE delivered_at IS NULL` |
+| [DDL-011] `attendance_correction` | `t id!`, `request_id id!`, `session_id id!`, `base_version bigint!`, `applicant_id id!`, `reason text!`, `proposed_timeline jsonb!`, `proposal_hash hash!`, `status text!`, `created_at ts!`, `resolved_at ts?` | PK `(t,request_id)`、FK→勤務、申請主体。`base_version≥0`。状態は [REQ-ATT-003]。理由は空白のみ不可。申請内容は作成後不変 | `(t,session_id,base_version)`、`(t,status,created_at)` |
+| [DDL-012] `attendance_decision` | `t id!`, `request_id id!`, `stage smallint!`, `actor_id id!`, `decision text!`, `reason text?`, `proposal_hash hash!`, `decided_at ts!` | PK `(t,request_id,stage)`、UQ `(t,request_id,actor_id)`、FK→申請、主体。`stage IN (1,2)`、`decision IN ('APPROVE','REJECT')`。否認理由必須。追記専用 | `(t,actor_id,decided_at)` |
+| [DDL-013] `attendance_audit_log` | `t id!`, `sequence_no bigint!`, `action text!`, `actor_id id!`, `entity_type text!`, `entity_id id!`, `correlation_id id!`, `occurred_at ts!`, `reason text?`, `old_version bigint?`, `new_version bigint?`, `before_hash hash?`, `after_hash hash?`, `previous_hash hash!`, `entry_hash hash!` | PK `(t,sequence_no)`、FK→主体（自動処理はサービス主体）。テナント別直列採番。初項の前ハッシュは 32 バイトのゼロ。各項は版固定の正規化表現を SHA-256 で連結。追記専用 | `(t,entity_type,entity_id,sequence_no)`、`(t,correlation_id)` |
+
+---
+
+### 2.4 [Slice 4] 労働基準法第37条 割増賃金算定エンジンおよび並行性制御 (Payroll Engine)
 
 #### [REQ-LABOR-001] 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定
 - **区分**: 機能要件および労働法遵守 (Function & Legal Compliance)

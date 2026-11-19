@@ -1,0 +1,12 @@
+{
+  "schema_version": "2.0",
+  "run_id": "20261119_144009_codex_",
+  "target_file": "config/srs_specification_ssot.md",
+  "model": "gpt-6.2-astra",
+  "task": "Slice 3 Attendance Domain Draft & Integration",
+  "exit_code": 0,
+  "created_at": "2026-11-19T14:40:09+09:00",
+  "report_file": "codex_report.txt",
+  "report_length_bytes": 28521,
+  "status": "APPROVED_BY_QUAD_AUDIT"
+}

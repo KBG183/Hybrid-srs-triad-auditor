@@ -33,6 +33,19 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-19 — INCIDENT-69 — pipeline_draft_and_integrate.ps1 におけるリンターFATAL無視Fail-Open障害およびプロンプト5大ヘッダー指示欠落の是正
+
+- **問題**: Day 3 Slice 3 初案生成時、OpenAI Codex が出力した `draft.md` に対して決定論的リンター（`VerifySRS_Deterministic.exe`）が必須5大ヘッダー欠落（`[FATAL] [RULE-REQ-03]`）を送出したにもかかわらず、パイプラインスクリプトがプロセスを中断せず正常終了（`exit 0`）する重大な Fail-Open 障害が発生した。また、Claude 5.5 の敵対的監査により、年少者の深夜就労遮断を退勤打刻（`CLOCK_OUT`）にまで適用することで実労働時間が隠蔽・未払い（労基法第24条違反）となる致命的法理欠陥が摘発された。
+- **原因**: 
+  1. `pipeline_draft_and_integrate.ps1` 内のリンター実行ブロックにおいて、`[FATAL]` 出力結果の有無を判定して `exit 1` を送出するハードゲート検証が欠落していたこと。
+  2. Codex に投入するプロンプトテンプレート内に、C#リンター必須5大ヘッダー（`**入力**`, `**処理**`, `**出力**`, `**例外処理**`, `**完了基準 (DoD)**`）の構文強制制約を明示していなかったこと。
+  3. 年少者深夜労働遮断ロジックにおいて、事前計画（シフト・出勤）の遮断と事後実績（退勤・賃金支払）の保護という二元統制の法理設計が不足していたこと。
+- **恒久対策**:
+  1. `pipeline_draft_and_integrate.ps1` のリンター検証ブロックを改修し、`[FATAL]` 検知時に直ちにプロセスを非ゼロ終了（`exit 1`）させる Fail-Closed ハードゲートを実装。
+  2. プロンプトテンプレートに `MANDATORY LINTER STRUCTURE PER REQUIREMENT (RULE-REQ-03)` を追加し、初案執筆時点で必須5大ヘッダーを強制出力させるよう強化。
+  3. `config/srs_specification_ssot.md` の `[REQ-STORE-002]` を改訂し、出勤は事前遮断（Fail-Closed）、退勤は真実記録＋違反フラグ記録＋割増賃金全額支給（労基法第24条遵守）の二元統制ガードを確立。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
 ### 2026-11-19 — INCIDENT-68 — install_hooks.ps1 における親ディレクトリ二重ネスト誤認によるプレコミットフック配置失敗の是正
 
 - **問題**: `install_hooks.ps1` を実行した際、`Source hook file not found: ...\tools\tools\hooks\pre-commit` というエラーが発生し、Git プレコミットフックの自動配置が失敗した。あわせて、台帳見出し内の文字コード混入により `ERR-INTEGRITY-FAILED` が検知された。

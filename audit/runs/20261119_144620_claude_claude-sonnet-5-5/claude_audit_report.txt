@@ -1,0 +1,129 @@
+# KINTAI SRS v1.0.2 — Slice 3 Adversarial Cross-Audit Report
+
+**Scope**: REQ-ATT-001/002/003, REQ-STORE-002, REQ-LABOR-005, DDL-001–013, with cross-references to REQ-LABOR-001–004, REQ-SHIFT-002, REQ-STAFF-001/002.
+**Legend**: Severity P0 (legal violation / security breach / data corruption, release-blocking), P1 (high), P2 (medium), Info. Verdict PASS / WARN / FAIL.
+
+---
+
+## 0. Executive Summary
+
+| Verdict | Count |
+|---|---|
+| FAIL | 14 |
+| WARN | 16 |
+| PASS | 6 |
+
+**Release recommendation: DO NOT promote v1.0.2 to APPROVED.** The Slice 3 draft shows strong architectural intent (append-only evidence, hash chaining, TOTP, CAS). However, the audit found the following P0 clusters:
+
+1. **Youth-labour logic is wrong at the legal-rule level.** It applies a flat 22:00–05:00 ban with no exemption handling, and the Age Act "18th birthday = previous day 24:00" rule is applied incorrectly (F-YTH-01). It also lacks a youth-worker-vs-child distinction (under 15 / until first March 31) and a Labour Standards Act Art. 61(4) exemption review (F-YTH-02).
+2. **The TOTP/geofence anti-proxy model is bypassable by design.** The TOTP is store-scoped and shared by all staff, GPS is client-asserted, and the device is only a software UUID (F-ATT-01/02/03).
+3. **The hash chain is tamper-evident only against naive edits, not against a privileged actor**, and the per-tenant serialization requirement is unspecified (F-AUD-01/02).
+4. **Minimum-wage auto-adjustment conflicts with Slice 2 (REQ-STAFF-002 hard-reject), is silently inconsistent with REQ-LABOR-001 step 6, and ignores special/industry minimum wages and the Oct 1 effective-date legal reality** (F-MW-01/02/03).
+5. **Two-person approval is not enforceable as specified.** Roles are undefined and a separation-of-duties gap exists (F-APR-01/02).
+
+---
+
+## 1. Japanese Labour Standards Act Compliance
+
+### F-YTH-01 — Age-of-majority threshold mis-specified (Age Act / Civil Code § 143)
+- **Severity**: P0 | **Verdict**: FAIL
+- **Evidence**: REQ-STORE-002 §処理 2: "満18歳到達日は『誕生日の前日24:00』". Also the DoD: "満18歳到達前日の22:00以降の就労が遮断され、到達日当日の22:00以降就労が許可される".
+- **Analysis**:
+  - Under the Act on Age Calculation (年齢計算ニ関スル法律), a person ages upon the arrival of the day *before* the birthday, i.e. at 24:00 of the day before the birthday = 00:00 of the birthday itself. So the person is 18 on the birthday for the entire calendar day, starting 00:00:00.
+  - The spec text is internally ambiguous: "誕生日の前日24:00" is correct, but the DoD sentence says "前日の22:00以降の就労が遮断" (blocked) and "到達日当日の22:00以降が許可" (allowed). That is a contradiction if "前日" means the day before the birthday: on the day before the birthday the person is still 17 *until 24:00*, so night work 22:00–24:00 of that day must be blocked, and work from 00:00 of the birthday is permitted. The DoD only tests 22:00-based boundaries and so misses the 00:00–05:00 early-morning slice of the birthday itself. Under Art. 61, 05:00 is the end of night work, so a shift starting 23:00 on day-before-birthday and ending 03:00 on the birthday has a 22:00–24:00 segment (illegal) and a 00:00–03:00 segment (legal). The spec has no per-segment evaluation.
+  - The age must be evaluated **per time segment (per instant)**, not per work start date. The spec uses "勤務開始基準日時点において" (as of the work start date) for the whole shift. A shift beginning 23:00 the day before a 18th birthday and running past midnight would be evaluated entirely as 17 (blocked, conservative) or, depending on the implementation, entirely as 18 (a violation). It is undefined.
+  - Timezone: age evaluation requires an explicit `Asia/Tokyo` civil-date basis. `targetWorkStart` is `timestamptz`; no conversion rule is specified.
+- **Remediation**: Define `ageAt(instant) = f(birth_date, toJstDate(instant))`, where the person is ≥18 iff `jstDate(instant) >= birth_date.plusYears(18)`. Evaluate per segment, splitting the shift at 00:00 JST. Add boundary tests at 23:59:59 / 00:00:00 around the birthday.
+
+### F-YTH-02 — Leap-day (Feb 29) rule is untestable as written
+- **Severity**: P1 | **Verdict**: WARN
+- **Evidence**: REQ-STORE-002 DoD: "うるう年（2月29日生まれ）の平年における年齢起算が法的に正しく処理されること".
+- **Analysis**: The spec does not state *which* rule is "legally correct". Under Civil Code § 143 (calendar computation) and the Age Act, a person born on Feb 29 reaches an age year at the end of the day *before the corresponding day*. In a non-leap year there is no Feb 29, and the Civil Code § 143(2) rule is that the period expires on the last day of the month when the corresponding day is absent, i.e. the anniversary is taken as Feb 28 24:00 → effectively reaching 18 on Mar 1 00:00 per the prevailing interpretation, not Feb 28 00:00. Java's `LocalDate.plusYears(18)` on 2006-02-29 yields **2024-02-29** (valid, since 2024 is a leap year) but for a 17th birthday in a non-leap year yields Feb 28, which gives the opposite answer from the Civil Code interpretation. The spec leaves the choice implicit, so a naive `plusYears` implementation produces a one-day-early adulthood and a Art. 61 violation.
+- **Remediation**: State the explicit rule: for Feb 29 births in a non-leap year, age incremented at the start of **Mar 1**. Ship fixed golden-vector tests (born 2008-02-29; evaluate 2026-02-27, 02-28, 03-01).
+
+### F-YTH-03 — Over-simplified "youth" model: three legal tiers collapsed into one
+- **Severity**: P0 | **Verdict**: FAIL
+- **Evidence**: REQ-STORE-002 uses "年少者 = 満18歳未満" only.
+- **Analysis**: The Labour Standards Act has distinct regimes:
+  - **Under 15, before the first March 31 (児童, Art. 56)**: employment is prohibited in principle (exception: light work for ages 13+ with Labour Standards Inspection Office permit; film/theater for under 13). Working hours are limited to 7h/day, 40h/week including school time, and **night work is banned 20:00–05:00** (Art. 61(5), not 22:00).
+  - **15 to 18 (年少者)**: the 22:00–05:00 ban (Art. 61(1)) and Art. 60 limits.
+  - The spec's single 22:00 threshold under-protects children (20:00 cut-off) and lacks an age-15 lower-bound gate. A 14-year-old could be registered, approved and clocked in with no permit validation.
+  - Additionally, the "before the first March 31 after the 15th birthday" calculation (a fiscal boundary, not a birthday boundary) is absent entirely.
+- **Remediation**: Introduce a `YouthClass` enum {CHILD_U15_PRE_MAR31, MINOR_15_17, ADULT}. Require `work_permit_ref` for CHILD. Apply 20:00 cutoff for CHILD.
+
+### F-YTH-04 — Art. 61 exemptions and the "5:00-to-22:00 vs 5:30-to-22:30 night-time" (厚生労働大臣 variance) ignored
+- **Severity**: P1 | **Verdict**: WARN
+- **Evidence**: REQ-STORE-002 §処理 3 hard-codes `[22:00, 05:00)`.
+- **Analysis**: Art. 61(3) permits the Minister to extend night time to 23:00–06:00 in specific regions/periods (the "地域又は期間" variance) — the "night" definition is **parameterizable by law** (and Art. 37(4) uses the same definition). Art. 61(4) exempts 16+ male workers on shifts in certain industries, but this applies to *industrial* enterprises with shift systems (Art. 61(1) proviso) and a 16+ male — it is gender-discriminatory and practically obsolete, but the spec should explicitly state that it is **not implemented**. Also, the non-obvious hard exceptions (Art. 61(4): disaster work under Art. 33(1), agriculture/livestock, health/hygiene, telephone-exchange work — the latter two are largely irrelevant to food/retail) are not addressed. For food and retail, the key is that the hard-coded constant must be configurable.
+- **Remediation**: Externalize night window as a versioned config. Document the explicit "no exemption supported" decision with legal sign-off.
+
+### F-YTH-05 — Art. 60 limit logic: week definition, multi-employer aggregation, and Art. 60(3) variants omitted
+- **Severity**: P0 | **Verdict**: FAIL
+- **Evidence**: REQ-STORE-002 §処理 4: "満18歳未満の年少者について、1日8時間、週40時間を超えるシフトおよび実打刻を禁止".
+- **Analysis**:
+  1. **Art. 60 prohibits overtime and holiday work for minors — it does not set a bare 8h/40h count.** Hours-based gating without the Art. 32 baseline definition (week start day from the work rules — "週の起算日") is under-specified. The spec never defines the week boundary; the Slice 4 REQ-LABOR-001 refers to a "同一週内" without a defined start.
+  2. **Art. 60(3) allows a minor to work up to 8h/day on one weekday by shortening another day (within 40h/week) and up to 48h/week/8h/day under a variable system** for 15–17-year-olds, so the "no variable system" claim is not strictly the law (the exclusion is only for 1-month/1-year variable systems under Arts. 32-2/32-4; certain weekly flexibility under Art. 60(3)(i)-(ii) is allowed). The spec's flat "変形労働時間制の適用を排他的に除外" is conservative and compliant but is stated as law, which risks being wrong in either direction. Needs legal wording.
+  3. **Art. 38 (aggregation across employers)**: A teenager with two part-time jobs at different stores of *different companies* must have hours aggregated for the 8h/40h limits. Slice 3 only evaluates within a store/tenant. Same-company multi-store is partly covered by `member_id`, but `store_staff.birth_date` is per-store (DDL-001), allowing **inconsistent birth dates per membership** (see F-DDL-01).
+  4. **Art. 60 vs. Art. 32 for the "week"**: Prohibited-overtime enforcement for minors must also consider holiday work (Art. 35 statutory holiday) — Art. 60(1) prohibits Art. 36 agreements and holiday work for minors. REQ-LABOR-003 prices legal-holiday work at +35% with no youth gate. A minor can accrue 法定休日 hours through the pipeline.
+- **Remediation**: Add the explicit week-start parameter, a statutory-holiday ban for minors in the shift/clock-in guard, and a documented position on external employer self-declaration (age/second-job declaration field).
+
+### F-YTH-06 — Where the youth guard runs: shift planning vs. real clock-in vs. correction — enforcement gap
+- **Severity**: P1 | **Verdict**: WARN
+- **Evidence**: REQ-STORE-002 says shift registration/confirmation and real clock-in are blocked; REQ-ATT-003 mentions the YOUTH exception on correction. REQ-SHIFT-002 (Slice 2) does **not** reference the youth guard in its processing steps.
+- **Analysis**: A hard block on *actual* clock-in at 22:00 produces a fail-open legal outcome: a minor who is physically working beyond 22:00 cannot clock out (if `CLOCK_OUT` is also blocked) or the event is rejected and the **unrecorded labour is still performed** — creating unpaid work (Art. 24 violation) and an illegal night-work violation that is now *also unrecorded*. The block should apply to **clock-in / shift confirmation**, while running-session over-limit must trigger an alert plus forced session termination at 22:00 with the post-22:00 time recorded as a violation record (never silently discarded). Wage must still be paid for any hours actually worked even if illegal.
+- **Remediation**: Distinguish "prevent" (shift/clock-in) from "record truthfully" (clock-out/correction). Never reject truthful end-of-work evidence; flag it.
+
+### F-NGT-01 — Art. 37 night + overtime across midnight: Slice 3 delegates but does not carry the segmentation contract
+- **Severity**: P1 | **Verdict**: WARN
+- **Evidence**: REQ-ATT-002 §4 fixes `business_date` as the start-date; REQ-LABOR-002 splits by calendar day for statutory holiday (REQ-LABOR-001 §1).
+- **Analysis**:
+  - The data contract between Slice 3 (`attendance_revision.timeline`) and Slice 4 is only "absolute timestamps with kind and provenance". There is no defined function that splits a session at 00:00 JST for the statutory-holiday determination, while the daily 8h overtime stays attached to the start date. This dual attribution is essential and complex; leaving it to Slice 4 without a Slice 3 acceptance test is an integration gap.
+  - **DST/timezone**: Japan has no DST, but `timestamptz` with server-side UTC means tests must assert the JST conversion; REQ-ATT-001 outputs `effectiveAt` in UTC and `businessDate` in `Asia/Tokyo`. Good, but no rule exists for sessions straddling a **business date computed at clock-in vs. recomputed after a correction changes the start time** (a correction moving the start from 23:50 to 00:10 flips `business_date`; the spec has no revision handling for `business_date` re-attribution → payroll double count or orphaning across months/cutoffs).
+  - **Cross-cutoff month**: A session that starts on the last cutoff day and ends the next day: attribution to the settlement month is by start date, but `payCutoffDay` of 99 (end of month) vs. 28 is not tied to session attribution anywhere in Slice 3.
+- **Remediation**: Define a shared `WorkSegmenter` contract with golden vectors; handle re-attribution on correction with a mandatory re-settlement trigger and a reversal entry for any CONFIRMED month.
+
+### F-NGT-02 — Clock-in rejected vs. over-24h session ceiling absent
+- **Severity**: P2 | **Verdict**: WARN
+- **Evidence**: REQ-ATT-002 has no maximum session duration; REQ-SHIFT-001 caps shifts at 16h, but actual sessions are uncapped.
+- **Analysis**: A forgotten `CLOCK_OUT` leaves a `WORKING` session open indefinitely; the partial unique index `UQ (t,staff_id) WHERE state IN ('WORKING','ON_BREAK')` then **blocks the staff member from clocking in anywhere** (cross-store, which is the intent) until fixed. No auto-close policy, no stale-session alert, no manager override flow. This is an availability and wage-accuracy hazard (and a youth-law hazard: an open session past 22:00 for a minor).
+- **Remediation**: Add max-session (e.g. 16h) watchdog → `AUTO_CLOSED_PENDING_REVIEW` state; restrict payroll inclusion until reviewed.
+
+---
+
+## 2. Objective Attendance, TOTP & Geofencing
+
+### F-ATT-01 — Store-wide shared TOTP does not prevent proxy ("buddy") clock-in
+- **Severity**: P0 | **Verdict**: FAIL
+- **Evidence**: REQ-ATT-001 §処理 2 (TOTP keyed per store terminal, HMAC-SHA256, slot window {s−1, s, s+1}); DoD: "同一店舗QRを同一スロット内で複数スタッフが正当打刻できる".
+- **Analysis**: The design explicitly allows multiple staff to use the same QR in the same slot. Therefore a photograph/forwarded screenshot of the terminal QR (valid ~90 s with the ±1 window) can be sent to a colleague who is off-site; the only remaining defences are (a) device binding (the colleague's own bound device, which they hold) and (b) GPS, which is **client-asserted** (F-ATT-03). The TOTP proves "someone saw the terminal within 90 seconds", not "this person is physically present". The anti-proxy claim in the audit focus is **not met**. Hour-long replay does not work, but real-time relay (video call showing the screen) does.
+- **Remediation**: Defence in depth: (i) bind the QR payload to the staff challenge (staff device displays a challenge, terminal scans it - reverse-QR); or (ii) require BLE beacon/NFC proximity; (iii) require attestation (Play Integrity / App Attest) to reject emulators/mock locations; (iv) risk-score anomalies (same IP/Wi-Fi BSSID for different "locations"). Document the residual risk explicitly.
+
+### F-ATT-02 — TOTP window and replay semantics under-specified
+- **Severity**: P1 | **Verdict**: WARN
+- **Evidence**: §処理 2: window {s−1, s, s+1}; DDL-006 UQ `(t,staff_id,terminal_id,key_version,slot,kind)`.
+- **Analysis**:
+  1. The uniqueness key includes `slot`, so a staff member can replay the same kind in an adjacent slot (s then s+1) — mitigated only by state-machine transitions. For `BREAK_START`/`BREAK_END` loops, no minimum interval is imposed, so rapid ON_BREAK/WORKING flapping (create many 0-minute breaks) is possible.
+  2. The 8-digit numeric truncated HMAC has ~10^8 space; with a 3-slot window an attacker has 3×10^−8 per guess, acceptable *only with rate limiting*. No rate limit/lockout per (staff, device, terminal) is specified; brute force across many staff accounts is unbounded.
+  3. **Clock skew**: server time is authoritative (good), but terminal clock drift beyond ±30 s breaks valid users and the spec has no terminal NTP-health check or drift telemetry (DDL-003/004 hold no `last_seen_at` / `skew_ms`).
+  4. Key rotation: `valid_from/valid_until` per key_version exist, but verification must try multiple key versions around the rotation instant; the algorithm is not specified (which version to try, grace overlap).
+  5. The constant-time comparison is stated; the truncated-code derivation (RFC 4226/6238 dynamic truncation vs. custom) is not pinned. Interoperability and test vectors are unspecified.
+- **Remediation**: Add rate limiting (e.g. 5 failures/5 min per account+device, global per terminal), a min-interval rule for break toggles, a terminal heartbeat, and RFC 6238 test vectors.
+
+### F-ATT-03 — GPS is client-asserted: the spoofing threat model is missing
+- **Severity**: P0 | **Verdict**: FAIL
+- **Evidence**: Input `latitude/longitude`, `location_source text!` (DDL-006) with no enumerated values or trust level; no attestation requirement.
+- **Analysis**: Mock-location apps and rooted devices trivially satisfy `d ≤ 100 m`. The spec records `location_source` but defines no enum, no rejection of `MOCK`, no accuracy-radius (`horizontalAccuracy`) input, and no age-of-fix (`timestamp`) input — a stale cached fix from an earlier visit can be submitted. A 100 m hard cutoff with no accuracy field also produces false rejections: urban canyon / indoor GPS error often 30–100 m, so legitimate staff in basement stores are blocked while spoofers pass. The geofence therefore has **both a high false-reject and a high false-accept rate**, and the only strong control is the TOTP.
+- **Remediation**: Add `accuracyMeters`, `fixTimestamp`, `isMockProvider`/attestation fields; policy: reject if accuracy > X or fix age > Y; define a documented fallback (manager-attested clock-in via REQ-ATT-003, not a silent failure).
+
+### F-ATT-04 — Haversine formula and 100 m boundary: numerical and CRS edge cases
+- **Severity**: P2 | **Verdict**: WARN
+- **Evidence**: Formula with `min(1.0, a)`, R = 6,371,000 m; DoD "100.0 m 許可、100.1 m 拒否".
+- **Analysis**:
+  1. **Floating-point equality at the boundary**: "100.0 m is allowed" with `double` is not reliably testable — coordinates producing exactly 100.0 m do not exist in practice; the test must fix an epsilon and a rounding rule (e.g. compare in millimetres after `round`, or use `d <= 100.0 + 1e-9`). Unspecified → flaky tests and inconsistent boundary decisions across language runtimes (Java vs. C# linter).
+  2. A spherical model is within ~0.3% of WGS84 at Japan's latitudes — adequate for 100 m, but this should be noted as an accepted approximation (≈0.3 m error at 100 m).
+  3. **Input validation gaps**: NaN/Infinity, `-0.0`, and (0,0) "Null Island" must be rejected explicitly; the range check `[−90,90]/[−180,180]` passes NaN comparisons incorrectly in some languages (NaN fails every comparison, so a naïve `if (lat < -90 || lat > 90) reject` lets NaN through). `Math.asin(sqrt(min(1,a)))` with NaN input propagates NaN, and `d <= 100` is false → rejected, which is accidentally safe, but `d > 100 ⇒ reject` implemented as a negation would accept NaN.
+  4. **Datum**: Japan's historic Tokyo Datum vs. WGS84 differs by ~400 m; the store coordinates (`store.latitude/longitude`) have no declared datum or provenance (geocoder output? manual pin?). A wrongly entered store pin (e.g. ward centroid) mass-rejects all staff or admits a wide area. No owner-facing validation/confirmation workflow exists for the store pin, and no policy for stores in large buildings/shopping malls where multiple floors/tenants share a 100 m circle.
+  5. `distance_m` is persisted (good), but `store_lat/store_lon` are also denormalized into each
+
+> [!CAUTION]
+> [TRUNCATION NOTICE] Output was truncated by Anthropic API max_tokens ceiling (8192). Findings beyond this point were not captured.

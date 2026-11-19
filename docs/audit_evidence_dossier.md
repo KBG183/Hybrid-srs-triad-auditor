@@ -1,7 +1,7 @@
 # 🛡️ KINTAI 多層AIハイブリッド交差検証 技術証跡書 (Living Audit Evidence Dossier)
 
 - **システム名**: 日本型シフト・勤怠・給与精算システム (KINTAI)
-- **文書バージョン**: v1.0.4 (Day 3 Self-Remediation & 10-Gate Milestone)
+- **文書バージョン**: v1.0.5 (Day 3 Slice 3 Attendance Domain & Role-Swap Quad-Audit Milestone)
 - **ステータス**: AUDIT_VERIFIED_LIVING_DOCUMENT
 - **検証アーキテクチャ**: 4層AI交差検証（Antigravity, OpenAI Codex 6.2 Astra, Anthropic Claude 5.5, Local Qwen 27B）＋ C# Roslyn 確定論的リンター
 - **多言語ガバナンス**: GitHub公式正本は日本語（JA）標準、内部開発・確認用に対照版（`_KO.md`）をペアリング配置
@@ -141,17 +141,48 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 
 ---
 
+### 2.4 Day 3 Sprint (2026-11-19): Slice 3 客観的打刻・勤怠ドメインのSSOT統合および動的役割交代(Role-Swap)4層独立交差検証
+
+#### ① 4層AI動的役割交代(Role-Swap) 実測実行メトリクス (Physical Metrics)
+
+Heavy Track規約に基づき、初案執筆者（OpenAI Codex）の自己承認を厳禁とし、Antigravity（第1監査官）＋Claude 5.5（第2監査官）＋Local Qwen 27B（第3監査官）＋C#リンター（第4確定論的ゲート）の完全独立4重体制で検証を実施。
+
+| 監査官 / 検証エンジン | 使用モデル / バイナリ | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 走査数 | 推論速度 / 費用 | 判定結果 | 物理保存先アーカイブ |
+|---|---|---|:---:|:---:|:---:|:---:|---|
+| **OpenAI Codex (執筆主務)** | `gpt-6.2-astra` | `pipeline_draft_and_integrate.ps1` | **203.9秒** | **15,512文字** (Slice 3 初案自動執筆) | Flagship Reasoning | **SUCCESS (初案執筆完了・領収書発行)** | `audit/runs/20261119_144009_codex_/` |
+| **Antigravity (第1監査官)** | `Gemini 2.5 Pro` | IDEオーケストレーション | - | 5大必須節構造化・SoD認可統制 | - | **PASS (DoD・RULE-REQ-03 適合化)** | `scratch/slice3_normalized.md` |
+| **Anthropic Claude (第2監査官)** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **65.23秒** | Input: 27,782 tok / Output: 8,192 tok | **$0.2062** (実課金) | **4件欠陥摘発 (キューイング是正完了)** | `scratch/test_runs/claude_live.log` |
+| **Local Qwen 27B (第3監査官)** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **34.71秒** | Input: 18,424 tok / Output: 1,173 tok | **47.6 tok/s** ($0) | **ALL PASS (F-001~010 全10項目合格)** | `scratch/audit_qwen_ssot_slice3.md` |
+| **C# 決定論的リンター** | `VerifySRS_Deterministic.exe` | .NET Framework 4.8 | **0.45秒** | 全17要件走査 / 必須5大ヘッダー検証 | - | **PASS (FATAL=0, WARNING=0)** | `tools/scripts/VerifySRS_Deterministic.exe` |
+| **C# 整合性検証機** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 | **0.42秒** | 587行 / 66,586バイト走査 (PROC-005/006) | - | **PASS (Clean Integrity, Zero Defects)** | `tools/scripts/VerifySRS_Integrity.exe` |
+| **Master Integrity Verifier** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.50秒** | 10大検証項目 / 109追跡ファイル全数走査 | - | **ALL PASS (10/10 PASS 完全合格)** | `tools/scripts/verify_repo_total_integrity.ps1` |
+
+#### ② Claude 5.5による4大指摘事項および1-Shot是正内容一覧
+
+すべての指摘事項は `GEMINI.md` 第9条に基づき、物理キュー（`scratch/pending_findings.json`）に登録された上で、1-Shotパッチとして完全是正された。
+
+1. **[FINDING-CLAUDE-01] (P0) 年少者年齢判定の時刻分割（Per-segment）および児童区分の明確化**:
+   - 勤務開始日固定判定を排除し、JST各区間単位（Per-segment）で年齢を評価。労基法第56条・第61条第5項に基づく15歳未満児童（20:00〜05:00禁止、就労許可必須）と15〜17歳年少者（22:00〜05:00禁止）の二層ガードを追記。
+2. **[FINDING-CLAUDE-02] (P0) 年少者深夜超過勤務時の退勤打刻保護および労基法第24条全額払いの担保**:
+   - シフト確定・出勤打刻は事前遮断（Fail-Closed）とする一方、既発生の実労働に対する退勤打刻（`CLOCK_OUT`）は正常受理して真実記録とし、違反フラグ記録と同時に割増賃金を全額支給する二元統制を明記。
+3. **[FINDING-CLAUDE-03] (P1) うるう年（2月29日生まれ）の平年における年齢起算の決定論的定義**:
+   - 民法第143条第2項および年齢計算に関する法律に基づき、平年における加齢起算日は「3月1日 00:00:00（2月28日 24:00:00）」として決定論的に計算することを数式仕様化。
+4. **[FINDING-CLAUDE-04] (P1) 二者承認における職務分掌（SoD）の明確化**:
+   - 第1承認を店舗管理者（`ROLE_STORE_MANAGER`/`OWNER`）、第2承認を人事給与統括（`ROLE_PAYROLL_ADMIN`）とし、自己承認および同一人による二重承認をRBAC層で物理排除。
+
+---
+
 ## 3. 品質保証メトリクスおよび決定論的ゲート検証結果
 
 ### 3.1 C# Roslyn 決定論的リンター検証
 ```text
 === [SRS DETERMINISTIC LINTER v1.1] Target: srs_specification_ssot.md ===
-=== Linter Results: FATAL=0, WARNING=0 (Checked 12 Requirements) ===
+=== Linter Results: FATAL=0, WARNING=0 (Checked 17 Requirements) ===
 >>> [PASS] All mandatory integrity and security checks passed cleanly.
 
 === [SRS Integrity Verifier v2.0] Analyzing: srs_specification_ssot.md ===
-Total Lines: 399 | Total Bytes: 44,386
->>> VERDICT: PASS (Clean Integrity, Zero Defects, Finding Queue Fully Resolved)
+Total Lines: 587 | Total Bytes: 66,586
+>>> VERDICT: PASS (Clean Integrity, Zero Defects)
 ```
 
 ### 3.2 Zero-Korean 物理的ハードゲート検証

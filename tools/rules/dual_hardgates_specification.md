@@ -1,6 +1,6 @@
 # 🏛️ KINTAI Governance Specification: Dual Hard-Gates Architecture (PROC-005 & PROC-006)
 
-Version: 2.1.0  
+Version: 1.0.5 (GEMINI.md v1.05 附則仕様)  
 Date: 2026-11-19  
 Status: APPROVED_GOVERNANCE_SPECIFICATION  
 Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
@@ -14,6 +14,16 @@ Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
 2. **INCIDENT-65 / INCIDENT-67 (障害隠蔽および受動的記録体質)**: 実行時エラーやマルチバイト構文障害が発生した際、エージェントが自律的に記録せず、ユーザーの追及を受けて初めて事後記録した問題。
 
 本仕様は、エージェントによるファイル変造・削除・ラッパー回避の脅威を前提とし、**Gitステージングインデックス、C#決定論的リンター、および追跡原帳（Trace Ledger）による物理的Fail-Closed遮断**を確立する。
+
+### 1.1 執筆主体と4重独立監査マトリクス (Role-Swap Matrix)
+自己監査（Self-Review/自己承認）の欺瞞を排除し、常に真の4重交差検証体制を維持するため、執筆主体に応じた監査編成を以下のように固定する：
+
+| 作業トラック | 執筆主体 (Author) | 独立4重交差監査官 (Cross-Auditors) | 統括・パッチ統合 |
+|---|---|---|---|
+| **Fast Track**（UI/書式/小規模修正） | Antigravity (Gemini) | ① Codex (Astra) + ② Claude 5.5 + ③ Qwen 27B + ④ C#リンター | Antigravity |
+| **Heavy Track**（新規要件/DDL/排他制御） | **OpenAI Codex (Astra)** | **① Antigravity + ② Claude 5.5 + ③ Qwen 27B + ④ C#リンター** | Antigravity |
+
+※ Heavy Trackにおいて、初案執筆者であるCodex自身の自己交差監査（Self-Audit）は無効とし、Antigravityが第1監査官としてアーキテクチャ・API・ドメイン整合性の深層検証を担う。
 
 ---
 
