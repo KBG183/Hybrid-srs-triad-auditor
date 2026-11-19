@@ -18,22 +18,22 @@
 ## 2. 要件完全性検証スコア (SSOT 全12要件 - BATCH-11 4層交差監査連動)
 | ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-MEMBER-001 | 会員登録・BCrypt認証およびRBAC認可制御 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-STAFF-001 | 店舗スタッフ所属申請・オーナー承認および多店舗アクセス制御 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-STAFF-002 | 給与算定用契約条件（時給・交通費）履歴管理および期間排他制御 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-SHIFT-001 | スタッフ希望シフト申請および排他制御（悲観的ロック） | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-SHIFT-002 | 店長によるシフト確定調停および労働基準法第34条法定休憩時間の算定 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-SHIFT-003 | 希望シフト申請の本人取消および状態遷移制御 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-SHIFT-004 | カレンダー表示連携（FullCalendar 6.x）およびプライバシー保護 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-001 | 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-002 | 深夜労働割増手当（深夜手当・半開区間境界）の算定 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
-| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性 | FAIL | PASS | PASS | PASS | **REVISE_PENDING** |
+| REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-MEMBER-001 | 会員登録・BCrypt認証およびRBAC認可制御 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-STAFF-001 | 店舗スタッフ所属申請・オーナー承認および多店舗アクセス制御 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-STAFF-002 | 給与算定用契約条件（時給・交通費）履歴管理および期間排他制御 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-SHIFT-001 | スタッフ希望シフト申請および排他制御（悲観的ロック） | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-SHIFT-002 | 店長によるシフト確定調停および労働基準法第34条法定休憩時間の算定 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-SHIFT-003 | 希望シフト申請の本人取消および状態遷移制御 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-SHIFT-004 | カレンダー表示連携（FullCalendar 6.x）およびプライバシー保護 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-001 | 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-002 | 深夜労働割増手当（深夜手当・半開区間境界）の算定 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性 | PASS | PASS | PASS | PASS | **PASS** |
 
 ---
 
 ## 3. 監査・障害対応履歴
-* **実運用障害・再発防止台帳**: [`incident_history_ledger.md`](incident_history_ledger.md)（全26件の技術課題・恒久対策を記録）
+* **実運用障害・再発防止台帳**: [`incident_history_ledger.md`](incident_history_ledger.md)（全30件の技術課題・恒久対策を記録）
 * **監査実行台帳**: [`enterprise_audit_ledger.csv`](enterprise_audit_ledger.csv)
 * **クラウドトークン消費台帳**: [`cloud_api_token_ledger.csv`](cloud_api_token_ledger.csv)

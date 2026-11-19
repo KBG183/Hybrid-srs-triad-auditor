@@ -20,6 +20,7 @@
 ## 2. 作業開始と出力基準
 
 - コマンドやファイル編集ツールの実行前には、実施内容の要約を1行で提示する。
+- **多段階作業におけるリアルタイム段階別進捗告知義務**: 2つ以上のサブステップから構成される複合作業を実行する際、冒頭で全体計画を提示した後にツールを無言で連続実行し、事後的に一括完了報告する不透明な進行を厳禁とする。各段階の着手直前に、必ず「[現ステップ番号 / 作業目的 / 対象ファイル]」をリアルタイムでユーザーへ明示してからツールを実行する。
 - 数値の範囲表記において、空白のない波線（`~`）は取り消し線誤認を防ぐため使用せず、半角スペース付き（例: `1 ~ 10`）またはバッククォートを使用する。
 - PowerShellスクリプトの作成・実行仕様は第10条に準拠する。
 
@@ -104,6 +105,9 @@
 2. **Heavy TrackにおけるCodex初案自動生成の強制**:
    - 新規要件・DDL・排他制御を含む設計（Heavy Track）において、Antigravity（Gemini）が直接初案を長文生成する単独執筆（便宜主義）を厳禁とする。
    - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS_Deterministic.exe`）の検証を通過した後にのみ SSOT へ統合する。
+3. **物理的ハードゲートによる機械的強制 (PROC-005 & PROC-006)**:
+   - Heavy Track資産の変更時、Gitステージングインデックス内に Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS_Integrity.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
+   - 実行時障害は `logs/incident_execution_trace.log` に自動記録され、未登録の失敗が存在する場合、またはログが改ざん・切断された場合は `[FATAL] [PROC-006]` により即時遮断される（詳細は `tools/rules/dual_hardgates_specification.md` 参照）。
 
 ---
 

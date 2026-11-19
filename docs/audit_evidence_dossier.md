@@ -115,13 +115,15 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 
 ### 2.3 Day 3 (2026-11-19): 11大欠陥の自律的1-Shot全面是正・10大マスターゲート確立・最終全数検証
 
-#### ① 監査官別実測実行メトリクス (Physical Execution Metrics)
+#### ① 4層AIハイブリッド交差検証 実測実行メトリクス (Physical Execution Metrics)
 
-| 監査官 / 検証エンジン | 使用モデル / バイナリ | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 走査数 | 推論速度 | 判定結果 | 物理保存先アーカイブ |
+| 監査官 / 検証エンジン | 使用モデル / バイナリ | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 走査数 | 推論速度 / 費用 | 判定結果 | 物理保存先アーカイブ |
 |---|---|---|:---:|:---:|:---:|:---:|---|
-| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **39.69秒** | Input: 12,437 tok / Output: 1,601 tok | **48.6 tok/s** | **ALL PASS (F-001~010 全10項目合格)** | `docs/audit_runs/20261119_043558_3c3b2c46/` |
-| **C# 決定論的リンター** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 実行バイナリ | **0.42秒** | SSOT 399行 / 欠陥キュー全11件 RESOLVED | - | **PASS (Clean Integrity, Zero Defects)** | `tools/scripts/VerifySRS_Integrity.exe` |
-| **Master Integrity Verifier** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.3秒** | 10大検証項目 / 89追跡ファイル全数走査 | - | **ALL PASS (10/10 PASS 完全合格)** | `tools/scripts/verify_repo_total_integrity.ps1` |
+| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **39.69秒** | Input: 12,437 tok / Output: 1,601 tok | **48.6 tok/s** ($0) | **ALL PASS (F-001~010 全10項目合格)** | `docs/audit_runs/20261119_043558_3c3b2c46/` |
+| **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **97.70秒** | 11,842 bytes (詳細技術監査レポート) | Flagship Reasoning | **COMPLETED (DB/並行性深層監査完了)** | `audit/runs/20261119_134955_quad_verified/codex_astra_audit.md` |
+| **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **74.20秒** | Input: 18,422 tok / Output: 8,192 tok | **$0.1781** (実課金) | **COMPLETED (労基法第37条/34条深層監査)** | `audit/runs/20261119_134955_quad_verified/claude_sonnet_audit.md` |
+| **C# 決定論的リンター** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 実行バイナリ | **0.42秒** | SSOT 399行 / SPEC-004・PROC-004連動 | - | **PASS (Clean Integrity, Zero Defects)** | `tools/scripts/VerifySRS_Integrity.exe` |
+| **Master Integrity Verifier** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.30秒** | 10大検証項目 / 92追跡ファイル全数走査 | - | **ALL PASS (10/10 PASS 完全合格)** | `tools/scripts/verify_repo_total_integrity.ps1` |
 
 #### ② 自律摘発された11大欠陥の是正およびガバナンス拡張内容一覧
 
@@ -131,7 +133,7 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 4. **[AI-01] Qwen 27B パラメータ確定**: `call_qwen.ps1` の `seed=42`, `temperature=0.1` を確定バインドし、ローカルフォールバックの Fail-Closed 制御を実装。
 5. **[REPRO-01] 自己完結型実行基盤の確立**: `hermes_controller.ps1` のレポジトリ内完結、`tools/hooks/pre-commit` のバージョン管理化および `install_hooks.ps1` の配備。
 6. **[SSOT-01] 本番DBMSの MySQL 8.4 統一**: SSOT内の本番標準を MySQL 8.4 とし、PostgreSQL 16 は代替参照アーキテクチャとして定義・整流化。
-7. **[METRIC-01] 実測インシデント台帳の一致**: READMEおよび関連文書のインシデント数を実測26件へ統一し、Codexモデル移行系図を整理。
+7. **[METRIC-01] 実測インシデント台帳の一致**: READMEおよび関連文書のインシデント数を実測30件へ統一し、Codexモデル移行系図を整理。
 8. **[DATA-07] 実行束JSONエスケープ破損の修復**: `audit_run.json` および `bundle.manifest.json` 内の `/\s` パスエスケープを正規化。
 9. **[HYGIENE-01] 不可視制御文字スキャナーの公式ゲート化 (Check 9)**: `kintai_master_srs.md` 内の BEL/BS 等18箇所の制御文字を完全修復し、`verify_repo_total_integrity.ps1` Check 9 へ恒久統合。
 10. **[HYGIENE-02] 相対リンク完全検証ゲートの公式化 (Check 10)**: 全36件の相対リンクを検査・是正し、Check 10 として壊れたリンクをコミット直前で遮断するゲートを配備。

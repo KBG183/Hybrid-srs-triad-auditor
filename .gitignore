@@ -2,6 +2,7 @@
 scratch/
 docs/audit_runs/
 *.log
+!logs/incident_execution_trace.log
 *.tmp
 
 # Visual Studio & IDE artifacts

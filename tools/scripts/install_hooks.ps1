@@ -12,7 +12,10 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectRoot = Split-Path -Parent $scriptDir
+$projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+if (-not (Test-Path (Join-Path $projectRoot ".git"))) {
+    $projectRoot = (Get-Location).Path
+}
 
 $sourceHook = Join-Path $projectRoot "tools\hooks\pre-commit"
 $targetGitHooksDir = Join-Path $projectRoot ".git\hooks"

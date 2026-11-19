@@ -128,17 +128,17 @@ foreach ($req in $reqList) {
 
     if ($reportContent) {
         # Check Qwen findings section dynamically
-        if ($reportContent -match "(?ms)##\s*3\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
+        if ($reportContent -match "(?ms)##\s*3\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|\u6B20\u9665|\u6307\u6458)") {
             $qwenVerdict = "FINDINGS (P1)"
         }
 
         # Check Codex findings section dynamically
-        if ($reportContent -match "(?ms)##\s*4\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
+        if ($reportContent -match "(?ms)##\s*4\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|\u6B20\u9665|\u6307\u6458)") {
             $codexVerdict = "FINDINGS"
         }
 
         # Check Claude findings section dynamically
-        if ($reportContent -match "(?ms)##\s*5\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|欠陥|指摘)") {
+        if ($reportContent -match "(?ms)##\s*5\.[^#]+?($id)[^#]*?(FINDING|WARN|FAIL|CRITICAL|\u6B20\u9665|\u6307\u6458)") {
             $claudeVerdict = "FINDINGS (Critical)"
         }
     }

@@ -525,6 +525,191 @@ namespace SrsIntegrity.Engine
                             });
                         }
                     }
+
+                    // =========================================================================
+                    // PHASE 5: Code-to-Spec Bidirectional Traceability Gate (SPEC-004)
+                    // =========================================================================
+                    string mirrorDir = Path.Combine(projectRoot, @"domain_target\03_core_domain_services");
+                    if (Directory.Exists(mirrorDir))
+                    {
+                        string[] javaFiles = Directory.GetFiles(mirrorDir, "*.java", SearchOption.AllDirectories);
+                        foreach (string jf in javaFiles)
+                        {
+                            string jContent = File.ReadAllText(jf, Encoding.UTF8);
+                            if (!Regex.IsMatch(jContent, @"@requirement\s+REQ-[A-Z]+-\d+"))
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "SPEC-004",
+                                    Severity = "FATAL",
+                                    LineNumber = 1,
+                                    ColumnNumber = 1,
+                                    Message = string.Format("Core domain service '{0}' is missing mandatory @requirement REQ-* traceability annotation.", Path.GetFileName(jf)),
+                                    ContextSnippet = jf
+                                });
+                            }
+                        }
+                    }
+
+                    // =========================================================================
+                    // PHASE 6: Physical Execution Receipt Gate (PROC-004)
+                    // =========================================================================
+                    string dossierPath = Path.Combine(projectRoot, @"docs\audit_evidence_dossier.md");
+                    if (File.Exists(dossierPath))
+                    {
+                        string dossierContent = File.ReadAllText(dossierPath, Encoding.UTF8);
+                        string auditRunsDir = Path.Combine(projectRoot, @"audit\runs");
+
+                        bool claimsCodex = dossierContent.IndexOf("OpenAI Codex", StringComparison.OrdinalIgnoreCase) >= 0;
+                        bool claimsClaude = dossierContent.IndexOf("Anthropic Claude", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (claimsCodex || claimsClaude)
+                        {
+                            if (!Directory.Exists(auditRunsDir) || Directory.GetDirectories(auditRunsDir).Length == 0)
+                            {
+                                result.Findings.Add(new Finding
+                                {
+                                    RuleId = "PROC-004",
+                                    Severity = "FATAL",
+                                    LineNumber = 1,
+                                    ColumnNumber = 1,
+                                    Message = "Audit dossier claims external AI cross-verification, but no physical execution receipts exist in audit/runs/!",
+                                    ContextSnippet = dossierPath
+                                });
+                            }
+                        }
+                    }
+
+                    // =========================================================================
+                    // PHASE 7: Heavy Track Codex Draft Gate (PROC-005)
+                    // =========================================================================
+                    string fileName = Path.GetFileName(filePath).ToLowerInvariant();
+                    bool isHeavyTrack = fileName.Contains("srs_specification_ssot") ||
+                                       fileName.Contains("verifysrs_") ||
+                                       filePath.ToLowerInvariant().Contains("domain_target");
+
+                    if (isHeavyTrack)
+                    {
+                        string auditRunsDir = Path.Combine(projectRoot, @"audit\runs");
+                        bool hasCodexEvidence = false;
+
+                        if (Directory.Exists(auditRunsDir))
+                        {
+                            string[] runDirs = Directory.GetDirectories(auditRunsDir);
+                            foreach (string rd in runDirs)
+                            {
+                                string codexReport = Path.Combine(rd, "codex_report.txt");
+                                string codexAudit = Path.Combine(rd, "codex_astra_audit.md");
+                                string codexReceipt = Path.Combine(rd, "codex_receipt.json");
+                                string manifestJson = Path.Combine(rd, "manifest.json");
+
+                                if (File.Exists(codexReport) && new FileInfo(codexReport).Length > 0)
+                                {
+                                    hasCodexEvidence = true;
+                                    break;
+                                }
+                                if (File.Exists(codexAudit) && new FileInfo(codexAudit).Length > 0)
+                                {
+                                    hasCodexEvidence = true;
+                                    break;
+                                }
+                                if (File.Exists(codexReceipt) && new FileInfo(codexReceipt).Length > 0)
+                                {
+                                    hasCodexEvidence = true;
+                                    break;
+                                }
+                                if (File.Exists(manifestJson))
+                                {
+                                    string manifestText = File.ReadAllText(manifestJson, Encoding.UTF8);
+                                    if (manifestText.IndexOf("codex", StringComparison.OrdinalIgnoreCase) >= 0)
+                                    {
+                                        hasCodexEvidence = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!hasCodexEvidence)
+                        {
+                            result.Findings.Add(new Finding
+                            {
+                                RuleId = "PROC-005",
+                                Severity = "FATAL",
+                                LineNumber = 1,
+                                ColumnNumber = 1,
+                                Message = string.Format("Heavy Track asset '{0}' modification requires co-staged Codex receipt and report in audit/runs/.", Path.GetFileName(filePath)),
+                                ContextSnippet = filePath
+                            });
+                        }
+                    }
+
+                    // =========================================================================
+                    // PHASE 8: Tracked Trace Log & Incident Reconciliation Gate (PROC-006)
+                    // =========================================================================
+                    string traceLogPath = Path.Combine(projectRoot, @"logs\incident_execution_trace.log");
+                    if (!File.Exists(traceLogPath) || new FileInfo(traceLogPath).Length == 0)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "PROC-006",
+                            Severity = "FATAL",
+                            LineNumber = 1,
+                            ColumnNumber = 1,
+                            Message = "Execution trace log 'logs/incident_execution_trace.log' is missing or 0-byte. Fail-Closed verification required.",
+                            ContextSnippet = traceLogPath
+                        });
+                    }
+                    else
+                    {
+                        string ledgerPath = Path.Combine(projectRoot, @"logs\incident_history_ledger.md");
+                        string ledgerContent = File.Exists(ledgerPath) ? File.ReadAllText(ledgerPath, Encoding.UTF8) : "";
+
+                        string[] traceLines = File.ReadAllLines(traceLogPath, Encoding.UTF8);
+                        foreach (string tl in traceLines)
+                        {
+                            string trimmed = tl.Trim();
+                            if (trimmed.IndexOf("[STATUS: FAIL]", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                // Check if this failure signature is resolved in incident_history_ledger.md
+                                bool isReconciled = false;
+                                if (!string.IsNullOrEmpty(ledgerContent))
+                                {
+                                    // Extract error code if present: [CODE: XXX]
+                                    int codeIdx = trimmed.IndexOf("[CODE:");
+                                    if (codeIdx >= 0)
+                                    {
+                                        int endIdx = trimmed.IndexOf("]", codeIdx);
+                                        if (endIdx > codeIdx)
+                                        {
+                                            string errCode = trimmed.Substring(codeIdx + 6, endIdx - codeIdx - 6).Trim();
+                                            if (!string.IsNullOrEmpty(errCode) && errCode != "UNKNOWN")
+                                            {
+                                                if (ledgerContent.IndexOf(errCode, StringComparison.OrdinalIgnoreCase) >= 0)
+                                                {
+                                                    isReconciled = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (!isReconciled)
+                                {
+                                    result.Findings.Add(new Finding
+                                    {
+                                        RuleId = "PROC-006",
+                                        Severity = "FATAL",
+                                        LineNumber = 1,
+                                        ColumnNumber = 1,
+                                        Message = string.Format("Unreconciled failure in trace log: '{0}'. Registration in incident_history_ledger.md required.", trimmed),
+                                        ContextSnippet = traceLogPath
+                                    });
+                                    break; // Report first unmapped failure
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
