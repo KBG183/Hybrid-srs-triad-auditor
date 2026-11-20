@@ -451,9 +451,46 @@ foreach ($ard in $auditRunsDirs) {
                 }
 
                 if (-not $matchedRaw) {
-                    Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 does not match any raw artifact in $runDir! Fail-Closed." -ForegroundColor Red
-                    $sidecarFails++
-                    continue
+                    if ($Fix) {
+                        $canHeal = $false
+                        $healedSha = $null
+                        foreach ($rf in $possibleRaws) {
+                            $rawBytes = [System.IO.File]::ReadAllBytes($rf.FullName)
+                            $bytesWithBom = if ($rawBytes.Length -ge 3 -and $rawBytes[0] -eq 0xEF -and $rawBytes[1] -eq 0xBB -and $rawBytes[2] -eq 0xBF) {
+                                $rawBytes
+                            } else {
+                                $tempWithBom = New-Object byte[] ($rawBytes.Length + 3)
+                                $tempWithBom[0] = 0xEF; $tempWithBom[1] = 0xBB; $tempWithBom[2] = 0xBF
+                                [System.Array]::Copy($rawBytes, 0, $tempWithBom, 3, $rawBytes.Length)
+                                $tempWithBom
+                            }
+                            $sha = [System.Security.Cryptography.SHA256]::Create()
+                            $shaBom = ([BitConverter]::ToString($sha.ComputeHash($bytesWithBom)) -replace '-', '').ToLowerInvariant()
+                            $shaClean = ([BitConverter]::ToString($sha.ComputeHash($rawBytes)) -replace '-', '').ToLowerInvariant()
+                            $sha.Dispose()
+
+                            if ($vJson.response_sha256.ToString().ToLowerInvariant() -eq $shaBom) {
+                                $canHeal = $true
+                                $healedSha = $shaClean
+                                break
+                            }
+                        }
+
+                        if ($canHeal -and $healedSha) {
+                            $vJson.response_sha256 = $healedSha
+                            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+                            $jsonText = $vJson | ConvertTo-Json -Depth 5
+                            [System.IO.File]::WriteAllText($vf.FullName, $jsonText, $utf8NoBom)
+                            Write-Host "  [AUTO-HEALED SIDECAR] $($vf.FullName): Synchronized post-canonical SHA-256." -ForegroundColor Cyan
+                            $matchedRaw = $true
+                        }
+                    }
+
+                    if (-not $matchedRaw) {
+                        Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 does not match any raw artifact in $runDir! Fail-Closed." -ForegroundColor Red
+                        $sidecarFails++
+                        continue
+                    }
                 }
 
                 $recentVerdicts += [PSCustomObject]@{
