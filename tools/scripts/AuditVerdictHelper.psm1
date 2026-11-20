@@ -62,7 +62,14 @@ function New-AuditVerdictSidecar {
     # HOLD/FAIL must have at least one P0/P1 finding
     $p0p1Count = 0
     foreach ($f in $Findings) {
-        $sev = if ($f.severity) { $f.severity.ToString().ToUpperInvariant() } else { "INFO" }
+        $sev = "INFO"
+        if ($f -ne $null) {
+            if ($f -is [PSCustomObject] -and $f.PSObject.Properties['severity']) {
+                $sev = $f.severity.ToString().ToUpperInvariant()
+            } elseif ($f -is [System.Collections.IDictionary] -and $f.Contains('severity')) {
+                $sev = $f['severity'].ToString().ToUpperInvariant()
+            }
+        }
         if ($sev -eq "P0" -or $sev -eq "P1") {
             $p0p1Count++
         }

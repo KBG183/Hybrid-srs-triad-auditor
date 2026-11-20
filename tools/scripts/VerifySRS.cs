@@ -264,7 +264,7 @@ namespace SrsIntegrity.Engine
                         string rawTs = cols[timestampColIdx].Trim('\"', ' ');
                         DateTime currentTs;
                         string cleanTs = rawTs.Replace(" - ", " ").Replace("/", "-");
-                        if (DateTime.TryParse(cleanTs, out currentTs))
+                        if (DateTime.TryParse(cleanTs, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out currentTs))
                         {
                             if (lastTimestamp.HasValue && currentTs < lastTimestamp.Value.AddSeconds(-60))
                             {
@@ -909,12 +909,142 @@ namespace SrsIntegrity.Engine
                     }
 
             // =========================================================================
+            // PHASE 10: Domain Specification Schema & IDOR Gate (Integrated Deterministic Rules)
+            // =========================================================================
+            if (filePath.EndsWith(".md", StringComparison.OrdinalIgnoreCase) && !filePath.Contains("_KO") && !filePath.Contains("_ko"))
+            {
+                string fullDocText = Encoding.UTF8.GetString(rawBytes);
+
+                // 10-1. [RULE-FMT-01] Markdown Syntax & Strikethrough Protection (Unspaced Tilde)
+                var tildeMatches = Regex.Matches(fullDocText, @"([^\s`])~([^\s`])");
+                foreach (Match m in tildeMatches)
+                {
+                    int idx = m.Index;
+                    string before = fullDocText.Substring(0, idx);
+                    int codeBlockCount = Regex.Matches(before, @"```").Count;
+                    if (codeBlockCount % 2 == 0)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "RULE-FMT-01",
+                            Severity = "FATAL",
+                            LineNumber = 1,
+                            ColumnNumber = 1,
+                            Message = string.Format("Unspaced tilde taboo violated: '{0}' (Required format: ' ~ ')", m.Value),
+                            ContextSnippet = m.Value
+                        });
+                    }
+                }
+
+                // 10-2. [RULE-FMT-02] Unfinalized Placeholders (TODO, TBD, 未定)
+                var todoMatches = Regex.Matches(fullDocText, @"(?i)\b(TODO|TBD|FIXME)\b|(未定|未確定|追って決定)");
+                foreach (Match m in todoMatches)
+                {
+                    int lineIdx = fullDocText.Substring(0, m.Index).Split('\n').Length;
+                    result.Findings.Add(new Finding
+                    {
+                        RuleId = "RULE-FMT-02",
+                        Severity = "WARN",
+                        LineNumber = lineIdx,
+                        ColumnNumber = 1,
+                        Message = string.Format("Unfinalized placeholder detected: '{0}'", m.Value),
+                        ContextSnippet = m.Value
+                    });
+                }
+
+                // 10-3. [RULE-REQ-03] 5 Mandatory Sections Enforcement per Requirement Block
+                var reqMatches = Regex.Matches(fullDocText, @"(?m)^#{3,4}\s+\[(REQ-[A-Z0-9_-]+)\]");
+                var mandatorySections = new Dictionary<string, string>
+                {
+                    { "入力", @"-\s*\*\*入力.*?\*\*:" },
+                    { "処理", @"-\s*\*\*処理\*\*:" },
+                    { "出力", @"-\s*\*\*出力\*\*:" },
+                    { "例外処理", @"-\s*\*\*例外処理\*\*:" },
+                    { "完了基準 (DoD)", @"-\s*\*\*完了基準\s*\(DoD\)\*\*:" }
+                };
+
+                for (int r = 0; r < reqMatches.Count; r++)
+                {
+                    string reqId = reqMatches[r].Groups[1].Value;
+                    int startIdx = reqMatches[r].Index;
+                    int endIdx = (r + 1 < reqMatches.Count) ? reqMatches[r + 1].Index : fullDocText.Length;
+                    string reqBlock = fullDocText.Substring(startIdx, endIdx - startIdx);
+                    int reqLine = fullDocText.Substring(0, startIdx).Split('\n').Length;
+
+                    foreach (var kvp in mandatorySections)
+                    {
+                        if (!Regex.IsMatch(reqBlock, kvp.Value))
+                        {
+                            result.Findings.Add(new Finding
+                            {
+                                RuleId = "RULE-REQ-03",
+                                Severity = "FATAL",
+                                LineNumber = reqLine,
+                                ColumnNumber = 1,
+                                Message = string.Format("Requirement '{0}' is missing mandatory section: '**{1}**'", reqId, kvp.Key),
+                                ContextSnippet = reqId
+                            });
+                        }
+                    }
+
+                    // 10-4. [RULE-SEC-04] IDOR Security Gate (No Raw Client-Supplied ID Parameters)
+                    if (reqId.StartsWith("REQ-STORE-") || reqId.StartsWith("REQ-STAFF-") || reqId.StartsWith("REQ-MEMBER-"))
+                    {
+                        var inputMatch = Regex.Match(reqBlock, @"-\s*\*\*入力.*?\*\*:(.*?)(?=-\s*\*\*(処理|出力|例外処理|完了基準)\*\*:|$)", RegexOptions.Singleline);
+                        if (inputMatch.Success)
+                        {
+                            string inputContent = inputMatch.Groups[1].Value;
+                            string[] inputLines = inputContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                            foreach (string rawLine in inputLines)
+                            {
+                                string lTrim = rawLine.Trim();
+                                if (string.IsNullOrEmpty(lTrim)) continue;
+
+                                var idMatch = Regex.Match(lTrim, @"(?i)\b(owner_?id|member_?id)\b");
+                                if (idMatch.Success)
+                                {
+                                    bool isSafe = lTrim.Contains("リクエストパラメータから一切受け取らず") ||
+                                                  lTrim.Contains("SecurityContext") ||
+                                                  lTrim.Contains("完全禁止") ||
+                                                  lTrim.Contains("JWT") ||
+                                                  lTrim.Contains("クライアント指定不可") ||
+                                                  lTrim.Contains("セッションから取得");
+
+                                    bool isDangerous = lTrim.Contains("受け取る") ||
+                                                       lTrim.Contains("受け付ける") ||
+                                                       lTrim.Contains("クライアント") ||
+                                                       lTrim.Contains("パラメータ") ||
+                                                       lTrim.Contains("リクエスト") ||
+                                                       lTrim.Contains("入力") ||
+                                                       lTrim.Contains("必須") ||
+                                                       lTrim.Contains("任意");
+
+                                    if (!isSafe && isDangerous)
+                                    {
+                                        result.Findings.Add(new Finding
+                                        {
+                                            RuleId = "RULE-SEC-04",
+                                            Severity = "FATAL",
+                                            LineNumber = reqLine,
+                                            ColumnNumber = 1,
+                                            Message = string.Format("Insecure Direct Object Reference (IDOR) risk in '{0}': Client-supplied parameter '{1}' detected in line: {2}", reqId, idMatch.Value, lTrim),
+                                            ContextSnippet = lTrim
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
             // Evaluation & Console Output
             // =========================================================================
             int fatalCount = 0;
             int warnCount = 0;
 
-            Console.WriteLine(string.Format("=== [SRS Integrity Verifier v2.0] Analyzing: {0} ===", Path.GetFileName(filePath)));
+            Console.WriteLine(string.Format("=== [SRS Unified Master Linter v1.2] Analyzing: {0} ===", Path.GetFileName(filePath)));
             Console.WriteLine(string.Format("Total Lines: {0} | Total Bytes: {1}", lines.Length, rawBytes.Length));
 
             foreach (var f in result.Findings)
@@ -1056,7 +1186,7 @@ namespace SrsIntegrity.Engine
                     {
                         string rawTs = cols[timestampCol].Trim('\"', ' ').Replace(" - ", " ").Replace("/", "-");
                         DateTime dt;
-                        if (DateTime.TryParse(rawTs, out dt))
+                        if (DateTime.TryParse(rawTs, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out dt))
                         {
                             if (!maxDate.HasValue || dt > maxDate.Value)
                             {

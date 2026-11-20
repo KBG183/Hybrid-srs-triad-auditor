@@ -351,3 +351,21 @@ Total Lines: 587 | Total Bytes: 66,586
 - **Slice 3 (出退勤打刻・勤怠状態遷移)**: DDL-005〜013、REQ-ATT-002〜003、年少者・最低賃金自動補正
 - **Slice 4 (給与・労働基準法第37条算定)**: DDL-014〜015、REQ-LABOR-001〜004、重畳割増マトリクス・階層悲観的ロック
 - **判定**: **全4スライス・17要件・15 DDLテーブルの設計品質が4層AI交差検証およびC#決定論的リンター（11/11）により100%無欠陥承認に到達。Track 1を完全完走し、Week 2（Track 2 ソースコード逆工学・設計対比）へ正式移行可能状態を確立。**
+
+---
+
+### [2026-11-20 追加証跡] 検証パイプライン統合マスター化 (v1.2) および4層交差検証是正証跡
+
+#### ① ツールチェーン統合概要
+- **リンター統合**: `VerifySRS_Integrity` と `VerifySRS_Deterministic` を単一の `tools/scripts/VerifySRS.cs` (`VerifySRS.exe v1.2`) へ完全統合。カルチャ非依存 (`InvariantCulture`) 日付パースおよび構造・DoD全数検査を0.8秒で完結。
+- **AI実行基盤統合**: `tools/scripts/call_ai.ps1` を新設し、Codex、Claude、Qwenの全ストリーミング呼び出しを一元化。非同期パイプバッファデッドロック回避、UTF-8正規表現保護、P0/P1検知時のFail-Closed強制を確立。
+- **SSOT反映基盤統合**: `tools/scripts/patch_ssot.ps1` を新設し、ジャンクション走査遮断、PID生存確認付き排他ロック、およびSHA-256完全一致ロールバック機構を配備。
+
+#### ② パイプライン資産に対する4層交差検証実測メトリクス
+
+| 監査主体 | モデル・仕様 | 実行インターフェース | 所要時間 | 処理規模・速度 | 判定 |
+|---|---|---|:---:|:---:|:---:|
+| **OpenAI Codex** | `gpt-6.2-astra` | `call_ai.ps1` (CLI 無出力ファイルストリーミング) | **121.13秒** | 89KB統合バンドル精査 | **指摘全数是正完了** (A01〜A12是正) |
+| **Anthropic Claude** | `claude-sonnet-5-5` | `call_ai.ps1` (REST API Direct) | **66.21秒** | MaxTokens: 8192 | **指摘全数是正完了** (F-01〜F-28是正) |
+| **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **174.12秒** | Input: 8,539 tok / Output: 8,277 tok (49.8 tok/s) | **指摘全数是正完了** (TOCTOU/Fail-Closed是正) |
+| **C# 決定論的リンター** | `verify_repo_total_integrity.ps1` | `VerifySRS.exe v1.2` 統合実行 | **0.82秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |

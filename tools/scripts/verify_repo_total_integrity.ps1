@@ -67,7 +67,7 @@ foreach ($f in $trackedFiles) {
     for ($i = 0; $i -lt $lines.Length; $i++) {
         $line = $lines[$i]
         if ($line -match $sensitivePattern) {
-            if ($f -notmatch 'VerifySRS_Integrity\.cs' -and $f -notmatch 'pre-commit') {
+            if ($f -notmatch 'VerifySRS.*\.cs' -and $f -notmatch 'pre-commit') {
                 Write-Host "  [LEAK] ${f}:$($i+1) : $($line.Trim())" -ForegroundColor Red
                 $sensitiveHits++
             }
@@ -90,7 +90,10 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # Test 2: CSV Column Cardinality & RFC 4180 Integrity
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Check 2/11] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
-$integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+$integrityExe = Join-Path $scriptDir "VerifySRS.exe"
+if (-not (Test-Path $integrityExe)) {
+    $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+}
 $csvFiles = @("logs\local_token_ledger.csv", "logs\cloud_api_token_ledger.csv", "logs\codex_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
 $csvFail = $false
 
@@ -166,7 +169,7 @@ Write-Host "`n>>> [Check 4/11] Verifying Dual-Linter Wiring in hermes_controller
 $controllerPath = Join-Path $scriptDir "hermes_controller.ps1"
 $controllerText = [System.IO.File]::ReadAllText($controllerPath, [System.Text.Encoding]::UTF8)
 
-$hasIntegrity = $controllerText.Contains("VerifySRS_Integrity.exe")
+$hasIntegrity = $controllerText.Contains("VerifySRS.exe") -or $controllerText.Contains("VerifySRS_Integrity.exe")
 $hasDeterministic = $controllerText.Contains("verify_srs.ps1")
 
 if ($hasIntegrity -and $hasDeterministic) {

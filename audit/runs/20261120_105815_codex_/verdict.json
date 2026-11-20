@@ -3,7 +3,7 @@
     "auditor":  "codex",
     "run_id":  "20261120_105815_codex",
     "tree_hash":  "WORKING_TREE",
-    "response_sha256":  "6f9fa38b7a6567fab1e59620e6f3670c1c5616657889014705aa8cdda96f29e0",
+    "response_sha256":  "bba421eea99c61e881ebcfeb4fecec57745a91f8ba28b422ccaf795602f3b686",
     "verdict":  "PASS",
     "findings_count":  0,
     "p0_p1_count":  0,

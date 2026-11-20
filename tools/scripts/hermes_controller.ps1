@@ -62,9 +62,11 @@ Write-Host "=================================================================" -
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Step 1/4] Deterministic Linter Dual Hard-Gate Verification..." -ForegroundColor Yellow
 
-# Phase 1-A: Always enforce text & security integrity via VerifySRS_Integrity.exe
-$integrityCs = Join-Path $scriptDir "VerifySRS_Integrity.cs"
-$integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+# Phase 1-A: Always enforce text & security integrity via Unified Master Linter VerifySRS.exe
+$masterCs = Join-Path $scriptDir "VerifySRS.cs"
+$masterExe = Join-Path $scriptDir "VerifySRS.exe"
+$integrityCs = if (Test-Path $masterCs) { $masterCs } else { Join-Path $scriptDir "VerifySRS_Integrity.cs" }
+$integrityExe = if (Test-Path $masterCs) { $masterExe } else { Join-Path $scriptDir "VerifySRS_Integrity.exe" }
 
 # Strict Fail-Closed check & auto-compilation
 if (-not (Test-Path $integrityExe) -or ((Test-Path $integrityCs) -and ((Get-Item $integrityCs).LastWriteTime -gt (Get-Item $integrityExe).LastWriteTime))) {

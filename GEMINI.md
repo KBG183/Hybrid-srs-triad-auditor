@@ -13,7 +13,7 @@
 2. **OpenAI Codex CLI (`call_codex.ps1`, `pipeline_draft_and_integrate.ps1`)**: Heavy Track（DDL・労働基準法第37条計算・排他制御等）の初案自動執筆およびFast Trackにおける独立交差監査（トークン消費平準化 v1.1 準拠）。
 3. **Anthropic Claude (`call_claude.ps1`)**: 労働基準法第37条・端数処理・例外分岐等の複雑なドメインロジックの深層推論監査（常時交差監査官）。
 4. **ローカル Qwen 27B (`call_qwen.ps1`)**: 自社GPU（RTX 5070 Ti）を活用したコスト0円の高速骨子抽出および文脈解析・回帰監査。
-5. **決定論的リンター (`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`)**: C# Roslynエンジンによる構文・書式・DoDの機械的Fail-Closed検証。
+5. **決定論的リンター (`VerifySRS.exe v1.2`)**: C# Roslynエンジンによる構文・書式・DoDの機械的Fail-Closed統合検証（旧 `VerifySRS_Deterministic.exe` および `VerifySRS_Integrity.exe` を単一バイナリへ完全統合）。
 
 ### 1.1 執筆主体と監査陣の動的役割交代規約 (Role-Swap Policy)
 自己監査（Self-Review/自己承認）の欺瞞を完全に排除するため、作業トラックに応じて執筆者と監査官は以下の通り厳格に役割を交代し、いかなる場合も独立4重交差検証体制を崩さない：
@@ -109,10 +109,10 @@
      - `[トークン平準化遵守]`: 生成トークン平準化（Plan A: Codex 約50%分担）準拠の明示
 2. **Heavy TrackにおけるCodex初案自動生成および独立4重監査の強制**:
    - 新規要件・DDL・排他制御を含む設計（Heavy Track）において、Antigravity（Gemini）が直接初案を長文生成する単独執筆（便宜主義）を厳禁とする。
-   - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS_Deterministic.exe`）の検証を通過した後にのみ SSOT へ統合する。
+   - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS.exe`）の検証を通過した後にのみ SSOT へ統合する。
    - 初案執筆後の交差監査においては、第1.1条の動的役割交代規約に従い、執筆者Codexの自己交差監査を排除し、Antigravity（第1監査官: アーキテクチャ・整合性）、Anthropic Claude（第2監査官: 労基法・分岐）、ローカルQwen 27B（第3監査官: 文脈・回帰）、およびC#決定論的リンターの独立4重体制で検証する。
 3. **物理的ハードゲートによる機械的強制 (PROC-005, PROC-006 & PROC-007)**:
-   - Heavy Track資産の変更時、Gitステージングインデックス内に Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS_Integrity.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
+   - Heavy Track資産の変更時、Gitステージングインデックス内に Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
    - 実行時障害は `logs/incident_execution_trace.log` に自動記録され、未登録の失敗が存在する場合、またはログが改ざん・切断された場合は `[FATAL] [PROC-006]` により即時遮断される。
    - **オーケストレーター自律抑制3大物理線 (`PROC-007`)**:
      - ① **SSOT直接執筆遮断**: SSOT中核ファイル（`srs_specification_ssot.md`）の直接編集を厳禁とし、Heavy Trackは `pipeline_draft_and_integrate.ps1`、Fast Trackは `patch_ssot_editorial.ps1` の単一チョークポイント経由でのみ更新を許可する。
