@@ -105,11 +105,13 @@ for ($i = 0; $i -lt $bytes.Length; $i++) {
 # 7. Atomic Write Back with Explicit UTF-8 No BOM via Temporary File
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $tempPath = "${resolvedTarget}.tmp.$([System.Guid]::NewGuid().ToString('N'))"
+$backupPath = "${resolvedTarget}.bak.$([System.Guid]::NewGuid().ToString('N'))"
 try {
     [System.IO.File]::WriteAllText($tempPath, $newContent, $utf8NoBom)
-    [System.IO.File]::Replace($tempPath, $resolvedTarget, $null)
+    [System.IO.File]::Replace($tempPath, $resolvedTarget, $backupPath)
 } finally {
     if (Test-Path $tempPath) { Remove-Item $tempPath -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $backupPath) { Remove-Item $backupPath -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host "=== [LITERAL PATCH SUCCESS] ===" -ForegroundColor Green

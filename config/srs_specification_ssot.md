@@ -488,6 +488,8 @@
 | [DDL-011] `attendance_correction` | `tenant_id id!`, `request_id id!`, `session_id id!`, `base_version bigint!`, `applicant_id id!`, `reason text!`, `single_owner_reason text?`, `proposed_timeline json!`, `proposal_hash hash!`, `status varchar(30)!`, `is_single_owner_bypass boolean!`, `created_at ts!`, `resolved_at ts?` | PK `(tenant_id,request_id)`、FK→勤務、申請主体。`base_version≥0`。状態は [REQ-ATT-003]。理由は空白のみ不可、単独オーナー特例承認時は `is_single_owner_bypass=TRUE` かつ `single_owner_reason` 必須。追記専用 | `(tenant_id,session_id,base_version)`、`(tenant_id,status,created_at)` |
 | [DDL-012] `attendance_decision` | `tenant_id id!`, `request_id id!`, `stage smallint!`, `actor_id id!`, `decision varchar(20)!`, `reason text?`, `proposal_hash hash!`, `decided_at ts!` | PK `(tenant_id,request_id,stage)`、UQ `(tenant_id,request_id,actor_id)`、FK→申請、主体。`stage IN (1,2)`、`decision IN ('APPROVE','REJECT')`。否認理由必須。追記専用 | `(tenant_id,actor_id,decided_at)` |
 | [DDL-013] `attendance_audit_log` | `tenant_id id!`, `sequence_no bigint!`, `action varchar(50)!`, `actor_id id!`, `entity_type varchar(50)!`, `entity_id id!`, `correlation_id id!`, `occurred_at ts!`, `reason text?`, `old_version bigint?`, `new_version bigint?`, `before_hash hash?`, `after_hash hash?`, `previous_hash hash!`, `entry_hash hash!` | PK `(tenant_id,sequence_no)`、FK→主体（自動処理はサービス主体）。テナント別直列採番。初項の前ハッシュは 32 バイトのゼロ。各項は版固定の正規化表現を SHA-256 で連結。追記専用 | `(tenant_id,entity_type,entity_id,sequence_no)`、`(tenant_id,correlation_id)` |
+| [DDL-014] `payroll_settlement` | `tenant_id id!`, `settlement_id id!`, `store_id id!`, `target_month varchar(7)!`, `status varchar(20)!`, `total_staff_count int!`, `total_gross_pay numeric!`, `confirmed_by id?`, `confirmed_at ts?`, `closed_at ts?`, `version bigint!`, `created_at ts!`, `updated_at ts!` | PK `(tenant_id,settlement_id)`、UQ `(tenant_id,store_id,target_month)`、FK `(tenant_id,store_id)→store`。状態は `OPEN, CONFIRMED, CLOSED`。CAS更新および不変締め統制 | `(tenant_id,store_id,target_month)`、`(tenant_id,confirmed_by)` |
+| [DDL-015] `payroll_settlement_line` | `tenant_id id!`, `line_id id!`, `settlement_id id!`, `staff_id id!`, `contract_type text!`, `base_hourly_rate numeric!`, `total_work_seconds bigint!`, `total_work_minutes numeric!`, `overtime_under60_minutes numeric!`, `overtime_over60_minutes numeric!`, `night_minutes numeric!`, `holiday_minutes numeric!`, `base_pay numeric!`, `overtime_pay numeric!`, `night_pay numeric!`, `holiday_pay numeric!`, `gross_pay numeric!`, `calculation_snapshot_json json!`, `created_at ts!` | PK `(tenant_id,line_id)`、FK `(tenant_id,settlement_id)→payroll_settlement`、UQ `(tenant_id,settlement_id,staff_id)`。秒精度正準保持（循環小数遮断）および確定スナップショット不変保存 | `(tenant_id,settlement_id,staff_id)`、`(tenant_id,staff_id,settlement_id)` |
 ### 2.4 [Slice 4] 労働基準法第37条 割増賃金算定エンジンおよび並行性制御 (Payroll Engine)
 
 #### [REQ-LABOR-001] 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定
@@ -513,7 +515,8 @@
      - 当該勤務の週次算入基準時間（`weeklyAddition`）を `min(currentEligibleMinutes, max(0, 480 - priorDailyMinutes))` と決定論的に固定する。
      - 週累計実労働時間に対し、`priorWeeklyMinutes + weeklyAddition > 2400`（40時間）となる場合、その超過部分 `max(0, (priorWeeklyMinutes + weeklyAddition) - max(2400, priorWeeklyMinutes))` を `weeklyOvertimeMinutes` として計上する。
   5. 合計時間外労働時間：`totalOvertimeMinutes = dailyOvertimeMinutes + weeklyOvertimeMinutes`。
-  6. 最低賃金自動補正との連携（単一支給時給の継承）：支給基本時給 `payableRate` は、REQ-LABOR-005（地域別最低賃金改定日履歴マスタおよび自動補正統制）において決定論的に算出された `appliedHourlyWage`（`applied_rate`）を単一の真実原書としてそのまま受領・適用し、本要件内での独自判定や再計算による時給乖離を完全に排除する。  7. 金額計算：日次での通貨切捨ては実施せず、乗算先行かつ除算時スケール指定により `overtimePayExact = payableRate.multiply(BigDecimal.valueOf(0.25)).multiply(BigDecimal.valueOf(totalOvertimeMinutes)).divide(BigDecimal.valueOf(60), 10, RoundingMode.HALF_UP)` を高精度 `BigDecimal` として算出し、月次集計へ連携する。
+  6. 最低賃金自動補正との連携（単一支給時給の継承）：支給基本時給 `payableRate` は、REQ-LABOR-005（地域別最低賃金改定日履歴マスタおよび自動補正統制）において決定論的に算出された `appliedHourlyWage`（`applied_rate`）を単一の真実原書としてそのまま受領・適用し、本要件内での独自判定や再計算による時給乖離を完全に排除する。
+  7. 金額計算：日次での通貨切捨ては実施せず、乗算先行かつ除算時スケール指定により `overtimePayExact = payableRate.multiply(BigDecimal.valueOf(0.25)).multiply(BigDecimal.valueOf(totalOvertimeMinutes)).divide(BigDecimal.valueOf(60), 10, RoundingMode.HALF_UP)` を高精度 `BigDecimal` として算出し、月次集計へ連携する。
 - **出力**:
   - `dailyOvertimeMinutes` (日次8h超残業時間, 分)
   - `weeklyOvertimeMinutes` (週40h超残業時間, 分)
@@ -555,67 +558,86 @@
 
 ---
 
-#### [REQ-LABOR-003] 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制
+#### [REQ-LABOR-003] 時間外・深夜・法定休日の重畳割増マトリクスおよび基発第150号月次端数処理統制
 - **区分**: 機能要件および労働法遵守 (Function & Legal Compliance)
-- **概要**: 2023年4月1日施行の改正労働基準法第37条（月60時間超の時間外労働割増率50%引上げ、中小企業猶予撤廃済、法定休日労働は60h算定対象から除外）および法定休日労働（35%割増）を含む完全な重畳割増マトリクスを適用する。金額計算は累積分子・共通分母方式（`BigInteger` による分子累計および分母 `360000`）により中間丸め誤差を完全排除し、端数処理は昭和63年3月14日基発第150号通達に基づき、時間外・深夜・休日の各割増手当項目ごとに月次集計確定時の単一 `RoundingMode.HALF_UP`（50銭未満切捨て、50銭以上1円切上げ）を適用して決定論的整合性を担保する。
+- **概要**: 2023年4月1日施行の改正労働基準法第37条（月60時間超の時間外労働割増率50%引上げ、中小企業猶予撤廃済、代替休暇制度はスコープ外）、法定休日労働（35%割増）、および深夜労働（25%割増）の完全な重畳割増マトリクスを決定論的に適用する。平日から法定休日（暦日00:00:00）へ跨ぐ勤務は暦日午前0時で区間分割し、休日区間（00:00〜退勤）を休日労働（+35%）として優先算定して日次8時間・週次40時間・月60時間の時間外枠から完全に分離・除外する（F-DAY4-001解決）。時間量は正準表現として秒精度（`total_work_seconds bigint`）を完全保持して秒打刻の循環小数を排除し（F-DAY4-003解決）、端数処理は昭和63年3月14日基発第150号通達の許容枠内において、就業規則に基づく事業者規約として時間外手当・深夜手当・法定休日手当の各成分月合計に対して単一の `RoundingMode.HALF_UP`（50銭未満切捨て、50銭以上1円切上げ）を適用する。1か月の時間数に対する30分単位の丸め（通達②）は労働者不利益防止のため一切不採用とし、実時間秒数を厳格に維持する（F-DAY4-002解決）。
 - **入力**:
-  - `workMinutes` (総実労働時間, 分)
-  - `overtimeMinutesUnder60` (月60時間以下の時間外労働時間, 分)
-  - `overtimeMinutesOver60` (月60時間超の時間外労働時間, 分, 法定休日労働は除外)
-  - `nightMinutes` (深夜労働時間, 分)
-  - `holidayMinutes` (法定休日労働時間, 分)
-  - `hourlyWage` (基本時給, JPY 整数)
-  - *(注: 各種重複積集合時間はクライアント入力に一切依存せず、サーバー側給与エンジンが原始出退勤打刻・休憩区間から相互排他的セグメントとして自動抽出・検証する)*
+  - `workSeconds` (総実労働時間, 秒精度, bigint)
+  - `workMinutes` (総実労働時間, 分換算 numeric, 参考表示)
+  - `overtimeSecondsUnder60` (月60時間以下の時間外労働時間, 秒)
+  - `overtimeSecondsOver60` (月60時間超の時間外労働時間, 秒, 法定休日労働は完全除外)
+  - `nightSeconds` (深夜実労働時間, 秒)
+  - `holidaySeconds` (法定休日実労働時間, 秒)
+  - `hourlyWage` (基本時給, JPY 整数, REQ-LABOR-005最低賃金補正済み `applied_rate`)
 - **処理**:
-  1. サーバー側排他セグメント自動分解（不正投入遮断）：
-     - 出退勤打刻および休憩区間より、全実労働時間を以下の「重複のない相互排他的な割増カテゴリー」へ自動分類する。
-  2. 法定割増手当算定基準（基本給との二重計上防止）：
-     - 基本給と割増手当を厳格に分離し、総乗率（125%, 150%等）を手当に乗算して基本給を二重計上する誤りを完全に排除する。
-     - **基本給（Base Pay）**: `総実労働時間 × hourlyWage`（基本 100% 相当）
-     - **時間外手当（<=60h）**: `overtimeMinutesUnder60 × hourlyWage × 0.25`
-     - **時間外手当（>60h）**: `overtimeMinutesOver60 × hourlyWage × 0.50`（月累計60時間到達境界でセグメント分割し、超過以降の時間帯のみ50%を適用）
-     - **深夜手当**: `nightMinutes × hourlyWage × 0.25`
-     - **時間外×深夜重複加算**: 残業かつ深夜に重複する時間に対し、残業割増に加え深夜割増（+25%）を手当として加算（月60h超重複時は手当合計 +75%）
-     - **法定休日手当**: `holidayMinutes × hourlyWage × 0.35`（法定休日の実労働に対する純粋加算分、時間外割増との二重適用なし）
-     - **法定休日×深夜手当**: 休日かつ深夜に重複する時間に対し、休日割増（+35%）に深夜割増（+25%）を手当として加算（手当合計 +60%）
-  3. 高精度算定および基発第150号項目別端数処理確定（50銭境界誤差の完全排除）：
-     - ① 中間除算の `scale=10` 丸めによる50銭境界の1円不整合を防ぐため、秒単位実労働と時給に対し分子累計 `numerator += hourlyWage * seconds * rateFactor`（基本給 100, 割増 25, 35, 50, 60, 75）を整数/BigIntegerで保持し、共通分母 `3600 * 100` とする。
-     - ② 基発第150号通達の厳格準拠：月次集計時、50銭未満切捨て・50銭以上1円切上げ（`HALF_UP`）の対象は「時間外割増手当総額」「法定休日割増手当総額」「深夜割増手当総額」の**各手当項目別**に適用し、確定整数円を算出する。基本給および通勤手当は別個に確定する。
-     - ③ 月次総支給額は、確定された基本給、項目別丸め後の各割増手当、および通勤手当の総和として算定する。日次での途中切捨ては一切禁止する。
+  1. **割増判定マトリクスおよび法定休日最優先分離統制（F-DAY4-001）**:
+     - 出退勤打刻および休憩区間より、全実労働時間を以下の重複のない相互排他的セグメントへ分解する。
+     - | 勤務区分 | 時間外加算 | 深夜加算 | 法定休日加算 | 支給率（基本給含む） |
+       |---|---:|---:|---:|---:|
+       | 通常実労働 | 0% | 0% | 0% | 100% |
+       | 通常・深夜 | 0% | 25% | 0% | 125% |
+       | 時間外（月60h以下） | 25% | 0% | 0% | 125% |
+       | 同・深夜重複 | 25% | 25% | 0% | 150% |
+       | 時間外（月60h超） | 50% | 0% | 0% | 150% |
+       | 同・深夜重複 | 50% | 25% | 0% | 175% |
+       | 法定休日労働 | 0% | 0% | 35% | 135% |
+       | 法定休日・深夜重複 | 0% | 25% | 35% | 160% |
+     - 平日始業から翌日法定休日に跨る勤務（例: 平日19:00〜翌法定休日03:00）は、暦日00:00:00で強制区間分割する。00:00以前は平日の日次8時間枠で評価し、00:00以降の全労働は法定休日労働（+35%）を優先適用して平日の日次8時間カウンタ・週40時間枠・月60時間枠から完全に分離・算入除外する。
+  2. **秒精度正準計算および共通分母方式（F-DAY4-003）**:
+     - 中間除算による丸め誤差および秒単位の循環小数を完全排除するため、`BigInteger` による分子累計 `numerator += hourlyWage * seconds * rateFactor`（基本給 100, 割増 25, 35, 50, 60, 75）を整数として保持し、共通分母を `3600 * 100 = 360000` とする。
+  3. **基発第150号成分別月次端数処理および事業者規約統制（F-DAY4-002）**:
+     - 月次集計確定時、50銭未満切捨て・50銭以上1円切上げ（`HALF_UP`）は「時間外割増手当総額」「深夜割増手当総額」「法定休日割増手当総額」の各手当成分別に月合計に対して適用し、確定整数円を算出する。基本給（`base_pay`）は就業規則上の事業者規約として同様に月合計で単一 `HALF_UP` 確定する。日次・週次での途中通貨切捨ては一切禁止する。
+  4. **複数店舗勤務におけるLargest Remainder法配賦およびスナップショット整合（F-DAY4-005）**:
+     - 同一従業員が同月に複数店舗で勤務した場合、従業員月全体で各成分を一度だけ確定し、各店舗へ正確額の整数部分を配賦後、残余小数（厳密有理数）の大きい店舗から順に1円ずつ配賦する（同率時は `store_id` 昇順）。全店舗の勤怠が承認・固定されていることを事前検証し、各店舗明細の `calculation_snapshot_json` に当該店舗へ帰属した月60h超（50%）時間・配賦根拠を完全に保存する。
 - **出力**:
   - `monthlyGrossPay` (確定月次総支給額, JPY 整数)
-  - `breakdown` (基本給、残業手当(<=60h)、残業手当(>60h)、深夜手当、休日手当の各確定明細および未丸めDecimal明細)
+  - `breakdown` (基本給、残業手当(<=60h)、残業手当(>60h)、深夜手当、休日手当の各確定明細および秒数・分数)
+  - `calculation_snapshot_json` (スキーマ版、入力版、各成分の丸め前有理数分子・分母、店舗配賦根拠)
 - **例外処理**:
-  - 月間時間外労働が45時間および60時間を超過する見込みとなった場合、36協定超過防止アラートイベントを発行する。
+  - `DateTimeParseException` は HTTP 400 `INVALID_ISO_TIMESTAMP` を返却する。
+  - 実労働時間がゼロまたは負となる場合は `InvalidWorkTimeException`（HTTP 422）を送出する。
+  - 複数店舗配賦時に対象従業員の他店舗勤怠に未承認勤務データが存在する場合は `PayrollSourceConflictException`（HTTP 409）を送出する。
 - **完了基準 (DoD)**:
-  - 月60時間を超える残業が深夜時間帯に発生した場合、正確に175%（基本100% + 残業50% + 深夜25%）の乗率で算定されること。
-  - 各割増手当ごとの端数処理が基発第150号と完全に合致し、中間丸めに起因する1円の差異も生じないこと。
+  - 平日19:00から翌法定休日03:00（8時間拘束）の連続勤務において、00:00以降の3時間が確実に法定休日割増（+35%）かつ深夜割増（+25%）の合計160%として算定され、平日の8時間残業枠に算入されないこと。
+  - 秒単位打刻（30秒×2回で1分）において循環小数エラーを発生させず、正準秒精度で計算が完結すること。
+  - 月60時間を超える残業が深夜時間帯に発生した場合、正確に175%の乗率で算定されること。
+  - C#リンター規則に100%適合し、中間丸めに起因する1円の差異も生じないこと。
 
 ---
 
-#### [REQ-LABOR-004] 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性
+#### [REQ-LABOR-004] 階層的悲観的ロック・複合一意制約および冪等給与確定トランザクション整合性
 - **区分**: セキュリティおよび並行性制御 (Security & Concurrency)
-- **概要**: 給与精算テーブルに初回確定レコードが存在しない場合でも二重確定レースコンディション（ファントム確定）を100%遮断するため、親テーブル（`store`）の先行悲観的ロック、複合一意制約（`uq_settlement_store_month`）、および行レベル排他ロック（`SELECT ... FOR UPDATE`）の三重防御線を確立する。
+- **概要**: 給与精算テーブルに初回確定レコードが存在しない場合でも二重確定レースコンディション（ファントム確定）を100%遮断するため、親テーブル（`store`）の先行悲観的ロック、複合一意制約（`uq_settlement_store_month`）、および行レベル排他ロック（`SELECT ... FOR UPDATE`）の三重防御線を確立する。複数店舗通算時のデッドロックを防止するためロック階層順序を厳格統一し、`lock_timeout` を設定する（F-DAY4-004解決）。未承認勤怠が存在する場合は `blocking_staff_ids` を明示して運用デッドロックを防ぎ（F-DAY4-006解決）、締め後の訂正は次月精算調整ラインへ繰り越す不変ライフサイクルを確立する（F-DAY4-007解決）。
 - **入力**:
-  - `storeId` (店舗ID, BIGINT, 必須)
+  - `storeId` (店舗ID, UUID, 必須)
   - `targetMonth` (精算対象年月, VARCHAR(7), 'YYYY-MM' 形式, 必須)
+  - `SecurityContext` (テナントID `tenant_id`, 操作者ID `staff_id`, 店舗権限)
 - **処理**:
-  1. **所有権検証・先行店舗排他ロックの単一トランザクション原子的実行（IDOR・TOCTOU完全防護）**: トランザクション開始直後、`SET LOCAL lock_timeout = '3s'` を設定し、`SELECT store_id FROM store WHERE store_id = :storeId AND owner_id = :principalId FOR UPDATE` を実行する。店舗行の存在と所有権を単一クエリで排他検証し、認可とロック獲得の間の競合窓（TOCTOU）を物理的に排除する（不一致時は即時 HTTP 403 遮断）。
-  2. **ロック階層の固定と遡及打刻の凍結防護**: デッドロック防止および精算期間中の遡及打刻割り込みを防ぐため、システム全体のロック獲得順序を「`store` → `store_staff` → `payroll_settlement`」に厳格統一する。給与精算中は店舗ロックの保護下で対象月の全打刻・休憩登録が排他待機となり、精算対象データの決定論的凍結（Snapshot Consistency）を担保する。
-  3. 給与精算テーブル（`payroll_settlement`）において `(store_id, target_month)` を指定して既存レコードを取得する（`SELECT ... FOR UPDATE`）。
-  4. 初回確定時（レコード未存在時）：
-     - MySQL 8.4の複合一意制約（`CONSTRAINT uq_settlement_store_month UNIQUE (store_id, target_month)`）の保護下で、初期ステータス `'OPEN'` の精算ヘッダーレコードを安全に発行する。
-  5. 締め状態の検証および不変スナップショット永続化：
-     - ステータスが `'CONFIRMED'` または `'CLOSED'` の場合、確定済み給与の不正改変として `ALREADY_CONFIRMED`（HTTP 409）で即座に更新を拒否する。
-     - 確定計算結果および参照契約のスナップショットを不変明細テーブル（`payroll_settlement_line`）へ永続化し、以後の打刻変更から給与計算結果を完全隔離する。
-  6. 精算ヘッダーステータスを `'OPEN' → 'CONFIRMED'` へCAS更新（`WHERE settlement_id = ? AND status = 'OPEN'`）し、`affected rows == 1` を確認してコミットとともにロックを解放する。
+  1. **所有権検証・先行店舗排他ロックおよびデッドロック防止順序（F-DAY4-004）**:
+     - トランザクション開始直後、`SET LOCAL lock_timeout = '3s'` を設定する。
+     - システム全体のロック獲得順序を「`store` → `store_staff` → `payroll_settlement` → `payroll_settlement_line`」に厳格統一する。複数店舗が依存集合に含まれる場合は、第1階層において `ORDER BY (tenant_id, store_id)` の主キー昇順で全対象店舗を先行排他ロックし、ロック前の読取TOCTOUを排除する。競合タイムアウト時はジッタ付き指数バックオフにより最大3回自動再試行する。
+  2. **未承認勤怠の検出およびブロッキング従業員明示（F-DAY4-006）**:
+     - 店舗ロック保護下で対象月の全所属従業員の勤怠承認状態を走査する。未承認（`DRAFT`、`CLOSED_PENDING_APPROVAL`）の勤怠セグメントが1件でも存在する場合、確定処理を即時中断し、エラー応答に確定を阻害している対象者ID配列（`blocking_staff_ids`）を明示して `PayrollInputNotFinalException`（HTTP 409）を送出する。
+  3. **初回確定および複合一意制約保護**:
+     - 給与精算テーブル（`payroll_settlement`）において `(tenant_id, store_id, target_month)` を指定して既存レコードを取得する（`SELECT ... FOR UPDATE`）。
+     - 初回確定時（レコード未存在時）は、PostgreSQL/MySQLの複合一意制約（`uq_settlement_store_month`）の保護下で、初期ステータス `'OPEN'` の精算ヘッダーレコードを安全に発行する。
+  4. **明細の一括不変スナップショット永続化およびCAS状態更新**:
+     - 各対象従業員の確定給与明細を `payroll_settlement_line`（DDL-015）へ一括挿入する。
+     - ヘッダーステータスを `'OPEN' → 'CONFIRMED'` へCAS更新（`WHERE tenant_id = :tenant AND settlement_id = :id AND status = 'OPEN'`）し、`affected rows == 1` を確認してコミットとともにロックを解放する。確定再送時は既存の `CONFIRMED` 結果を冪等返却する。
+  5. **締鎖（CLOSED）統制および事後遡及調整ライフサイクル（F-DAY4-007）**:
+     - 締鎖要求時は `CONFIRMED → CLOSED` へ遷移させ、以後の再開や確定明細の変更・削除を不可逆的に完全禁止する。
+     - 締鎖後に過去勤怠の遡及訂正（未払い精算等）が発生した場合、確定済み月次レコードの改変を禁止し、差額精算を次月以降の精算ライン（`adjustment_line`）として繰り越して調整する業務規約を適用する。
 - **出力**:
-  - `settlementId` (確定給与精算PK, BIGINT)
-  - `settlementStatus` (確定ステータス 'CONFIRMED', VARCHAR(20))
+  - `settlementId` (確定給与精算PK, UUID)
+  - `settlementStatus` (確定ステータス 'CONFIRMED' / 'CLOSED')
+  - `totalStaffCount` (確定対象従業員数, INT)
+  - `totalGrossPay` (確定総支給額, NUMERIC)
 - **例外処理**:
-  - オーナー以外のユーザーによる給与確定リクエストは `AccessDeniedException`（HTTP 403）を送出し、セキュリティ監査ログへ記録する。
-  - 3秒のロック獲得待機がタイムアウトした場合（MySQL: Error 1205 / ER_LOCK_WAIT_TIMEOUT, PostgreSQL: SQLSTATE `55P03`）、二重確定と誤認させず `SETTLEMENT_LOCK_BUSY`（HTTP 503 Service Unavailable、再試行ヘッダー付与）を返却する。
-  - 複合一意制約衝突（MySQL: Error 1062, PostgreSQL: SQLSTATE `23505`, 制約名 `uq_settlement_store_month`）または既に確定済みの場合は `DuplicateSettlementException`（HTTP 409 Conflict）を送出し、二重支払いを確実に阻止する。
+  - 店舗権限不足は `AccessDeniedException`（HTTP 403）を送出する。
+  - 未承認勤怠が存在する場合は `PayrollInputNotFinalException`（HTTP 409、`blocking_staff_ids` 付与）を送出する。
+  - 3秒のロック獲得待機がタイムアウトした場合は `SettlementConcurrencyException`（HTTP 409 / 503、再試行推奨）を返却する。
+  - 既に確定済みのヘッダーに対する重複確定競合は `DuplicateSettlementException`（HTTP 409）を送出して二重支払いを確実に阻止する。
 - **完了基準 (DoD)**:
-  - 給与確定レコードが初期状態（未作成）であっても、2件の並行確定リクエストが同時に実行された際に確実に1件のみが成功し、もう1件は重複衝突として HTTP 409 で遮断されること。
-  - C#リンター規則に100%適合し、確定後の過去勤務データ変更が確定済み給与額に一切影響を与えないこと。
+  - 2件の並行確定リクエストが同時に実行された際、先行店舗ロックおよび複合一意制約により確実に1件のみが成功し、もう1件は重複競合として HTTP 409 で遮断されること。
+  - 未承認勤怠が存在する場合、HTTP 409 とともに `blocking_staff_ids` が返却され、管理者が対象者を即座に特定できること。
+  - C#リンター規則に100%適合し、確定・締鎖後の過去勤務データ変更が確定済み給与額に一切影響を与えないこと。

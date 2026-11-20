@@ -1,0 +1,14 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "codex",
+    "run_id":  "20261120_105815_codex",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "6f9fa38b7a6567fab1e59620e6f3670c1c5616657889014705aa8cdda96f29e0",
+    "verdict":  "PASS",
+    "findings_count":  0,
+    "p0_p1_count":  0,
+    "findings":  [
+
+                 ],
+    "created_utc":  "2026-11-20T01:58:15.7833137Z"
+}

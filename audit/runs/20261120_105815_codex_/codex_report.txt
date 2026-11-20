@@ -1,0 +1,216 @@
+# Slice 4 給与月次確定・労働基準法第37条計算エンジン仕様書
+
+## 適用範囲
+
+本仕様は、2023年4月以降の日本国内の勤務を対象とします。通常の法定労働時間制、月初起算の暦月精算、円建ての時間給を前提とします。日・週の時間外判定は `[REQ-LABOR-001]`、深夜判定は `[REQ-LABOR-002]` を引き継ぎます。以下の `[REQ-ATT-003]` と `[REQ-ATT-004]` は、それぞれ既存の `[REQ-LABOR-003]` と `[REQ-LABOR-004]` の詳細仕様です。
+
+月60時間超の割増率は、2023年4月1日以降、中小企業にも適用されます。法定休日労働は月60時間の時間外累計から除外します。法定外休日の勤務には通常の日・週の時間外判定を適用します。[厚生労働省「深夜・休日労働の取扱い」](https://www.mhlw.go.jp/content/000930914.pdf)・[厚生労働省「残業、早出や深夜労働の割増賃金」](https://www.check-roudou.mhlw.go.jp/qa/roudousya/chingin/q3.html)
+
+## 永続化契約
+
+以下のDDLはPostgreSQLを対象とします。既存マスタの参照キーを `store(tenant_id, store_id)`、`staff(tenant_id, staff_id)` とし、各組に親側の一意制約を必要とします。IDはUUID、監査時刻は絶対時刻、法定時間帯の判定は `Asia/Tokyo` とします。金額の単位は円です。明細の時間量は正確な分数を格納できる `numeric` とします。入力時刻の精度はマイクロ秒までとし、解釈不能な時刻や保存時に精度を失う値を暗黙変換しません。
+
+### [DDL-014] payroll_settlement — 店舗月次給与確定ヘッダ
+
+```sql
+CREATE TABLE payroll_settlement (
+    tenant_id         uuid        NOT NULL,
+    settlement_id     uuid        NOT NULL,
+    store_id          uuid        NOT NULL,
+    target_month      varchar(7)  NOT NULL,
+    status            varchar(9)  NOT NULL DEFAULT 'OPEN',
+    total_staff_count integer     NOT NULL DEFAULT 0,
+    total_gross_pay   numeric     NOT NULL DEFAULT 0,
+    confirmed_by      uuid        NULL,
+    confirmed_at      timestamptz NULL,
+    closed_at         timestamptz NULL,
+    version           bigint      NOT NULL DEFAULT 0,
+    created_at        timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_payroll_settlement
+        PRIMARY KEY (tenant_id, settlement_id),
+    CONSTRAINT uq_settlement_store_month
+        UNIQUE (tenant_id, store_id, target_month),
+    CONSTRAINT fk_settlement_store
+        FOREIGN KEY (tenant_id, store_id)
+        REFERENCES store (tenant_id, store_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_settlement_confirmer
+        FOREIGN KEY (tenant_id, confirmed_by)
+        REFERENCES staff (tenant_id, staff_id) ON DELETE RESTRICT,
+    CONSTRAINT ck_settlement_month CHECK (
+        target_month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'
+        AND left(target_month, 4) <> '0000'
+    ),
+    CONSTRAINT ck_settlement_totals CHECK (
+        total_staff_count >= 0 AND version >= 0
+        AND total_gross_pay BETWEEN 0 AND 999999999999999999999999
+        AND total_gross_pay = trunc(total_gross_pay)
+    ),
+    CONSTRAINT ck_settlement_state CHECK (
+        (status = 'OPEN' AND confirmed_by IS NULL AND confirmed_at IS NULL
+            AND closed_at IS NULL AND total_staff_count = 0 AND total_gross_pay = 0)
+        OR (status = 'CONFIRMED' AND confirmed_by IS NOT NULL
+            AND confirmed_at IS NOT NULL AND closed_at IS NULL)
+        OR (status = 'CLOSED' AND confirmed_by IS NOT NULL
+            AND confirmed_at IS NOT NULL AND closed_at IS NOT NULL)
+    ),
+    CONSTRAINT ck_settlement_times CHECK (
+        updated_at >= created_at
+        AND (confirmed_at IS NULL OR confirmed_at BETWEEN created_at AND updated_at)
+        AND (closed_at IS NULL OR closed_at BETWEEN confirmed_at AND updated_at)
+    )
+);
+
+CREATE INDEX ix_settlement_confirmer
+    ON payroll_settlement (tenant_id, confirmed_by)
+    WHERE confirmed_by IS NOT NULL;
+```
+
+主キー索引はテナント内のID検索、一意索引 `uq_settlement_store_month` は店舗月の検索と二重作成防止に使用します。`confirmed_by` は確定を実行した認証済み担当者です。月の表現は `YYYY-MM` に限定します。
+
+### [DDL-015] payroll_settlement_line — 従業員別の不変給与明細
+
+```sql
+CREATE TABLE payroll_settlement_line (
+    tenant_id                 uuid        NOT NULL,
+    line_id                   uuid        NOT NULL,
+    settlement_id             uuid        NOT NULL,
+    staff_id                  uuid        NOT NULL,
+    contract_type             text        NOT NULL,
+    base_hourly_rate          numeric     NOT NULL,
+    total_work_minutes        numeric     NOT NULL,
+    overtime_under60_minutes  numeric     NOT NULL,
+    overtime_over60_minutes   numeric     NOT NULL,
+    night_minutes             numeric     NOT NULL,
+    holiday_minutes           numeric     NOT NULL,
+    base_pay                  numeric     NOT NULL,
+    overtime_pay              numeric     NOT NULL,
+    night_pay                 numeric     NOT NULL,
+    holiday_pay               numeric     NOT NULL,
+    gross_pay                 numeric     NOT NULL,
+    calculation_snapshot_json jsonb       NOT NULL,
+    created_at                timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_payroll_settlement_line
+        PRIMARY KEY (tenant_id, line_id),
+    CONSTRAINT fk_line_settlement
+        FOREIGN KEY (tenant_id, settlement_id)
+        REFERENCES payroll_settlement (tenant_id, settlement_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_line_staff
+        FOREIGN KEY (tenant_id, staff_id)
+        REFERENCES staff (tenant_id, staff_id) ON DELETE RESTRICT,
+    CONSTRAINT uq_settlement_line_staff
+        UNIQUE (tenant_id, settlement_id, staff_id),
+    CONSTRAINT ck_line_contract CHECK (
+        btrim(contract_type) <> ''
+        AND base_hourly_rate > 0 AND base_hourly_rate < 'Infinity'::numeric
+    ),
+    CONSTRAINT ck_line_time CHECK (
+        total_work_minutes BETWEEN 0 AND 44640
+        AND overtime_under60_minutes BETWEEN 0 AND 3600
+        AND overtime_over60_minutes BETWEEN 0 AND total_work_minutes
+        AND holiday_minutes BETWEEN 0 AND total_work_minutes
+        AND night_minutes BETWEEN 0 AND total_work_minutes
+        AND overtime_under60_minutes + overtime_over60_minutes
+            + holiday_minutes <= total_work_minutes
+    ),
+    CONSTRAINT ck_line_pay CHECK (
+        least(base_pay, overtime_pay, night_pay, holiday_pay) >= 0
+        AND base_pay = trunc(base_pay) AND overtime_pay = trunc(overtime_pay)
+        AND night_pay = trunc(night_pay) AND holiday_pay = trunc(holiday_pay)
+        AND gross_pay = base_pay + overtime_pay + night_pay + holiday_pay
+        AND gross_pay BETWEEN 0 AND 999999999999999999999999
+    ),
+    CONSTRAINT ck_line_snapshot CHECK (
+        jsonb_typeof(calculation_snapshot_json) = 'object'
+        AND calculation_snapshot_json ?& ARRAY[
+            'schema_version', 'engine_version', 'policy_version',
+            'source_revisions', 'opening_counters', 'segments',
+            'exact_components', 'rounded_components'
+        ]
+    )
+);
+
+CREATE INDEX ix_line_staff_history
+    ON payroll_settlement_line (tenant_id, staff_id, settlement_id);
+```
+
+一意索引 `uq_settlement_line_staff` は親ヘッダの全明細取得にも使用します。`overtime_under60_minutes` は累計60時間**まで**の時間外です。`night_minutes` は重複可能な内数です。月中に契約や単価が変わった場合、`contract_type` と `base_hourly_rate` には対象月の最後の有給勤務区間に適用した値を格納し、全区間の実適用値をスナップショットに保存します。
+
+DBのアプリケーションロールには両表の直接変更権限および `TRUNCATE` 権限を付与しません。作成・確定・締鎖は `[REQ-ATT-004]` の手続きを通じて実行します。手続きの所有者とアプリケーションロールを分離し、明細の `UPDATE`・`DELETE`、確定後の明細追加、ヘッダの削除・逆遷移を許可しません。行の `CHECK` 制約に加え、確定手続きがヘッダと明細の集合整合性を保証します。
+
+## 割増判定表
+
+各率は通常賃金に対する**加算率**です。基本給には全実労働時間の通常賃金を一度だけ計上します。表は法定最低率を示します。契約上の適用率がこれを上回る場合は、その有効期間の高い率を使用します。[厚生労働省「早出や残業、休日出勤による割増賃金」](https://www.startup-roudou.mhlw.go.jp/qa/zigyonushi/chingin/q2.html)
+
+| 勤務区分 | 時間外加算 | 深夜加算 | 法定休日加算 | 基本給を含む支給率 |
+|---|---:|---:|---:|---:|
+| 通常 | 0% | 0% | 0% | 100% |
+| 通常・深夜 | 0% | 25% | 0% | 125% |
+| 月60時間までの時間外 | 25% | 0% | 0% | 125% |
+| 同・深夜 | 25% | 25% | 0% | 150% |
+| 月60時間超の時間外 | 50% | 0% | 0% | 150% |
+| 同・深夜 | 50% | 25% | 0% | 175% |
+| 法定休日 | 0% | 0% | 35% | 135% |
+| 法定休日・深夜 | 0% | 25% | 35% | 160% |
+
+### [REQ-ATT-003] 月次割増判定・成分別端数処理（REQ-LABOR-003）
+
+- **入力**: `SecurityContext` から `tenant_id`、実行者 `staff_id`、店舗権限を取得します。対象従業員は権限内の店舗所属と承認済み勤怠から解決します。入力は `target_month: YearMonth`、オフセット付きISO 8601の出退勤・休憩時刻、勤務日帰属、週起算日、法定休日暦、適用期間付きの契約・割増基礎時給・割増率、各入力の版です。月初をまたぐ勤務・週については日・週の判定に必要な先行勤務も読み込みます。通算単位は同一使用者の従業員です。店舗異動や応援勤務で累計をリセットしません。
+- **処理**: 次の順に計算します。
+  1. ISO時刻を厳密に解析し、絶対時刻で `終了 > 開始` を検証します。区間は `[開始, 終了)` とし、勤務内に完全に含まれる有効な休憩を控除します。重複勤務、重複休憩、未打刻、控除後の非正時間を検出します。店舗・日・打刻ごとの切捨て、切上げ、所定時間への吸着を禁止します。
+  2. `[REQ-LABOR-001]` の勤務日帰属に従い、法定休日を除く実労働のうち日480分を超えた部分を日時間外とします。同じ週の残りの時間から週2,400分を超えた部分を週時間外とします。同一時間を二重計上しません。日をまたぐ連続勤務について、深夜・休日・精算月の区間分割によって勤務日の8時間カウンタをリセットしません。
+  3. 東京時間の月境界、法定休日の開始・終了、22:00、05:00、契約変更、日・週・月の閾値で区間を分割します。深夜は `[22:00, 翌05:00)` です。法定休日は対象暦日の `[00:00, 翌00:00)` です。精算は当月内の実時間に限定し、先行勤務は判定にのみ使います。
+  4. 日・週の時間外の和集合を発生順に走査します。月内累計の最初の3,600分には25%、超過部分には50%を適用します。深夜は各区間に25%を加算します。法定休日には35%と該当する深夜加算を適用し、その時間を日・週・月の時間外に算入しません。
+  5. 従業員・月単位で `base`、`overtime`、`night`、`holiday` の4成分を別々に積算します。各区間の寄与額は `適用時給 × 実時間 ÷ 1時間 × 成分率` です。基本給の成分率は1です。`BigDecimal` は有限小数を正確に保持し、除算で循環小数になる場合は非丸めの `BigInteger` 分子・正の分母で保持します。浮動小数点、途中の通貨丸め、25%帯と50%帯の個別丸めを禁止します。
+  6. 各成分の月合計に一度だけ円単位の `HALF_UP` を適用します。非負の分数 `N/D` は `floor((2N + D)/(2D))` 円とします。4成分の確定額の和を `gross_pay` とします。基発第150号の月次割増賃金の端数取扱いを採用し、基本給への成分別適用はKINTAIの規約とします。[厚生労働省「割増賃金計算における端数処理」](https://www.startup-roudou.mhlw.go.jp/qa/zigyonushi/chingin/q2.html)
+  7. 同月に複数店舗で勤務した従業員は、従業員月全体で各成分を一度だけ丸めます。各店舗に成分の正確額の整数部分を配賦し、丸め済み月額との差を小数残余の大きい店舗から1円ずつ配賦します。同率時は `store_id` 昇順とします。必要な全店舗の勤怠・契約版が固定済みであることを確認し、配賦根拠を保存します。
+- **出力**: `PayrollCalculationDTO` は対象月、店舗、従業員、DDL-015の時間・給与成分、総額、計算スナップショットを返します。スナップショットには入力版、週起算・休日・勤務日帰属、期首累計、区間別の実時間・単価・適用率、成分別の丸め前分子・分母と確定額、複数店舗時の配賦結果を含めます。整数精度を保持するため分子・分母は10進文字列で直列化します。正確な時間が有限小数の分で表せない場合は入力量を保持したまま例外処理に進みます。
+- **例外処理**: `DateTimeParseException` は HTTP 400 `INVALID_ISO_TIMESTAMP`、対象月の形式不正は `InvalidTargetMonthException`／400 `INVALID_TARGET_MONTH` とします。終了が開始以前または休憩控除後の実時間がゼロ以下の場合は `InvalidWorkTimeException`／422 `NON_POSITIVE_WORK_DURATION` を返します。勤務・休憩の矛盾は `InvalidAttendanceIntervalException`／422 `INVALID_ATTENDANCE_INTERVAL`、未承認・未完了の勤怠は `PayrollInputNotFinalException`／409 `PAYROLL_INPUT_NOT_FINAL`、未対応の労働時間制・賃金制または単価・暦の欠落は `PayrollPolicyException`／422 `PAYROLL_POLICY_UNRESOLVED` とします。時間精度を正確に格納できない場合は `UnsupportedTimePrecisionException`／422 `TIME_PRECISION_UNREPRESENTABLE` とし、原記録を保存して確定を保留します。権限違反は `AccessDeniedException`／403 `PAYROLL_ACCESS_DENIED` とします。
+- **完了基準 (DoD)**: 自動テストで以下の期待値を照合します。
+  1. 日480分は時間外0分、481分は1分です。日時間外を除く週2,400分は週時間外0分、2,401分は1分です。月をまたぐ週でも先月分を含めて閾値を判定し、先月分の賃金を当月に再計上しません。
+  2. `[21:59, 22:01)` と `[04:59, 05:01)` の深夜は各1分です。`[22:00, 翌05:00)` に30分の休憩がある場合は390分です。日途中の30秒を2回勤務した場合は合計1分を保持します。
+  3. 時給1,200円、月累計3,599分から深夜時間外を2分勤務した場合、当該区間の基本給は40円、時間外加算は15円、深夜加算は10円です。累計3,600分ちょうどで終わる区間の50%対象時間はゼロです。
+  4. 時給1,200円で法定休日の深夜に60分勤務した場合は、基本給1,200円、休日420円、深夜300円、合計1,920円です。時間外累計は増えません。法定休日明け00:00以降は当日の区分で判定します。
+  5. 同一成分の0.25円が2回発生すると月額は1円です。月合計0.49円は0円、0.50円は1円です。同じ従業員の二店舗の同一成分が各0.50円の場合、店舗配賦額の和は1円です。入力順を入れ替えても各店舗の結果が一致します。
+  6. 不正日付、オフセット欠落、ゼロ時間、負時間、テナント越境について所定のエラーを検証します。凍結した入力と同一エンジン版で再計算すると、時間内訳・丸め前分数・確定額・配賦結果が一致することを確認します。
+
+### [REQ-ATT-004] 店舗月精算の排他制御・冪等確定（REQ-LABOR-004）
+
+- **入力**: 作成は `store_id: UUID` と `target_month: YearMonth`、確定・締鎖は同じ店舗・月と `settlement_id: UUID` を受け取ります。`tenant_id`、操作者 `staff_id`、操作権限は `SecurityContext` から取得します。対象従業員、確定者、金額、ステータス、確定時刻はサーバーが決定します。対象店舗の閲覧・作成・確定・締鎖の各権限を操作別に検査します。
+- **処理**: 各変更操作は以下の順序を守ります。
+  1. DBトランザクション内で `store → store_staff → payroll_settlement → payroll_settlement_line` の順に `SELECT ... FOR UPDATE` を実行します。各検索には `tenant_id` を含めます。複数行は各階層内で複合主キー昇順にロックし、前の階層に戻りません。複数店舗の通算が必要な場合は、対象店舗を含む依存店舗すべてを最初の階層でロックします。依存集合に変更が判明した場合は全体をロールバックし、最新の集合で先頭から再実行します。
+  2. 店舗所属の追加・削除・異動、勤怠・契約・休日暦の給与反映処理にも同じ親店舗ロック規約を適用します。ヘッダや明細が未作成の場合は親行で挿入を直列化します。ロック取得後に権限、所属、締め対象、承認状態、入力版を再検証します。他店舗の確定済み配賦に影響する入力版の変更を拒否します。
+  3. 作成時は店舗月の既存ヘッダを確認します。存在すればそのIDを返し、存在しなければUUIDを発行して `OPEN` を作成します。`uq_settlement_store_month` に競合した場合は競合書込みを取り消し、同一テナント・店舗・月の既存ヘッダを再取得します。`OPEN` のコミット状態では明細件数・総額ともゼロです。
+  4. 確定時はロックしたヘッダの店舗・月・IDの一致を検査します。`OPEN` の場合は `[REQ-ATT-003]` を実行し、対象月に有効な実労働のある従業員ごとに不変明細を1件挿入します。対象勤務が存在しない月は0件・0円で確定できます。入力不備や未承認勤怠を対象なしとして扱いません。明細の `COUNT(*)` と `COALESCE(SUM(gross_pay), 0)` からヘッダ集計を求めます。
+  5. 次のCASで `OPEN → CONFIRMED` を確定します。`:actor` は認証済み担当者、`:now` はロック取得後にDBで取得した操作時刻です。更新1件の場合のみ、新規挿入した明細とヘッダを一括コミットします。
+
+     ```sql
+     UPDATE payroll_settlement
+        SET status = 'CONFIRMED',
+            total_staff_count = :line_count,
+            total_gross_pay = :gross_sum,
+            confirmed_by = :actor,
+            confirmed_at = :now,
+            updated_at = :now,
+            version = version + 1
+      WHERE tenant_id = :tenant
+        AND store_id = :store
+        AND target_month = :month
+        AND settlement_id = :id
+        AND status = 'OPEN'
+     RETURNING settlement_id, status, version, confirmed_by, confirmed_at;
+     ```
+
+  6. 確定再送時に同じヘッダが `CONFIRMED` または `CLOSED` であれば、初回確定の事実と現在状態を返します。新しい明細、版、確定者、確定時刻は生成しません。明細挿入後にCASが0件になった場合は当該トランザクション全体をロールバックし、権限内で再読込して同じ規則を適用します。
+  7. 締鎖は同じロック順序で `CONFIRMED → CLOSED` の条件付き更新を行い、`closed_at`、`updated_at`、`version` のみを更新します。`CLOSED` の再送は既存結果を返します。`OPEN → CLOSED`、再開、確定済み明細の再計算・上書きを禁止します。
+- **出力**: 新規作成はHTTP 201、既存ヘッダの取得、確定、締鎖、成功済み操作の再送はHTTP 200です。`SettlementDTO` は `settlement_id`、`store_id`、`target_month`、現在の `status`、`version`、人数、総額、確定者、確定・締鎖時刻を含みます。明細取得は同じテナント・店舗の権限確認後に行い、`line_id`、`staff_id` とDDL-015の確定値を返します。成功応答はコミット後に返します。
+- **例外処理**: 認証欠落は `AuthenticationCredentialsNotFoundException`／401 `AUTHENTICATION_REQUIRED`、店舗権限不足は `AccessDeniedException`／403 `PAYROLL_ACCESS_DENIED`、権限内の店舗月と一致するIDがない場合は `SettlementNotFoundException`／404 `SETTLEMENT_NOT_FOUND` とします。不正遷移は `InvalidSettlementStateException`／409 `INVALID_SETTLEMENT_STATE`、凍結入力の変更は `PayrollSourceConflictException`／409 `PAYROLL_SOURCE_CONFLICT` とします。ロック待ち期限超過、デッドロック被害、直列化失敗は全体を取り消し、再試行対象のトランザクションを初回を含め最大3回実行します。枯渇時は `SettlementConcurrencyException`／409 `SETTLEMENT_BUSY` を返します。予期しない一意制約違反、明細集計不一致、CAS後の状態不整合は `SettlementIntegrityException`／500 `SETTLEMENT_INTEGRITY_FAILURE` としてロールバックします。全エラー応答は `code`、`message`、`trace_id` を含み、他テナントの識別子や給与情報を公開しません。
+- **完了基準 (DoD)**: 実DBの独立接続と同期バリアを使い、次を検証します。
+  1. 同じ店舗月を同時作成するとヘッダは1件となり、両応答の `settlement_id` が一致します。テナントが異なる同じ店舗ID・対象月は独立に作成できます。
+  2. 二つの要求を同時に確定すると、`OPEN → CONFIRMED` の更新は1回、従業員ごとの明細は1件、`version` の増分は1です。応答消失後に再送しても初回の明細ID・確定者・確定時刻・版が保持されます。
+  3. 明細挿入直後、CAS直後、コミット直前の各位置で例外を注入します。いずれも別接続からは `OPEN`、明細0件、総額0円が観測され、再試行で一度だけ確定できます。
+  4. 確定と所属追加・異動・勤怠訂正を競合させます。先にコミットした有効な入力集合が一貫して採用されるか、後続変更が明示的に拒否されることを確認します。二店舗を逆順に指定した場合も取得順序が一致し、両店舗で月60時間閾値と端数配賦が整合します。
+  5. `OPEN` の締鎖は409、`CONFIRMED` の締鎖は200となります。締鎖後の確定・締鎖再送は200となり、`closed_at` と `version` が保持されます。権限外店舗に対する再送からも確定結果を取得できません。
+  6. DB制約試験で店舗月重複、従業員明細重複、テナント越境FK、不正月、不正状態、負額、端数円、成分和と異なる総額を拒否します。アプリケーションロールによる直接更新・削除・切り詰めを拒否し、確定済みヘッダの人数・総額が明細件数・総額和と一致することを照合します。
