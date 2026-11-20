@@ -22,7 +22,11 @@ $csPath = Join-Path $scriptDir "VerifySRS_Integrity.cs"
 if (-not (Test-Path $exePath) -or ((Get-Item $csPath).LastWriteTime -gt (Get-Item $exePath).LastWriteTime)) {
     $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (-not (Test-Path $csc)) { $csc = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe" }
-    & $csc /target:exe /out:$exePath $csPath | Out-Null
+    $compileOut = & $csc /target:exe /out:$exePath $csPath 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to compile VerifySRS_Integrity.cs:`n$compileOut"
+        exit 1
+    }
 }
 
 if (-not (Test-Path $TargetFile)) {

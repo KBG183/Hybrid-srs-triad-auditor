@@ -119,7 +119,7 @@ Local Qwen 27B による第1次全数監査（Run ID: `20261117_061126_7ea1d087`
 
 | 監査官 / 検証エンジン | 使用モデル / バイナリ | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 走査数 | 推論速度 / 費用 | 判定結果 | 物理保存先アーカイブ |
 |---|---|---|:---:|:---:|:---:|:---:|---|
-| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **39.69秒** | Input: 12,437 tok / Output: 1,601 tok | **48.6 tok/s** ($0) | **ALL PASS (F-001~010 全10項目合格)** | `docs/audit_runs/2026-11-19/20261119_043558_3c3b2c46/` |
+| **Local Qwen 27B** | `qwen27b:latest (IQ3_M)` | 自社RTX 5070 Ti (Tailscale P2P) | **39.69秒** | Input: 12,437 tok / Output: 1,601 tok | **48.6 tok/s** ($0) | **ALL PASS (F-001~010 全10項目合格)** | `audit/runs/20261119_043558_3c3b2c46/` |
 | **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **97.70秒** | 11,842 bytes (詳細技術監査レポート) | Flagship Reasoning | **COMPLETED (DB/並行性深層監査完了)** | `audit/runs/20261119_134955_quad_verified/codex_astra_audit.md` |
 | **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **74.20秒** | Input: 18,422 tok / Output: 8,192 tok | **$0.1781** (実課金) | **COMPLETED (労基法第37条/34条深層監査)** | `audit/runs/20261119_134955_quad_verified/claude_sonnet_audit.md` |
 | **C# 決定論的リンター** | `VerifySRS_Integrity.exe` | .NET Framework 4.8 実行バイナリ | **0.42秒** | SSOT 399行 / SPEC-004・PROC-004連動 | - | **PASS (Clean Integrity, Zero Defects)** | `tools/scripts/VerifySRS_Integrity.exe` |
@@ -273,7 +273,7 @@ Total Lines: 587 | Total Bytes: 66,586
 | 監査官 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 文字数 | 判定結果 | 物理保存先アーカイブ |
 |---|---|---|:---:|:---:|:---:|---|
 | **C# 決定論的** | `verify_repo_total_integrity.ps1` | .NET 4.8 / PowerShell 5.1 | **3.8秒** | 全135追跡ファイル走査 | **PASS (10/10)** | `tools/scripts/verify_repo_total_integrity.ps1` |
-| **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社RTX 5070 Ti (Ollama P2P) | **82.56秒** | Input: 8,763 tok / Output: 3,820 tok (49 tok/s) | **WARN** | `docs/audit_runs/2026-11-19/20261119_071847_51506ae9/report.md` |
+| **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社RTX 5070 Ti (Ollama P2P) | **82.56秒** | Input: 8,763 tok / Output: 3,820 tok (49 tok/s) | **WARN** | `audit/runs/20261119_071847_51506ae9/report.md` |
 | **OpenAI Codex** | `gpt-6.2-astra` | CLI無出力ファイルストリーミング | **136.15秒** | 16,001 bytes (詳細監査レポート生成) | **FAIL $\rightarrow$ 是正済** | `audit/runs/20261119_162305_codex_gpt-6.2-astra/codex_report.txt` |
 | **Anthropic Claude** | `claude-sonnet-5-5` | REST API (MaxTokens: 8192) | **30.21秒** | Input: 34,659 tok / Output: 8,192 tok | **WARN (改善昇格)** | `audit/runs/20261119_160327_claude_claude-sonnet-5-5/claude_audit_report.txt` |
 
@@ -296,3 +296,20 @@ Total Lines: 587 | Total Bytes: 66,586
    - Here-Stringエスケープ事故を防止し、パス走査防御（Path Traversal Guard）および `StringComparison.Ordinal` 単一一致検査を実装。
 3. **4重交差リレー検証マスターランナー (`run_quad_audit.ps1`)**:
    - Codex $\rightarrow$ Claude $\rightarrow$ Qwen 27B $\rightarrow$ C#リンターの直列多層検収を一括自動オーケストレーション。
+
+---
+
+## 6. Day 4 (2026-11-20) システム信頼性向上・Fail-Closedゲート完全化および要件同期
+
+### 6.1 4大システム信頼性強化の実装内容
+1. **[SYS-01] Check 11 & PROC-005/006/007 Fail-Closed完全化**:
+   - `verify_repo_total_integrity.ps1` Check 11 において、`response_sha256` の存在必須化（NONE/空を即時FAIL）および生応答アーティファクト実体ハッシュとの全件一致を強制。
+   - `VerifySRS_Integrity.cs` において、`codex_receipt.json` のスキーマ検証および `incident_history_ledger.md` 内でのインシデント RESOLVED 状態突合を強化。
+2. **[SYS-02] SSOT(17要件) ↔ ダッシュボード(17行) ↔ RTM 全面同期**:
+   - `pipeline_metrics.md` を SSOT 17要件へ同期拡大し、Check 3 に要件数・行数の一致検証（Fail-Closed）を配備。
+   - `rtm_ledger.md` およびドメインサービス（`AttendanceService.java`, `PayrollService.java`）の旧ID（`REQ-ATTEND-001`, `REQ-SETTLE-001`）を最新規約（`REQ-ATT-001~003`, `REQ-LABOR-004`）へ完全更新。
+3. **[SYS-03] 証跡根拠パスのGitHub完全可視化（正本化）**:
+   - `.gitignore` 対象（`docs/audit_runs/`）への参照を廃止し、永続追跡対象である `audit/runs/...` 正本へ完全移行。
+4. **[SYS-04] ローカルパス漏洩遮断およびフック検査範囲の動的拡張**:
+   - ローカル開発環境パス（Users/dev等の階層構造）漏洩を正規表現で包括遮断。
+   - `pre-commit` フックにおいて、ステージングされた `domain_target/**` およびリンターコードを動的に全数検査する体制を配備。

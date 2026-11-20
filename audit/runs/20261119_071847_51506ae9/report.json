@@ -1,0 +1,53 @@
+{
+    "run_id":  "20261119_071847_51506ae9",
+    "generated_at":  "2026-11-19T16:20:10.8090114+09:00",
+    "audit_engine":  "Hermes-2Tier-Adversarial",
+    "version":  "1.2.0",
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027horizontalAccuracy \u003e 50.0m ... is blocked\u0027; \u0027distance \u003e 100m ... blocked\u0027. DERIVED: CLOCK_OUT requires a valid sessionId which is only created upon successful CLOCK_IN. If CLOCK_IN fails due to GPS, no session exists to terminate.",
+                         "scenario":  "Staff works in a basement store with poor GPS. CLOCK_IN fails (422). Staff works 8 hours. CLOCK_OUT fails because no session exists. Work is unrecorded, leading to potential wage loss or unrecorded labor.",
+                         "recommendation":  "Implement a \u0027Manual Override Clock-In\u0027 that creates a DRAFT or MANUAL session with a flag, allowing the CLOCK_OUT to succeed and attach to the manual session, preserving the audit trail of attempted objective clocking."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P2 Record-vs-Reality Divergence",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027State transition: WORKING -\u003e ON_BREAK (BREAK_START)\u0027; \u0027GPS distance \u003e 100m ... blocked\u0027. DERIVED: If BREAK_START is blocked by GPS, state remains WORKING. BREAK_END is invalid from WORKING.",
+                         "scenario":  "Staff goes 150m away for lunch. BREAK_START rejected. Staff returns. BREAK_END rejected (Invalid Transition). Break time is recorded as Work Time, causing record divergence and potential overtime miscalculation.",
+                         "recommendation":  "Allow BREAK_START to succeed if the previous state was valid, or allow BREAK_END to implicitly close a \u0027de facto\u0027 break if the user was away for \u003eX minutes, logging a GPS_ANOMALY flag rather than hard-blocking the state transition."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P3 Boundary Instant",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027business_date ... fixed to start date\u0027; \u0027Age ... calculated at time of employment\u0027. DERIVED: Wage rate applied_rate is derived from business_date. Age changes at 00:00.",
+                         "scenario":  "Minor (17yo) works 23:00-07:00. Turns 18 at 00:00. business_date is Day 1. Wage calculated using Day 1 rules. If Minor/Adult wage floors differ, the 23:00-00:00 hour might be underpaid or overpaid relative to the actual legal status at that minute.",
+                         "recommendation":  "Implement segmented wage calculation where the applied_rate is recalculated at the 00:00 boundary within the session, or explicitly state that the start age determines the entire session\u0027s wage class."
+                     },
+                     {
+                         "finding_id":  "ADV-004",
+                         "vector":  "P6 Silent Default",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027isMockProvider == true ... blocked\u0027; \u0027horizontalAccuracy \u003e 50.0m ... blocked\u0027. DERIVED: No fallback mechanism specified for when GPS is unavailable (null/timeout) vs inaccurate.",
+                         "scenario":  "Phone GPS module hangs. latitude/longitude are null or stale. System blocks clock-in. Staff cannot start work.",
+                         "recommendation":  "Define behavior for null GPS data. Should it default to \u0027Store Location\u0027 with a LOW_CONFIDENCE flag, or require manual manager approval? Currently, it defaults to \u0027Hard Block\u0027, causing operational deadlock."
+                     },
+                     {
+                         "finding_id":  "ADV-005",
+                         "vector":  "P7 Irreversibility",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Append-Only ... attendance_event\u0027; \u0027Correction ... PENDING_FIRST -\u003e PENDING_SECOND\u0027. DERIVED: If a CLOCK_IN is recorded with wrong GPS (e.g., 99m, valid) but staff was actually 200m away (proxy punch), the event is immutable.",
+                         "scenario":  "Staff A punches in for Staff B. GPS is within 100m. Event is valid. Later discovered. Correction requires 2 approvals. If the \u0027Owner\u0027 is the one who committed the fraud (single owner store), the is_single_owner_bypass allows them to alter the record with only their own approval, defeating the \u0027Immutable Audit\u0027 intent for fraud prevention.",
+                         "recommendation":  "For single-owner stores, require an external audit log export or secondary verification (e.g., photo evidence) for corrections involving wage impact \u003e threshold."
+                     }
+                 ]
+}

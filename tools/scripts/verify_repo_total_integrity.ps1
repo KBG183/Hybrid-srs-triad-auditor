@@ -39,18 +39,19 @@ if (-not $trackedFiles -or $trackedFiles.Count -eq 0) {
     exit 1
 }
 
-# Generalized private IP ranges (RFC 1918 + Tailscale CGNAT range) & dynamic local user token
+# Generalized private IP ranges (RFC 1918 + Tailscale CGNAT range) & dynamic local user token + local path leaks
 $privateIpPattern = '\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3})\b'
+$localPathPattern = '([a-zA-Z]:[\\/](Users|dev)[\\/][a-zA-Z0-9_\-]+)'
 $userPatterns = @()
 if ($env:USERNAME) { $userPatterns += [regex]::Escape($env:USERNAME) }
 if ($env:AUDIT_SENSITIVE_KEYWORDS) {
     $env:AUDIT_SENSITIVE_KEYWORDS.Split('|;,') | Where-Object { $_.Trim() } | ForEach-Object { $userPatterns += [regex]::Escape($_.Trim()) }
 }
-$sensitivePattern = if ($userPatterns.Count -gt 0) {
-    "($privateIpPattern|" + ($userPatterns -join '|') + ")"
-} else {
-    $privateIpPattern
+$allPatterns = @($privateIpPattern, $localPathPattern)
+if ($userPatterns.Count -gt 0) {
+    $allPatterns += ($userPatterns -join '|')
 }
+$sensitivePattern = "(" + ($allPatterns -join '|') + ")"
 $koreanPattern = '[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF\uFFA0-\uFFDC]'
 
 $sensitiveHits = 0
@@ -111,12 +112,23 @@ if (-not $csvFail) {
 # -------------------------------------------------------------------------
 # Test 3: Dashboard Matrix Mathematical & Logical Consistency
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 3/11] Verifying Dashboard Matrix Logical Coherence..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 3/11] Verifying Dashboard Matrix Logical Coherence & SSOT Cardinality..." -ForegroundColor Yellow
 $metricsPath = Join-Path $projectRoot "logs\pipeline_metrics.md"
 $metricsContent = [System.IO.File]::ReadAllText($metricsPath, [System.Text.Encoding]::UTF8)
 
 $tableLines = $metricsContent -split "`r?`n" | Where-Object { $_ -match '^\|\s*REQ-[A-Z]+-\d+\s*\|' }
 $matrixError = $false
+
+# Verify SSOT requirements count matches dashboard matrix rows
+$ssotPath = Join-Path $projectRoot "config\srs_specification_ssot.md"
+$ssotContent = [System.IO.File]::ReadAllText($ssotPath, [System.Text.Encoding]::UTF8)
+$ssotReqMatches = [regex]::Matches($ssotContent, '(?m)^#{3,4}\s*\[(REQ-[A-Z0-9\-]+)\]')
+$expectedReqCount = $ssotReqMatches.Count
+
+if ($tableLines.Count -ne $expectedReqCount) {
+    Write-Host "  [DASHBOARD DESYNC] Dashboard row count ($($tableLines.Count)) does not match SSOT requirement count ($expectedReqCount)!" -ForegroundColor Red
+    $matrixError = $true
+}
 
 foreach ($row in $tableLines) {
     $cols = $row.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
@@ -407,19 +419,41 @@ foreach ($ard in $auditRunsDirs) {
                     continue
                 }
 
-                # Verify response hash binding if raw response path is present
+                # Fail-Closed: response_sha256 must be present and valid
+                if ([string]::IsNullOrWhiteSpace($vJson.response_sha256) -or $vJson.response_sha256 -eq "NONE") {
+                    Write-Host "  [INVALID SIDECAR] $($vf.FullName) has missing or NONE response_sha256! Fail-Closed." -ForegroundColor Red
+                    $sidecarFails++
+                    continue
+                }
+
+                # Find associated raw response artifact
                 $runDir = $vf.DirectoryName
-                $possibleRaws = Get-ChildItem -Path $runDir -Filter "*raw*.json"
-                if ($possibleRaws.Count -gt 0) {
-                    $rawBytes = [System.IO.File]::ReadAllBytes($possibleRaws[0].FullName)
+                $possibleRaws = Get-ChildItem -Path $runDir | Where-Object { 
+                    $_.Name -match '(raw.*\.json|report.*\.txt|raw_response\.txt|codex_report.*\.txt)' -and $_.Name -ne "verdict.json"
+                }
+
+                if ($possibleRaws.Count -eq 0) {
+                    Write-Host "  [MISSING RAW ARTIFACT] $($vf.FullName) has no associated raw report/response file in $runDir! Fail-Closed." -ForegroundColor Red
+                    $sidecarFails++
+                    continue
+                }
+
+                $matchedRaw = $false
+                foreach ($rf in $possibleRaws) {
+                    $rawBytes = [System.IO.File]::ReadAllBytes($rf.FullName)
                     $sha = [System.Security.Cryptography.SHA256]::Create()
                     $calcSha = ([BitConverter]::ToString($sha.ComputeHash($rawBytes)) -replace '-', '').ToLowerInvariant()
                     $sha.Dispose()
-                    if ($vJson.response_sha256 -ne "NONE" -and $calcSha -ne $vJson.response_sha256) {
-                        Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 mismatch! Raw artifact was modified." -ForegroundColor Red
-                        $sidecarFails++
-                        continue
+                    if ($calcSha -eq $vJson.response_sha256.ToString().ToLowerInvariant()) {
+                        $matchedRaw = $true
+                        break
                     }
+                }
+
+                if (-not $matchedRaw) {
+                    Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 does not match any raw artifact in $runDir! Fail-Closed." -ForegroundColor Red
+                    $sidecarFails++
+                    continue
                 }
 
                 $recentVerdicts += [PSCustomObject]@{

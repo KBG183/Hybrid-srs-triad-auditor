@@ -20,7 +20,7 @@ import java.util.Map;
 @Transactional(readOnly = true)
 /**
  * 勤怠管理コアサービス
- * @requirement REQ-ATTEND-001 (リアルタイム打刻および打刻変更申請・承認ワークフロー)
+ * @requirement REQ-ATT-001 (リアルタイム打刻および打刻変更申請・承認ワークフロー)
  */
 public class AttendanceService {
 
@@ -35,7 +35,7 @@ public class AttendanceService {
      */
     @Transactional
     /**
-     * @requirement REQ-ATTEND-001 (打刻トランザクション・悲観的ロック・二重打刻防止)
+     * @requirement REQ-ATT-001 (打刻トランザクション・悲観的ロック・二重打刻防止)
      */
     public AttendanceDto punch(AttendancePunchDto punchDto) {
         if (punchDto == null) {
@@ -192,7 +192,7 @@ public class AttendanceService {
      */
     @Transactional
     /**
-     * @requirement REQ-ATTEND-001 (打刻修正申請・整合性検証)
+     * @requirement REQ-ATT-003 (打刻修正申請・整合性検証)
      */
     public Long requestModification(AttendanceModRequestDto requestDto) {
         if (requestDto == null) {
@@ -379,7 +379,7 @@ public class AttendanceService {
      */
     @Transactional
     /**
-     * @requirement REQ-ATTEND-001 (打刻修正承認・不変スナップショット適用)
+     * @requirement REQ-ATT-003 (打刻修正承認・不変スナップショット適用)
      */
     public void reviewModification(Long modRequestId, Long reviewerId, AttendanceModReviewDto reviewDto) {
         if (reviewDto == null || reviewDto.getAction() == null) {

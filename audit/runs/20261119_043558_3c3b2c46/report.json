@@ -1,0 +1,86 @@
+{
+    "run_id":  "20261119_043558_3c3b2c46",
+    "generated_at":  "2026-11-19T13:36:38.5324628+09:00",
+    "findings":  [
+                     {
+                         "finding_id":  "F-001",
+                         "audit_item":  "Japanese Labor Standards Act Art 37: Night Work Premium Calculation",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-002`: \"Night work (22:00~05:00): +25% extra pay.\" \u003cbr\u003e `REQ-LABOR-003`: \"Night Hand: `nightMinutes * hourlyWage * 0.25`\"",
+                         "analysis":  "The specification correctly defines the night work window as 22:00 to 05:00 and mandates a 25% premium. It explicitly handles the deduction of break times within this window (`REQ-LABOR-002` Step 3). The calculation logic separates the base pay from the premium to avoid double-counting, adhering to Japanese labor law standards."
+                     },
+                     {
+                         "finding_id":  "F-002",
+                         "audit_item":  "Japanese Labor Standards Act Art 37: Overtime Premium Calculation",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-001`: \"Daily overtime (\u003e8h/day): +25% extra pay.\" \u003cbr\u003e `REQ-LABOR-003`: \"Time Hand (\u003c=60h): `overtimeMinutesUnder60 * hourlyWage * 0.25`\"",
+                         "analysis":  "The system correctly implements the 25% premium for daily overtime exceeding 8 hours. It also correctly implements the 50% premium for monthly overtime exceeding 60 hours (`REQ-LABOR-003` Step 2). The logic for calculating \"eligible minutes\" for daily vs. weekly overtime is detailed in `REQ-LABOR-001` Steps 3-4, ensuring no double counting."
+                     },
+                     {
+                         "finding_id":  "F-003",
+                         "audit_item":  "Japanese Labor Standards Act Art 37: Concurrent Night + Overtime Premium",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-003`: \"Time x Night Duplicate Addition: ... Overtime premium plus Night premium (+25%) ... (Total +75% if \u003e60h)\"",
+                         "analysis":  "The specification explicitly addresses the \"overlap\" scenario. When work is both overtime and night work, the premiums are additive (25% OT + 25% Night = 50% extra, or 150% total rate). For \u003e60h monthly OT + Night, it correctly calculates 50% OT + 25% Night = 75% extra (175% total rate). This aligns with the \"combined extra pay\" requirement."
+                     },
+                     {
+                         "finding_id":  "F-004",
+                         "audit_item":  "Payroll Math \u0026 Rounding: HALF_UP Logic",
+                         "severity":  "P1",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-003`: \"Single `RoundingMode.HALF_UP` ... applied per premium item.\" \u003cbr\u003e `REQ-LABOR-001`: \"BigDecimal ... RoundingMode.HALF_UP\"",
+                         "analysis":  "The specification mandates `BigDecimal` for high-precision arithmetic and explicitly specifies `RoundingMode.HALF_UP` for the final monthly settlement of each premium category (Overtime, Night, Holiday). It prohibits intermediate daily rounding, which prevents cumulative rounding errors. This satisfies the 1-yen discrepancy prevention requirement."
+                     },
+                     {
+                         "finding_id":  "F-005",
+                         "audit_item":  "Concurrency: Pessimistic Locking on Store/Staff",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-004`: \"SELECT store_id FROM store ... FOR UPDATE\" \u003cbr\u003e `REQ-STAFF-002`: \"SELECT ... FOR UPDATE\" on `store_staff`",
+                         "analysis":  "The design employs a strict locking hierarchy: `store` -\u003e `store_staff` -\u003e `payroll_settlement`. It uses `SELECT ... FOR UPDATE` (pessimistic locking) to serialize concurrent updates to contract histories and settlement records. This prevents race conditions in payroll calculation and contract changes."
+                     },
+                     {
+                         "finding_id":  "F-006",
+                         "audit_item":  "Concurrency: Transactional Isolation",
+                         "severity":  "P1",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-004`: \"REPEATABLE READ\" (implied by MySQL default/InnoDB context in Section 0) \u003cbr\u003e `REQ-SHIFT-002`: \"REPEATABLE READ consistency verification\"",
+                         "analysis":  "The specification references `REPEATABLE READ` isolation level in the context of MySQL 8.4/InnoDB. Combined with pessimistic locks (`FOR UPDATE`), this ensures that the snapshot of attendance and contract data remains consistent during the payroll calculation transaction, preventing phantom reads or dirty reads."
+                     },
+                     {
+                         "finding_id":  "F-007",
+                         "audit_item":  "Security: IDOR Vulnerability Prevention",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-MEMBER-001`: \"All resource access is limited to ... authenticated Principal ID.\" \u003cbr\u003e `REQ-SHIFT-002`: \"Verify store_id matches session ... Cross-store IDOR blocked.\" \u003cbr\u003e `REQ-LABOR-004`: \"Verify ownership ... single query ... FOR UPDATE\"",
+                         "analysis":  "The specification consistently enforces that resource access is scoped to the authenticated user\u0027s principal ID. It explicitly checks store ownership and staff membership before allowing operations. The \"Cross-store IDOR\" check in `REQ-SHIFT-002` and the ownership verification in `REQ-LABOR-004` effectively prevent users from accessing or modifying other users\u0027 or stores\u0027 data."
+                     },
+                     {
+                         "finding_id":  "F-008",
+                         "audit_item":  "Exception Handling: DateTime Parsing \u0026 Boundary Validation",
+                         "severity":  "P2",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-SHIFT-001`: \"DateTimeParseException (HTTP 400)\" \u003cbr\u003e `REQ-LABOR-002`: \"Boundary value verification: 21:59:59 ... 05:00:00\"",
+                         "analysis":  "The specification defines explicit exception handling for `DateTimeParseException` when parsing user inputs. It also details boundary conditions for night work calculations (e.g., 22:00:00 start, 05:00:00 end) to ensure precise second-level accuracy. Negative or null hours are implicitly handled by the \"positive value\" constraints on wages and the logical validation of start/end times."
+                     },
+                     {
+                         "finding_id":  "F-009",
+                         "audit_item":  "Data Integrity: Contract History \u0026 Period Exclusivity",
+                         "severity":  "P1",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-STAFF-002`: \"Period overlap completely excluded ... NOT EXISTS guard\" \u003cbr\u003e `REQ-STAFF-002`: \"effective_to = NULL for active contract\"",
+                         "analysis":  "The system uses a history table (`store_staff_contract_history`) with `effective_from` and `effective_to` dates. It enforces period exclusivity via application-level checks (NOT EXISTS) and database constraints (or GiST in PostgreSQL). This ensures that payroll calculations always reference the correct wage rate for a specific past date, maintaining auditability."
+                     },
+                     {
+                         "finding_id":  "F-010",
+                         "audit_item":  "Legal Compliance: Break Time Deduction from Night Work",
+                         "severity":  "P1",
+                         "verdict":  "PASS",
+                         "evidence":  "`REQ-LABOR-002`: \"Deduct break time ... specifically from night work hours.\" \u003cbr\u003e `REQ-LABOR-002` Step 3: \"Breaks intersecting night window ... only the night-applicable portion is deducted.\"",
+                         "analysis":  "The specification explicitly requires that break times falling within the 22:00-05:00 window must be deducted from the night work hours before calculating the premium. This is a critical compliance point for Japanese labor law, and the spec addresses it with precise interval intersection logic."
+                     }
+                 ]
+}

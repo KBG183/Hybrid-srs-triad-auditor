@@ -37,17 +37,25 @@ namespace SrsIntegrity.Engine
 
         public static int Main(string[] args)
         {
-            if (args.Length == 0)
+            try
             {
-                Console.WriteLine("Usage: VerifySRS_Integrity.exe <TargetFilePath> [PolicyRulesPath]");
+                if (args.Length == 0)
+                {
+                    Console.WriteLine("Usage: VerifySRS_Integrity.exe <TargetFilePath> [PolicyRulesPath]");
+                    return 3;
+                }
+
+                string targetFile = args[0];
+                string policyFile = args.Length > 1 ? args[1] : null;
+
+                VerificationResult result = Verify(targetFile, policyFile);
+                return result.ExitCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(string.Format("[FATAL UNHANDLED EXCEPTION] {0}", ex.Message));
                 return 3;
             }
-
-            string targetFile = args[0];
-            string policyFile = args.Length > 1 ? args[1] : null;
-
-            VerificationResult result = Verify(targetFile, policyFile);
-            return result.ExitCode;
         }
 
         public static VerificationResult Verify(string filePath, string policyPath = null)
@@ -468,63 +476,117 @@ namespace SrsIntegrity.Engine
             // =========================================================================
             // PHASE 4: External Finding Queue Fail-Closed Gate (GEMINI.md Rule 9)
             // =========================================================================
-            if (File.Exists(filePath) && Path.GetFileName(filePath).Equals("srs_specification_ssot.md", StringComparison.OrdinalIgnoreCase))
+            string fullTarget = Path.GetFullPath(filePath);
+            string projectRoot = null;
+            string probeDir = Path.GetDirectoryName(fullTarget);
+            while (!string.IsNullOrEmpty(probeDir))
             {
-                string targetDir = Path.GetDirectoryName(Path.GetFullPath(filePath));
-                string projectRoot = Path.GetDirectoryName(targetDir); // config -> project root
-                if (!string.IsNullOrEmpty(projectRoot))
+                if (Directory.Exists(Path.Combine(probeDir, ".git")) ||
+                    File.Exists(Path.Combine(probeDir, "GEMINI.md")))
                 {
-                    string pendingQueuePath = Path.Combine(projectRoot, "scratch", "pending_findings.json");
-                    if (File.Exists(pendingQueuePath))
+                    projectRoot = probeDir;
+                    break;
+                }
+                DirectoryInfo parent = Directory.GetParent(probeDir);
+                if (parent == null) break;
+                probeDir = parent.FullName;
+            }
+            if (string.IsNullOrEmpty(projectRoot))
+            {
+                projectRoot = Directory.GetCurrentDirectory();
+            }
+
+            string pendingQueuePath = Path.Combine(projectRoot, "scratch", "pending_findings.json");
+            if (File.Exists(pendingQueuePath))
+            {
+                try
+                {
+                    string queueJson = File.ReadAllText(pendingQueuePath, Encoding.UTF8);
+                    int actualCount = 0;
+                    Match countMatch = Regex.Match(queueJson, @"""declared_count""\s*:\s*(-?\d+)");
+                    if (!countMatch.Success)
                     {
-                        try
+                        result.Findings.Add(new Finding
                         {
-                            string queueJson = File.ReadAllText(pendingQueuePath, Encoding.UTF8);
-                            Match countMatch = Regex.Match(queueJson, @"""declared_count""\s*:\s*(\d+)");
-                            int declaredCount = countMatch.Success ? int.Parse(countMatch.Groups[1].Value) : -1;
+                            RuleId = "PROC-001",
+                            Severity = "FATAL",
+                            LineNumber = 1,
+                            ColumnNumber = 1,
+                            Message = "Malformed finding queue: 'declared_count' field is missing. Fail-Closed required.",
+                            ContextSnippet = pendingQueuePath
+                        });
+                    }
+                    else
+                    {
+                        int declaredCount = int.Parse(countMatch.Groups[1].Value);
+                        MatchCollection findingMatches = Regex.Matches(queueJson, @"""id""\s*:\s*""([^""]+)""");
+                        actualCount = findingMatches.Count;
 
-                            MatchCollection findingMatches = Regex.Matches(queueJson, @"""id""\s*:\s*""([^""]+)""");
-                            int actualCount = findingMatches.Count;
-
-                            if (declaredCount >= 0 && declaredCount != actualCount)
-                            {
-                                result.Findings.Add(new Finding
-                                {
-                                    RuleId = "PROC-001",
-                                    Severity = "FATAL",
-                                    LineNumber = 1,
-                                    ColumnNumber = 1,
-                                    Message = string.Format("Finding queue count mismatch: declared_count={0} but actual findings={1}.", declaredCount, actualCount),
-                                    ContextSnippet = pendingQueuePath
-                                });
-                            }
-
-                            if (Regex.IsMatch(queueJson, @"""status""\s*:\s*""PENDING""", RegexOptions.IgnoreCase))
-                            {
-                                result.Findings.Add(new Finding
-                                {
-                                    RuleId = "PROC-002",
-                                    Severity = "FATAL",
-                                    LineNumber = 1,
-                                    ColumnNumber = 1,
-                                    Message = "Unresolved findings remaining in scratch/pending_findings.json. All items must reach RESOLVED before commit.",
-                                    ContextSnippet = pendingQueuePath
-                                });
-                            }
-                        }
-                        catch (Exception ex)
+                        if (declaredCount != actualCount || declaredCount < 0)
                         {
                             result.Findings.Add(new Finding
                             {
-                                RuleId = "PROC-003",
+                                RuleId = "PROC-001",
                                 Severity = "FATAL",
                                 LineNumber = 1,
                                 ColumnNumber = 1,
-                                Message = "Failed to parse scratch/pending_findings.json: " + ex.Message,
+                                Message = string.Format("Finding queue count mismatch: declared_count={0} but actual findings={1}.", declaredCount, actualCount),
                                 ContextSnippet = pendingQueuePath
                             });
                         }
                     }
+
+                    MatchCollection statusMatches = Regex.Matches(queueJson, @"""status""\s*:\s*""([^""]+)""");
+                    if (statusMatches.Count != actualCount)
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "PROC-002",
+                            Severity = "FATAL",
+                            LineNumber = 1,
+                            ColumnNumber = 1,
+                            Message = string.Format("Finding queue status field count mismatch: actual findings={0} but status count={1}. All items must have an explicit status.", actualCount, statusMatches.Count),
+                            ContextSnippet = pendingQueuePath
+                        });
+                    }
+                    foreach (Match sm in statusMatches)
+                    {
+                        string st = sm.Groups[1].Value.Trim();
+                        if (!st.Equals("RESOLVED", StringComparison.OrdinalIgnoreCase))
+                        {
+                            result.Findings.Add(new Finding
+                            {
+                                RuleId = "PROC-002",
+                                Severity = "FATAL",
+                                LineNumber = 1,
+                                ColumnNumber = 1,
+                                Message = string.Format("Unresolved finding status '{0}' in scratch/pending_findings.json. All items must reach RESOLVED before commit.", st),
+                                ContextSnippet = pendingQueuePath
+                            });
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Findings.Add(new Finding
+                    {
+                        RuleId = "PROC-003",
+                        Severity = "FATAL",
+                        LineNumber = 1,
+                        ColumnNumber = 1,
+                        Message = "Failed to parse scratch/pending_findings.json: " + ex.Message,
+                        ContextSnippet = pendingQueuePath
+                    });
+                }
+            }
+
+            string targetFileName = Path.GetFileName(filePath).ToLowerInvariant();
+            string targetNormPath = filePath.Replace("/", "\\").ToLowerInvariant();
+            bool isSsotFile = targetFileName.Equals("srs_specification_ssot.md", StringComparison.OrdinalIgnoreCase);
+
+            if (isSsotFile)
+            {
 
                     // =========================================================================
                     // PHASE 5: Code-to-Spec Bidirectional Traceability Gate (SPEC-004)
@@ -579,23 +641,23 @@ namespace SrsIntegrity.Engine
                             }
                         }
                     }
+                }
 
-                    // =========================================================================
-                    // PHASE 7: Heavy Track Codex Draft Gate (PROC-005)
-                    // =========================================================================
-                    string fileName = Path.GetFileName(filePath).ToLowerInvariant();
-                    bool isHeavyTrack = fileName.Contains("srs_specification_ssot") ||
-                                       fileName.Contains("verifysrs_") ||
-                                       filePath.ToLowerInvariant().Contains("domain_target");
+            // =========================================================================
+            // PHASE 7: Heavy Track Codex Draft Gate (PROC-005)
+            // =========================================================================
+            bool isHeavyTrack = isSsotFile ||
+                               targetFileName.Contains("verifysrs_") ||
+                               targetNormPath.Contains("domain_target");
 
-                    if (isHeavyTrack)
-                    {
+            if (isHeavyTrack)
+            {
                         string auditRunsDir = Path.Combine(projectRoot, @"audit\runs");
                         bool hasCodexEvidence = false;
 
                         if (Directory.Exists(auditRunsDir))
                         {
-                            string[] runDirs = Directory.GetDirectories(auditRunsDir);
+                            string[] runDirs = Directory.GetDirectories(auditRunsDir, "*", SearchOption.AllDirectories);
                             foreach (string rd in runDirs)
                             {
                                 string codexReport = Path.Combine(rd, "codex_report.txt");
@@ -603,22 +665,49 @@ namespace SrsIntegrity.Engine
                                 string codexReceipt = Path.Combine(rd, "codex_receipt.json");
                                 string manifestJson = Path.Combine(rd, "manifest.json");
 
-                                if (File.Exists(codexReport) && new FileInfo(codexReport).Length > 0)
-                                {
-                                    hasCodexEvidence = true;
-                                    break;
-                                }
-                                if (File.Exists(codexAudit) && new FileInfo(codexAudit).Length > 0)
-                                {
-                                    hasCodexEvidence = true;
-                                    break;
-                                }
                                 if (File.Exists(codexReceipt) && new FileInfo(codexReceipt).Length > 0)
                                 {
+                                    try
+                                    {
+                                        string receiptText = File.ReadAllText(codexReceipt, Encoding.UTF8);
+                                        if (receiptText.IndexOf("\"schema_version\": \"2.0\"", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                            receiptText.IndexOf("\"exit_code\": 0", StringComparison.OrdinalIgnoreCase) >= 0)
+                                        {
+                                            // Check blob sha if present
+                                            Match shaMatch = Regex.Match(receiptText, @"""staged_blob_sha256""\s*:\s*""([a-fA-F0-9]{64})""");
+                                            if (shaMatch.Success)
+                                            {
+                                                using (var sha = System.Security.Cryptography.SHA256.Create())
+                                                {
+                                                    string actualSha = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(filePath))).Replace("-", "").ToLowerInvariant();
+                                                    if (!string.Equals(shaMatch.Groups[1].Value, actualSha, StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        continue;
+                                                    }
+                                                }
+                                            }
+
+                                            if ((File.Exists(codexReport) && new FileInfo(codexReport).Length > 0) ||
+                                                (File.Exists(codexAudit) && new FileInfo(codexAudit).Length > 0))
+                                            {
+                                                hasCodexEvidence = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    catch {}
+                                }
+                                else if (File.Exists(codexReport) && new FileInfo(codexReport).Length > 0)
+                                {
                                     hasCodexEvidence = true;
                                     break;
                                 }
-                                if (File.Exists(manifestJson))
+                                else if (File.Exists(codexAudit) && new FileInfo(codexAudit).Length > 0)
+                                {
+                                    hasCodexEvidence = true;
+                                    break;
+                                }
+                                else if (File.Exists(manifestJson))
                                 {
                                     string manifestText = File.ReadAllText(manifestJson, Encoding.UTF8);
                                     if (manifestText.IndexOf("codex", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -685,9 +774,22 @@ namespace SrsIntegrity.Engine
                                             string errCode = trimmed.Substring(codeIdx + 6, endIdx - codeIdx - 6).Trim();
                                             if (!string.IsNullOrEmpty(errCode) && errCode != "UNKNOWN")
                                             {
-                                                if (ledgerContent.IndexOf(errCode, StringComparison.OrdinalIgnoreCase) >= 0)
+                                                int errPos = ledgerContent.IndexOf(errCode, StringComparison.OrdinalIgnoreCase);
+                                                if (errPos >= 0)
                                                 {
-                                                    isReconciled = true;
+                                                    // Verify that within the enclosing incident section, status is RESOLVED
+                                                    int nextIncidentPos = ledgerContent.IndexOf("### ", errPos + 1);
+                                                    if (nextIncidentPos < 0) nextIncidentPos = ledgerContent.Length;
+                                                    int prevIncidentPos = ledgerContent.LastIndexOf("### ", errPos);
+                                                    if (prevIncidentPos < 0) prevIncidentPos = 0;
+
+                                                    string section = ledgerContent.Substring(prevIncidentPos, nextIncidentPos - prevIncidentPos);
+                                                    bool hasResolved = Regex.IsMatch(section, @"\bRESOLVED(_[A-Z_]+)?\b", RegexOptions.IgnoreCase);
+                                                    bool hasUnresolved = Regex.IsMatch(section, @"\bUNRESOLVED\b", RegexOptions.IgnoreCase);
+                                                    if (hasResolved && !hasUnresolved)
+                                                    {
+                                                        isReconciled = true;
+                                                    }
                                                 }
                                             }
                                         }
@@ -805,8 +907,6 @@ namespace SrsIntegrity.Engine
                             });
                         }
                     }
-                }
-            }
 
             // =========================================================================
             // Evaluation & Console Output

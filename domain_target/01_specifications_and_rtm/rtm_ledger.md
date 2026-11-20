@@ -14,14 +14,23 @@ KINTAIの要件、実装、テスト、監査証跡を対応付ける日本語�
 
 | 要求仕様ID | 仕様項目名 | 対象ソースコード（実装） | DB/DDL制約 | 検証テスト・証跡 | 判定 |
 |---|---|---|---|---|---|
-| REQ-MEMBER-001 | 多店舗重複シフト申請・確定排他制御 | `ShiftService.java` (`requestShift`, `confirmShift`) | `shift_schedule`, 複合外部キー・行排他ロック | `ShiftServiceConcurrencyTest` | VERIFIED |
+| REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | `StoreService.java`, `StoreController.java` | `store`, `store_qr_token` | `StoreServiceTest` | VERIFIED |
+| REQ-MEMBER-001 | 会員登録・BCrypt認証およびRBAC認可制御 | `MemberService.java`, `SecurityConfig.java` | `member`, `role` | `AuthenticationTest` | VERIFIED |
+| REQ-STAFF-001 | 店舗スタッフ所属申請・オーナー承認および多店舗アクセス制御 | `StaffService.java` | `store_staff` | `StaffServiceTest` | VERIFIED |
 | REQ-STAFF-002 | 契約条件履歴管理および期間排他制御 | `PayrollService.java`, `ShiftService.java` | `store_staff_contract_history`, 悲観的ロック | `AnnualPayrollScenarioIntegrationTest` | VERIFIED |
-| REQ-ATTEND-001 | リアルタイム打刻および打刻変更申請・承認 | `AttendanceService.java` (`punch`, `requestModification`, `reviewModification`) | `attendance`, `attendance_break`, 行排他ロック | `AttendanceServiceConcurrencyIntegrationTest` | VERIFIED |
-| REQ-LABOR-001 | 法定内外労働時間・法定休憩算定 | `AttendanceTimeCalculator.java`, `LaborCalculationService.java` | 拘束時間・休憩時間整合性 | `LaborCalculationEngineTest` | VERIFIED |
-| REQ-LABOR-002 | 深夜割増時間帯（22:00-05:00）判定・25%算定 | `AttendanceTimeCalculator.java`, `PayrollCalculator.java` | `attendance_break` 分割計算 | `LaborCalculationEngineTest` | VERIFIED |
-| REQ-LABOR-003 | 法定休日労働算定・35%割増 | `LaborCalculationService.java`, `PayrollCalculator.java` | カレンダー休日判定 | `LaborCalculationEngineTest` | VERIFIED |
-| REQ-LABOR-004 | 複合割増率（50%/60%）・50銭端数処理 | `PayrollCalculator.java`, `LaborCalculationService.java` | BigDecimal ROUND_HALF_UP | `SplitShiftOvertimeDefectTest` | VERIFIED |
-| REQ-SETTLE-001 | 月次給与精算確定トランザクション・二重確定遮断 | `PayrollService.java` (`confirmPayroll`) | `payroll_settlement` 複合一意制約 (`uq_settlement_store_month`) | `PayrollSettlementConcurrencyTest` | VERIFIED |
+| REQ-SHIFT-001 | スタッフ希望シフト申請および排他制御（悲観的ロック） | `ShiftService.java` (`requestShift`) | `shift_schedule`, 行排他ロック | `ShiftServiceConcurrencyTest` | VERIFIED |
+| REQ-SHIFT-002 | 店長によるシフト確定調停および労働基準法第34条法定休憩時間の算定 | `ShiftService.java` (`confirmShift`) | `shift_schedule`, 複合外部キー | `ShiftServiceTest` | VERIFIED |
+| REQ-SHIFT-003 | 希望シフト申請の本人取消および状態遷移制御 | `ShiftService.java` (`cancelShift`) | `shift_schedule` 状態制約 | `ShiftCancellationTest` | VERIFIED |
+| REQ-SHIFT-004 | カレンダー表示連携（FullCalendar 6.x）およびプライバシー保護 | `CalendarEventDto.java`, `ShiftController.java` | カレンダーDTO | `CalendarEventIntegrationTest` | VERIFIED |
+| REQ-ATT-001 | 30秒回転型TOTP QR打刻およびGPSジオフェンシング統制 | `AttendanceService.java` (`punch`) | `attendance`, `attendance_break`, ジオフェンス | `AttendanceServiceConcurrencyIntegrationTest` | VERIFIED |
+| REQ-ATT-002 | 打刻状態遷移機械および実労働・休憩区間代数検証 | `AttendanceService.java` (`punch`), `AttendanceTimeCalculator.java` | 状態遷移制約・区間代数検証 | `AttendanceStateMachineTest` | VERIFIED |
+| REQ-STORE-002 | 満18歳未満（年少者）深夜労働・時間外労働遮断ガード | `LaborCalculationService.java`, `ShiftService.java` | `store_staff.birth_date` 年齢判定 | `MinorLaborProtectionTest` | VERIFIED |
+| REQ-LABOR-005 | 地域別最低賃金改定日履歴マスタおよび自動補正統制 | `LaborCalculationService.java`, `PayrollService.java` | `prefecture_minimum_wage`, `attendance_wage_basis` | `MinimumWageAutoAdjustmentTest` | VERIFIED |
+| REQ-ATT-003 | 打刻事後修正の二者承認フローおよび不変監査ログ | `AttendanceService.java` (`requestModification`, `reviewModification`) | `attendance_correction`, 二者承認ログ | `AttendanceCorrectionWorkflowTest` | VERIFIED |
+| REQ-LABOR-001 | 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定 | `AttendanceTimeCalculator.java`, `LaborCalculationService.java` | 拘束時間・休憩時間整合性 | `LaborCalculationEngineTest` | VERIFIED |
+| REQ-LABOR-002 | 深夜労働割増手当（深夜手当・半開区間境界）の算定 | `AttendanceTimeCalculator.java`, `PayrollCalculator.java` | `attendance_break` 分割計算 | `LaborCalculationEngineTest` | VERIFIED |
+| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制 | `LaborCalculationService.java`, `PayrollCalculator.java` | カレンダー休日判定・BigDecimal HALF_UP | `LaborCalculationEngineTest`, `SplitShiftOvertimeDefectTest` | VERIFIED |
+| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性 | `PayrollService.java` (`confirmPayroll`) | `payroll_settlement` 複合一意制約 (`uq_settlement_store_month`) | `PayrollSettlementConcurrencyTest` | VERIFIED |
 
 ## 検証項目とエビデンス対応（個別監査記録）
 

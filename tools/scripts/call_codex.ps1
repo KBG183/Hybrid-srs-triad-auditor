@@ -176,7 +176,7 @@ if ($exitCode -eq 0 -and (-not [string]::IsNullOrWhiteSpace($lastMsg))) {
 
     # 4.1 Deterministic Sidecar Generation (verdict.json)
     $detectedVerdict = "HOLD"
-    if ($lastMsg -match '(?i)(?:Stage\s*\d+\s*)?Verdict[\s—:\*]+(PASS|WARN|HOLD|FAIL)') {
+    if ($lastMsg -match '(?i)(?:Stage\s*\d+\s*)?Verdict\s*[:\*\-]+\s*(PASS|WARN|HOLD|FAIL)') {
         $detectedVerdict = $matches[1].ToUpperInvariant()
     }
 

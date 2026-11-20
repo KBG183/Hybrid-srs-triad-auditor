@@ -20,7 +20,7 @@ import java.util.*;
 @Transactional(readOnly = true)
 /**
  * 月次給与精算確定トランザクションサービス
- * @requirement REQ-SETTLE-001 (月次給与精算確定トランザクション・排他制御)
+ * @requirement REQ-LABOR-004 (月次給与精算確定トランザクション・排他制御)
  * @requirement REQ-STAFF-002 (契約履歴適用時給取得・給与算定)
  */
 public class PayrollService {

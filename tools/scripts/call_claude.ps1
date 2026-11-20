@@ -150,7 +150,7 @@ try {
 
     # 3.1 Deterministic Sidecar Generation (verdict.json)
     $detectedVerdict = "HOLD"
-    if ($outputText -match '(?i)(?:Stage\s*\d+\s*)?Verdict:\s*\*{0,2}(PASS|WARN|HOLD|FAIL)') {
+    if ($outputText -match '(?i)(?:Stage\s*\d+\s*)?Verdict\s*[:\*\-]+\s*(PASS|WARN|HOLD|FAIL)') {
         $detectedVerdict = $matches[1].ToUpperInvariant()
     }
 

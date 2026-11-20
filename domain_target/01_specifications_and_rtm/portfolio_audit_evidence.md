@@ -587,7 +587,7 @@ flowchart TD
 
 ### 確認事実
 
-- プロジェクト基準パスは `C:\dev\kintai` であり、今回の点検はこのローカルプロジェクトフォルダ全体を基準に実施した。
+- プロジェクト基準パスは `kintai/` であり、今回の点検はこのローカルプロジェクトフォルダ全体を基準に実施した。
 - `src/main/resources/schema.sql` と `src/main/resources/db/schema.sql` はファイルサイズと SHA-256 が異なり、テーブル定義・制約・カラムも一致しない。
 - Java ソースおよび MyBatis 設定から、いずれかのスキーマファイルを直接参照するコードは確認されなかった。
 - `application.yaml` には `spring.sql.init.*`、`ddl-auto`、Flyway、Liquibase の設定がない。そのため、現状のアプリケーション実行は外部 MySQL データベースの事前状態に依存している。

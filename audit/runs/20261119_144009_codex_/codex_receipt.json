@@ -7,6 +7,6 @@
   "exit_code": 0,
   "created_at": "2026-11-19T14:40:09+09:00",
   "report_file": "codex_report.txt",
-  "report_length_bytes": 28521,
+  "report_length_bytes": 28506,
   "status": "APPROVED_BY_QUAD_AUDIT"
 }
