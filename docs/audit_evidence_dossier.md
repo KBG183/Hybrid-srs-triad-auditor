@@ -369,3 +369,20 @@ Total Lines: 587 | Total Bytes: 66,586
 | **Anthropic Claude** | `claude-sonnet-5-5` | `call_ai.ps1` (REST API Direct) | **66.21秒** | MaxTokens: 8192 | **指摘全数是正完了** (F-01〜F-28是正) |
 | **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **174.12秒** | Input: 8,539 tok / Output: 8,277 tok (49.8 tok/s) | **指摘全数是正完了** (TOCTOU/Fail-Closed是正) |
 | **C# 決定論的リンター** | `verify_repo_total_integrity.ps1` | `VerifySRS.exe v1.2` 統合実行 | **0.82秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |
+
+
+### [2026-11-23 追加証跡] 単一進入点ハードゲート (gate_master_srs.ps1) および第0条不変憲法配備証跡
+
+#### ① ガバナンスおよび検証パイプライン高度化概要
+- **単一進入点ハードゲート確立**: 	ools/scripts/gate_master_srs.ps1 を配備し、事前点検（事前整合性・ハッシュ検証） ➔ 規格検収（ID一意性・C#リンター） ➔ 最終承認（AI監査・欠陥キュー空）の直列3段階Fail-Closedパイプラインを確立。
+- **第0条絶対憲法およびSHA-256ロック**: governance/ARTICLE_0_SRS.md を高密度約2.1KBで新設し、SHA-256ハッシュ対照による規則改変の機械的遮断を配備。
+- **外部欠陥追跡キュー**: queue/srs_pending_findings.json を新設し、PENDING/RESOLVED残存時の承認を物理遮断。
+
+#### ② パイプライン資産に対する4層交差検証実測メトリクス
+
+| 監査主体 | モデル・仕様 | 実行インターフェース | 所要時間 | 処理規模・速度 | 判定 |
+|---|---|---|:---:|:---:|:---:|
+| **OpenAI Codex** | gpt-6.2-astra | call_codex.ps1 | **61.65秒** | 4大防御策（終了コード/SkipAi遮断/キュー権限） | **初案生成および是正完了** |
+| **Anthropic Claude** | claude-sonnet-5-5 | call_claude.ps1 | **70.59秒** | 文字化け検知・完結性精査 | **指摘全数是正完了** |
+| **Local Qwen 27B** | qwen3.8:27b (IQ3_M) | 自社 RTX 5070 Ti (Tailscale P2P) | **95.75秒** | Input: 8,800 tok / Output: 4,118 tok (48.0 tok/s) | **デッドロック防止是正完了** |
+| **C# 決定論的リンター** | erify_repo_total_integrity.ps1 | VerifySRS.exe v1.2 統合実行 | **0.85秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |

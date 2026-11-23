@@ -92,7 +92,8 @@ if (-not $SkipClaude) {
     if (Test-Path $callClaude) {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         $claudePrompt = if ($CustomPrompt) { $CustomPrompt } else { "Review domain edge cases, statutory exceptions, and algebraic consistency." }
-        & powershell -ExecutionPolicy Bypass -File $callClaude -Prompt $claudePrompt
+        $claudeContext = Join-Path $projectRoot $TargetFile
+        & powershell -ExecutionPolicy Bypass -File $callClaude -Prompt $claudePrompt -ContextFile $claudeContext
         $sw.Stop()
         Write-Host "  -> Claude stage completed in $($sw.Elapsed.TotalSeconds.ToString('F2'))s." -ForegroundColor Green
         $auditSummary.stages += [ordered]@{
@@ -114,7 +115,7 @@ if (-not $SkipQwen) {
         $targetResolved = Join-Path $projectRoot $TargetFile
         $qwenOut = Join-Path $runMasterDir "03_qwen_report.md"
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        $qwenArgs = @("-TargetFile", $targetResolved, "-OutputFile", $qwenOut, "-Model", "qwen27b:latest", "-AuditMode", "STANDARD")
+        $qwenArgs = @("-TargetFile", $targetResolved, "-OutputFile", $qwenOut, "-Model", "qwen3.8:27b", "-AuditMode", "STANDARD")
         if ($LineRange) { $qwenArgs += @("-LineRange", $LineRange) }
         & powershell -ExecutionPolicy Bypass -File $hermesScript @qwenArgs
         $sw.Stop()

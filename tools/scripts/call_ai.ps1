@@ -194,6 +194,7 @@ try {
                 messages = @(@{ role = "user"; content = $finalPrompt })
             }
             $requestBody = $reqObj | ConvertTo-Json -Depth 5
+            $utf8Body = [System.Text.Encoding]::UTF8.GetBytes($requestBody)
 
             $headers = @{
                 "x-api-key" = $apiKey
@@ -201,7 +202,18 @@ try {
                 "content-type" = "application/json; charset=utf-8"
             }
 
-            $response = Invoke-RestMethod -Uri "https://api.anthropic.com/v1/messages" -Method Post -Headers $headers -Body $requestBody -TimeoutSec $TimeoutSeconds
+            try {
+                $response = Invoke-RestMethod -Uri "https://api.anthropic.com/v1/messages" -Method Post -Headers $headers -Body $utf8Body -TimeoutSec $TimeoutSeconds
+            } catch {
+                $errDetail = $_.Exception.Message
+                if ($_.Exception.Response) {
+                    try {
+                        $sReader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream(), [System.Text.Encoding]::UTF8)
+                        $errDetail = $sReader.ReadToEnd()
+                    } catch {}
+                }
+                throw "CLAUDE_API_ERROR: $errDetail"
+            }
             $textBlocks = @($response.content | Where-Object { $_.type -eq "text" } | Select-Object -ExpandProperty text -ErrorAction SilentlyContinue)
             if ($textBlocks.Count -gt 0) {
                 $outputText = ($textBlocks -join "`n").Trim()

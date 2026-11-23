@@ -1,0 +1,13 @@
+{
+    "RunId":  "c94648ab-ba3f-4f78-a9f1-728368cb1108",
+    "GitCommitSha":  "aa86dec951cb721e8527bcda6547106397566d65",
+    "ConstitutionSha256":  "d0c7a64d3520f987454465668ad640a28ac95da1f262ada8a41fe597797aabd6",
+    "Files":  [
+                  {
+                      "Path":  "config/srs_specification_ssot.md",
+                      "Sha256":  "f3a68f1ea28842821646a0a70451a3c4b964fe0da5218639544bd3368ab4ae15"
+                  }
+              ],
+    "Timestamp":  "2026-11-23T04:27:43.9141232+00:00",
+    "AuditBundleSha256":  "520dad142395e866d5888cf0ed1767bb0b5b9d12a65baaafdcdebb4206ee41a5"
+}

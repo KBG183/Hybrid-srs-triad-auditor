@@ -343,7 +343,8 @@ foreach ($f in $ctrlScanFiles) {
             $tempPath = "$fullPath.tmp.$([System.Guid]::NewGuid().ToString('N'))"
             try {
                 [System.IO.File]::WriteAllBytes($tempPath, $cleaned.ToArray())
-                [System.IO.File]::Replace($tempPath, $fullPath, $null)
+                [System.IO.File]::Copy($tempPath, $fullPath, $true)
+                Remove-Item -Force $tempPath -ErrorAction SilentlyContinue
                 Write-Host "  [AUTO-FIXED] ${f}: Stripped invisible control characters." -ForegroundColor Cyan
             } finally {
                 if (Test-Path $tempPath) {
