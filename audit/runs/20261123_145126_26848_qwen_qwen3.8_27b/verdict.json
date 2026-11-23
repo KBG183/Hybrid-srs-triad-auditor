@@ -1,0 +1,40 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_145126_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "ff2cfd7a452c18e9fa3e6d911902c3d52ba84675e03a190f81f038104b63809d",
+    "verdict":  "FAIL",
+    "findings_count":  3,
+    "p0_p1_count":  2,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027Staff\u0027s normal business is... limited to... employment_status=ACTIVE.\u0027 SPEC_QUOTE: \u0027Punching in on the resignation date is permitted as valid work performance.\u0027 DERIVED: The Time Clock API is a \u0027normal business\u0027 operation. If it checks ACTIVE status, it blocks RESIGNED users.",
+                         "scenario":  "Employee works 9-12. Owner resigns them at 12:00 (status -\u003e RESIGNED). Employee works 12-17. Employee attempts to clock out at 17:00. API checks status: RESIGNED. API returns 403. Employee has 5 hours of unrecorded work. Wage calculation for these 5 hours is impossible via standard flow.",
+                         "recommendation":  "Modify [REQ-STORE-004] to explicitly allow RESIGNED users to access Time Clock endpoints if current_date \u003c= resigned_date."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P4 Rule Collision",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Resignation... effective_to... set to the day after the retirement date.\u0027 SPEC_QUOTE: \u0027Baseline date query... [effective_from, effective_to).\u0027",
+                         "scenario":  "Wage calculation for resigned_date works correctly because effective_to is resigned_date + 1. However, if the \u0027Blocked Terminator\u0027 (ADV-001) prevents the clock-out, the duration is unknown. The wage rate is correct, but the hours are missing. This is a secondary effect of ADV-001.",
+                         "recommendation":  "Resolve ADV-001 first. Ensure the wage calculation engine can handle \u0027open-ended\u0027 shifts if the clock-out is delayed or missing, or enforce the clock-out before status change."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P6 Silent Default",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Re-sends as new request... Server... re-processes.\u0027 SPEC_QUOTE: \u0027Exception handling... RESIGNED is... 409\u0027 (Context: Acceptance). ASSUMPTION: Behavior of POST /resign on an already RESIGNED user is not explicitly defined as idempotent (200) or conflict (409).",
+                         "scenario":  "Client sends POST /resign. Server locks, updates status, commits. Client times out before receiving 200. Client retries POST /resign. Server sees status RESIGNED. If server returns 409, client logic may fail. If server returns 200, it is idempotent. Spec is silent on the resign endpoint\u0027s idempotency for already-resigned users.",
+                         "recommendation":  "Explicitly state that POST /resign on a RESIGNED user returns 200 (Idempotent) or 409 (Conflict) and define client handling."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:53:03.7554929Z"
+}

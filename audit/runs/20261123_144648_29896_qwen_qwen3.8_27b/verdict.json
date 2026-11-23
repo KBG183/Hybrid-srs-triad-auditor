@@ -1,0 +1,49 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_144648_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "3e4140e27ac2304adfb7e68e8d4b16fef11f366f87d87cf6f0b94ad8f6565633",
+    "verdict":  "FAIL",
+    "findings_count":  4,
+    "p0_p1_count":  3,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027退職日の翌日以降の...打刻...は403\u0027 (REQ-STORE-003). DERIVED: No mechanism defined to handle shift spans crossing resigned_date 23:59:59 to next day 00:00:01.",
+                         "scenario":  "Staff works 23:00 to 01:00 on their last day. The system allows the 23:00 punch-in. The 01:00 punch-out is rejected (403) because the date is resigned_date + 1. The work from 00:00 to 01:00 is physically performed but has no valid time record. The employee is underpaid for 1 hour of work.",
+                         "recommendation":  "Define a \u0027Grace Period\u0027 or \u0027Shift Closure\u0027 logic where a punch-out within X hours of resignation is valid, or allow the timekeeping system to auto-close shifts at resigned_date 23:59:59 if no explicit out-punch is received, attributing the time to the previous day."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P6 Silent Default",
+                         "severity":  "P1",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027Slice 1 は...契約履歴ID...を後続処理に引き渡します.\u0027 (Section 4). DERIVED: The specification does not define the API or data contract for \u0027Subsequent Processing\u0027 to retrieve wages for RESIGNED staff.",
+                         "scenario":  "The Payroll module queries store_staff for active employees. It filters WHERE employment_status = \u0027ACTIVE\u0027. The resigned employee is excluded. Their final day\u0027s wages are not calculated.",
+                         "recommendation":  "Explicitly define the \u0027Wage Calculation Hand-off\u0027 API. It must accept a date parameter and return the valid contract for that date, regardless of current employment_status, provided date \u003c= resigned_date."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P7 Irreversibility",
+                         "severity":  "P1",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027取消済み行への再取消は409\u0027 (REQ-STORE-003 Exception). SPEC_QUOTE: \u0027退職日より後に開始する未適用予約をすべて論理取消し\u0027 (REQ-STORE-003 Processing).",
+                         "scenario":  "Client sends POST /resign. Network timeout occurs. Client retries. The first request succeeded, cancelling contracts. The second request attempts to cancel the same contracts. The spec states re-cancellation is 409. The client receives an error, assuming the resignation failed.",
+                         "recommendation":  "Make the Resignation endpoint idempotent. If the status is already RESIGNED and the resigned_date matches, return 200 OK without attempting to re-cancel contracts."
+                     },
+                     {
+                         "finding_id":  "ADV-004",
+                         "vector":  "P4 Rule Collision",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027契約追加: ACTIVE 所属を対象とします.\u0027 (REQ-STORE-003). SPEC_QUOTE: \u0027退職日より後に開始する未適用予約をすべて論理取消し\u0027 (REQ-STORE-003).",
+                         "scenario":  "Owner tries to add a contract effective resigned_date + 1 while the resignation is being processed. If the resignation commits first, the addition fails. If the addition commits first, the resignation cancels it. This is logically consistent but operationally confusing.",
+                         "recommendation":  "Add a UI/UX warning or API validation that prevents adding contracts with effective_from \u003e resigned_date if the staff is in the process of resigning."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:48:30.8624290Z"
+}

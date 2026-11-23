@@ -1,0 +1,67 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_145826_23964_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 42.38s | 11422 tokens | 1734 tokens | 47.6 tokens/s | stop | 20261123_055826_c74c1919 |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction & State Analysis**
+*   **State Definitions**: `store_staff.employment_status` ∈ {`PENDING`, `ACTIVE`, `RESIGNED`}.
+*   **Time Boundaries**:
+    *   `resigned_date`: The final day of employment (inclusive).
+    *   `effective_to`: Exclusive boundary for contract validity.
+    *   "Next Day 12:00": A specific cutoff for post-resignation clock-in permissions.
+*   **Key Constraints**:
+    *   [REQ-STORE-004]: "retired date same day... and next day 12:00... clock-in... is authorized even if `employment_status=RESIGNED`."
+    *   [Section 4]: "Retirement date work... regardless of current `employment_status`... contract history containing that day (`effective_to = resigned_date + 1`)... is delivered."
+    *   [REQ-STORE-003]: "If target staff is already `RESIGNED`... same retirement date... retry... returns 200 OK."
+
+**2. Adversarial Simulation: The "Ghost Wage" & "Deadlock" Check**
+
+*   **Scenario A: The Resignation Boundary (Addressing ADV-001 & ADV-002)**
+    *   *Setup*: Staff member resigns effective `2026-11-23`. `resigned_date` = `2026-11-23`.
+    *   *Action 1 (Clock-in)*: Staff clocks in at `2026-11-23 23:50` and clocks out at `2026-11-24 00:10`.
+    *   *System Check (REQ-STORE-004)*: The spec explicitly states that clock-ins during the "next day 12:00" grace period are authorized even if `employment_status` is `RESIGNED`.
+    *   *System Check (Section 4 - Wage Delivery)*: The spec mandates that wage calculation must use the contract where `effective_to = resigned_date + 1` (i.e., `2026-11-24`). It explicitly states this delivery happens "regardless of the current value of `employment_status`."
+    *   *Result*: The system correctly identifies the valid contract for the night shift spanning the resignation boundary. The wage is calculated based on the pre-resignation rate. No wage loss occurs. The "Ghost Work" (work performed but not paid due to status change) is prevented by the explicit override in Section 4.
+
+*   **Scenario B: The Idempotent Resignation Retry (Addressing ADV-003)**
+    *   *Setup*: Owner initiates resignation for Staff A with `resignedDate=2026-11-23`. Network timeout occurs after DB commit but before HTTP 200 response.
+    *   *Action*: Client retries `POST /resign` with same payload.
+    *   *System Check (REQ-STORE-003)*: The spec states: "If target staff is already `RESIGNED` state... same retirement date... retry... returns 200 OK with existing resignation confirmation state."
+    *   *Result*: The system does not throw a 409 Conflict (which would imply a state error) nor a 500. It correctly identifies the idempotent nature of the request and returns success. This prevents the "Deadlock" where a client cannot confirm the resignation status due to a transient network failure, forcing manual DB intervention.
+
+*   **Scenario C: Concurrent Contract & Resignation (Boundary Stress)**
+    *   *Setup*: A future contract is scheduled for `2026-12-01`. Staff resigns effective `2026-11-23`.
+    *   *Action*: Resignation processed.
+    *   *System Check (REQ-STORE-003)*: "All unapplied reservations starting after the resignation date are logically cancelled."
+    *   *Result*: The `2026-12-01` contract is cancelled. The `effective_to` of the last active contract is set to `2026-11-24`. This ensures no wage leakage into December.
+
+**3. Adjudication of Previous Findings**
+
+*   **ADV-001 (Blocked Terminator / Wage Loss)**: **RESOLVED**. The explicit exception in [REQ-STORE-004] for `RESIGNED` status during the grace period, combined with the wage delivery rule in Section 4, ensures that work performed on the resignation day (and the immediate overnight spillover) is paid.
+*   **ADV-002 (Record vs Reality / Wage Calculation)**: **RESOLVED**. Section 4 explicitly decouples the wage calculation source from the *current* status flag, anchoring it to the `effective_to` boundary logic. This prevents the "status flip" from erasing the legal obligation to pay for the final day's work.
+*   **ADV-003 (Idempotency / Operational Deadlock)**: **RESOLVED**. The explicit 200 OK response for idempotent resignation retries in [REQ-STORE-003] ensures API reliability and prevents client-side state confusion.
+
+**4. Residual Risk Assessment**
+*   **P6 Silent Default Check**: The spec defines `is_24_hours` and time boundaries clearly. The "Next Day 12:00" rule is specific enough to avoid ambiguity in timezone handling (assuming `Asia/Tokyo` as defined in Section 2.1).
+*   **P5 Aggregation Gap**: The spec focuses on single-store membership for this slice. Multi-store aggregation is out of scope for this specific slice's failure modes, and no unsafe default is created by its omission in this context.
+*   **P7 Irreversibility**: The spec mandates append-only audit logs for contract changes and resignation, satisfying the immutability requirement for legal disputes.
+
+**Conclusion**: The specification has successfully addressed the critical legal and operational paradoxes identified in the previous audit. The interaction between status flags, time boundaries, and wage calculation is now explicitly defined to prevent wage loss and operational deadlocks.
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | PASS | [REQ-STORE-004]: "retired date same day... clock-in... is authorized even if `employment_status=RESIGNED`." | The explicit exception for `RESIGNED` status during the resignation day and next-day grace period ensures that clock-in events are not rejected, preventing unrecorded work. |
+| ADV-002 | P2 Record-vs-Reality Divergence | P0 | PASS | [Section 4]: "regardless of the current value of `employment_status`... contract history... is delivered." | Wage calculation is anchored to the contract validity period (`effective_to`), not the current status flag. This ensures the final day's wages are calculated correctly even after the status flips to `RESIGNED`. |
+| ADV-003 | P4 Rule Collision | P1 | PASS | [REQ-STORE-003]: "same retirement date... retry... returns 200 OK." | The idempotent handling of resignation retries prevents operational deadlocks caused by network timeouts, ensuring the client can reliably confirm the resignation state. |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": []
+}
+```
+
+Verdict: PASS

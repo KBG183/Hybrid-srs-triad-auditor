@@ -336,6 +336,13 @@ $claudeOutputText
 
 [System.IO.File]::WriteAllText($OutputFile, $masterReport, [System.Text.Encoding]::UTF8)
 
+$dailyAuditLogDir = Join-Path $projectRoot "docs"
+if (Test-Path $dailyAuditLogDir) {
+    $dailyAuditLogPath = Join-Path $dailyAuditLogDir "daily_audit_temp.log"
+    $logEntry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | HERMES-CONTROLLER | $targetFileName | Linter:$linterStatus / Qwen:$qwenStatus / Codex:$codexStatus / Claude:$claudeStatus | Artifact:$([System.IO.Path]::GetFileName($OutputFile))]`r`n"
+    [System.IO.File]::AppendAllText($dailyAuditLogPath, $logEntry, [System.Text.Encoding]::UTF8)
+}
+
 # Automated Dashboard Synchronization Hook (Single Source of Truth)
 $syncScript = Join-Path $scriptDir "sync_dashboard.ps1"
 if (Test-Path $syncScript) {

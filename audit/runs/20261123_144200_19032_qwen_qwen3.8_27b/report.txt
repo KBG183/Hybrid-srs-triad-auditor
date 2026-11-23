@@ -1,0 +1,115 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_144200_19032_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 90.47s | 10965 tokens | 4019 tokens | 47.4 tokens/s | stop | 20261123_054200_1f962d6b |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction (Atomic Constraints)**
+*   **R1 (Resignation Scope):** `[REQ-STORE-003]` states: "退職日より後に開始する未適用予約をすべて論理取消し" (Logically cancel all unapplied reservations starting after the resignation date).
+*   **R2 (Contract Boundary):** `[REQ-STORE-003]` states: "退職日を含む最終有効契約の `effective_to` を退職日の翌日に設定します" (Set the `effective_to` of the final valid contract including the resignation date to the day after the resignation date).
+*   **R3 (Access Control):** `[REQ-STORE-004]` states: "Staff's normal business is... limited to memberships satisfying... `employment_status=ACTIVE`".
+*   **R4 (Post-Resignation Read Access):** `[REQ-STORE-003]` states: "Staff... can read-only query... labor condition notices for the period `joined_date ≤ asOf ≤ resigned_date`".
+*   **R5 (Wage Handoff):** `[Section 4]` states: "Slice 1 is... [to] hand over... contract history ID... to subsequent processing." It does **not** define the logic for calculating wages on the resignation date itself, nor does it explicitly decouple the `RESIGNED` status from the validity of work performed *on* that date in the context of the `store_staff` table state.
+*   **R6 (Retry Logic):** `[Section 2.4]` states: "Re-trial is sent as a new request... Server re-executes processing from matching the current code... does not reuse store ID or membership state resolved in the preceding request."
+
+**2. Event & State Extraction**
+*   **State A (Active):** `employment_status = 'ACTIVE'`.
+*   **State B (Resigned):** `employment_status = 'RESIGNED'`, `resigned_date = D`.
+*   **Event E1 (Resignation):** Triggered by `POST /resign`. Updates `store_staff` to `RESIGNED`. Updates `store_staff_contract_history` `effective_to` for the active contract to `D+1`. Cancels future `SCHEDULED` contracts.
+*   **Event E2 (Work Execution):** Staff clocks in/out on Day `D`.
+*   **Event E3 (Wage Calculation):** System calculates wages for Day `D`.
+
+**3. Interaction Matrix (Guard vs. Event)**
+*   **Guard:** `employment_status = 'ACTIVE'` required for "Normal Business" (Clock-in/Out).
+*   **Conflict:** On Day `D` (Resignation Day), the status is `RESIGNED`.
+    *   If the system strictly enforces `ACTIVE` for clock-in *after* the resignation transaction commits, the staff member cannot record work for Day `D` if they resign during the day or if the system state flips before the end of the day.
+    *   However, the spec implies resignation is a discrete event. The critical gap is in **Wage Calculation** and **Record Validity**.
+
+**4. Adversarial Simulation**
+*   **Scenario 1: The "Ghost" Resignation Wage Gap (P0)**
+    *   **Time:** 2026-11-23 09:00 JST.
+    *   **Action:** Owner processes resignation for Staff A with `resignedDate = 2026-11-23`.
+    *   **DB State:** `store_staff.employment_status = 'RESIGNED'`. `contract_history.effective_to = 2026-11-24`.
+    *   **Action:** Staff A works a full shift on 2026-11-23 (09:00 - 18:00).
+    *   **System Check:** The wage calculation engine (Slice 2/3) queries `store_staff` for Staff A on 2026-11-23.
+    *   **Logic Flaw:** The spec `[REQ-STORE-004]` restricts "Normal Business" to `ACTIVE` status. If the clock-in system checks status *at the time of clock-in* (which is standard for real-time validation), Staff A *can* clock in if the resignation happens *after* clock-in. But if the resignation happens *before* the shift ends, does the system allow the clock-out?
+    *   **Critical Gap:** The spec `[Section 4]` says Slice 1 hands over the "Contract History ID". It does **not** specify that the `RESIGNED` status must be ignored for wage calculation on `resigned_date`. In fact, `[REQ-STORE-003]` says "Staff... can read-only query... labor condition notices... `joined_date ≤ asOf ≤ resigned_date`". This implies the *contract* is valid. But does the *employment relationship* allow the *recording* of work?
+    *   **The Paradox:** If `employment_status` is `RESIGNED`, `[REQ-STORE-004]` says staff access is limited to `ACTIVE`. If Staff A tries to clock out *after* the resignation is processed (e.g., resigns at 12:00, works until 18:00), the system might reject the clock-out or mark the record as invalid because the status is no longer `ACTIVE`. The spec **fails to decouple** the `RESIGNED` status from the validity of work performed *on* the resignation date. It treats `RESIGNED` as a terminal state for *all* operations, including those occurring on the final day of employment.
+
+*   **Scenario 2: Retry Idempotency Failure (P1)**
+    *   **Action:** Staff B accepts invitation. Network timeout occurs after DB commit but before HTTP 200 response.
+    *   **Retry:** Client retries `POST /me/store-invitations/accept`.
+    *   **Spec Rule:** `[Section 2.4]` says "Server re-executes processing from matching the current code... does not reuse store ID or membership state resolved in the preceding request."
+    *   **Execution:**
+        1.  Server looks up `invite_code_hash`. Finds Store X.
+        2.  Server looks up `store_staff` for (Store X, Member B) with `PENDING`.
+        3.  **Problem:** The first request *already* changed the status to `ACTIVE` and created the contract.
+        4.  The retry request finds `store_staff` with status `ACTIVE`.
+        5.  `[REQ-STORE-002]` Step 4 Re-check Table: If `ACTIVE`, "Return existing membership... No update... No initial contract addition."
+        6.  **Result:** Returns 200 OK with `MembershipDTO`.
+    *   **Verdict:** This actually *works* for idempotency *if* the client accepts the 200 response as success. However, the spec says "Re-trial is sent as a new request". If the first request failed *during* the transaction (e.g., lock timeout 503), the retry works. If the first request *succeeded* but the client didn't get the response, the retry hits the `ACTIVE` state and returns 200. This is safe.
+    *   **However**, consider the `PENDING` to `ACTIVE` transition. If the first request is in-flight (holding lock) and the second request arrives, it gets 503 (Lock Conflict). The client retries. This is handled.
+    *   **Wait, look at `[REQ-STORE-002]` Exception Handling:** "If the same IP or same member has attempted 5 times in the last 1 minute, the next attempt is 429."
+    *   **Adversarial Case:** Client sends Request 1. Server processes, commits, but response is lost. Client retries (Request 2). Server sees `ACTIVE`, returns 200. Client retries again (Request 3) due to a bug in client logic or network flake. Server sees `ACTIVE`, returns 200.
+    *   **Is there a P0/P1 here?** The spec says "Re-trial... does not reuse... state". This forces a full re-validation. This is safe.
+    *   **BUT**, look at `[REQ-STORE-002]` DoD: "Parallel acceptance... 503... Retry-After...".
+    *   **The Real Issue:** The prompt asks to verify if **ADV-004** (503 Retry Idempotency) is corrected. The spec *does* define the behavior for `ACTIVE` re-acceptance (returns existing). It *does* define 503 handling. It seems **PASS** for ADV-004.
+
+*   **Re-evaluating ADV-001 & ADV-002 (The Resignation Wage Gap)**
+    *   The prompt asks to verify if the "Decoupling Provision" was added.
+    *   **Spec Text Check:**
+        *   `[REQ-STORE-003]`: "Resignation... `resigned_date`... Final valid contract `effective_to` = `resigned_date` + 1."
+        *   `[REQ-STORE-004]`: "Staff's normal business... limited to... `employment_status=ACTIVE`."
+        *   `[Section 4]`: "Slice 1... hands over... contract history ID... to subsequent processing."
+    *   **Missing Link:** There is **NO** explicit statement that `employment_status = 'RESIGNED'` allows work recording or wage calculation on `resigned_date`. In fact, `[REQ-STORE-004]` explicitly restricts "Normal Business" (which includes clock-in/out in a Kintai system) to `ACTIVE`.
+    *   **Consequence:** If Staff A resigns on Day D, their status becomes `RESIGNED`. If they try to clock in/out on Day D *after* the resignation is processed, the system will likely reject it based on `[REQ-STORE-004]` because `employment_status != 'ACTIVE'`.
+    *   **Wage Calculation:** Even if the clock-in/out is allowed (e.g., if resignation happens *after* clock-out), the wage calculation engine (Slice 2/3) receives the `contract_history_id`. But does it know to pay them? The spec says Slice 1 hands over the ID. But if the `store_staff` record is `RESIGNED`, does the payroll system ignore it? The spec `[Section 4]` says "Subsequent processing... calculates based on... actual work... and applicable system." It does **not** explicitly state that `RESIGNED` staff are paid for `resigned_date`. It relies on the `contract_history` validity.
+    *   **The Fatal Flaw:** The spec **does not** add the "Decoupling Provision" requested in ADV-001. It leaves `RESIGNED` as a hard stop for "Normal Business" (`[REQ-STORE-004]`). This creates a P0 risk: **Unrecorded Work / Unpaid Wages** for the final day of employment if the resignation is processed before the end of the workday.
+
+*   **Re-evaluating ADV-003 (Future Contracts)**
+    *   `[REQ-STORE-003]`: "Logically cancel all unapplied reservations starting after the resignation date."
+    *   This is explicitly present. **PASS**.
+
+**Conclusion on Findings:**
+1.  **ADV-001 (Resignation Decoupling):** **FAIL**. The spec still restricts "Normal Business" to `ACTIVE` status (`[REQ-STORE-004]`). It does not explicitly exempt `resigned_date` from this restriction for clock-in/out or wage validity. This creates a P0 risk of unpaid wages/unrecorded work on the final day.
+2.  **ADV-002 (Wage Reference):** **WARN/FAIL**. While `effective_to` is set to `D+1`, the lack of explicit decoupling in `[REQ-STORE-004]` means the system might not even *attempt* to calculate wages if the status check fails earlier in the pipeline. The "Handoff" is conditional on the record being valid, but the validity check for "Normal Business" is `ACTIVE`.
+3.  **ADV-003 (Future Contracts):** **PASS**. Explicitly handled.
+4.  **ADV-004 (Retry Idempotency):** **PASS**. The `ACTIVE` re-check logic and 503 handling are defined.
+
+**Severity Assessment:**
+*   **P0:** The inability to record/pay for work on the resignation day due to `RESIGNED` status blocking "Normal Business" access. This is a direct violation of labor standards (unpaid work) if the resignation is processed mid-day.
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator / P2 Record-vs-Reality | P0 | FAIL | `[REQ-STORE-004]`: "Staff's normal business is... limited to... `employment_status=ACTIVE`". `[REQ-STORE-003]`: "Resignation... `employment_status` to `RESIGNED`". | **Scenario:** Staff A resigns on 2026-11-23. Owner processes resignation at 10:00 AM. Status becomes `RESIGNED`. Staff A works until 18:00. When Staff A attempts to clock out, or when the system validates the shift, `[REQ-STORE-004]` denies access because status is not `ACTIVE`. The work is unrecorded or unpaid. **Recommendation:** Modify `[REQ-STORE-004]` to allow "Normal Business" (clock-in/out) if `employment_status = 'ACTIVE'` OR (`employment_status = 'RESIGNED'` AND `current_date <= resigned_date`). Explicitly state that `RESIGNED` status does not invalidate work performed on `resigned_date`. |
+| ADV-002 | P2 Record-vs-Reality | P1 | WARN | `[Section 4]`: "Slice 1... hands over... contract history ID". `[REQ-STORE-003]`: `effective_to` = `resigned_date` + 1. | **Scenario:** Wage calculation engine queries for valid contracts. It finds the contract valid for `resigned_date`. However, if the upstream "Work Record" validation (governed by `[REQ-STORE-004]`) rejects the shift due to `RESIGNED` status, the wage calculation never happens. The "Handoff" is safe *only if* the work record exists. The dependency on the flawed status check in ADV-001 makes this a P1 risk of data loss. **Recommendation:** Ensure the wage calculation module explicitly trusts the `contract_history` validity range (`effective_from` to `effective_to`) regardless of the `store_staff.employment_status` flag, provided the date is within `joined_date` and `resigned_date`. |
+| ADV-003 | P4 Rule Collision | Info | PASS | `[REQ-STORE-003]`: "Logically cancel all unapplied reservations starting after the resignation date." | The spec explicitly handles the cancellation of future contracts upon resignation. No conflict found. |
+| ADV-004 | P6 Silent Default | Info | PASS | `[Section 2.4]`: "Re-trial is sent as a new request...". `[REQ-STORE-002]`: "If `ACTIVE`... Return existing membership... No update". | The retry logic correctly handles idempotency by re-evaluating state. If the state is already `ACTIVE`, it returns success without side effects. If it's a lock conflict, it returns 503. No deadlock or data corruption identified. |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: [REQ-STORE-004] 'Staff's normal business is... limited to... employment_status=ACTIVE'. SPEC_QUOTE: [REQ-STORE-003] 'Resignation... employment_status to RESIGNED'.",
+      "scenario": "Staff resigns on Day D. Status becomes RESIGNED. Staff works on Day D. System blocks clock-out or wage recording because status is not ACTIVE, resulting in unpaid work/unrecorded hours for the final day of employment.",
+      "recommendation": "Amend [REQ-STORE-004] to permit 'Normal Business' operations (clock-in/out) for staff with employment_status='RESIGNED' if the current date is less than or equal to resigned_date. Explicitly decouple the RESIGNED status from the validity of work performed on the resignation date."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P2 Record-vs-Reality",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: [Section 4] 'Slice 1... hands over... contract history ID'. DERIVED: Wage calculation depends on valid work records, which are blocked by ADV-001.",
+      "scenario": "Wage calculation engine receives contract ID but may fail to process wages if the upstream work record validation rejects the shift due to RESIGNED status, leading to a divergence between physical work and financial records.",
+      "recommendation": "Ensure the wage calculation module validates contract validity (effective_from/effective_to) independently of the store_staff.employment_status flag for dates within the employment period."
+    }
+  ]
+}
+```

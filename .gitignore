@@ -1,6 +1,8 @@
 # Temporary & Runtime Scratch
 scratch/
 docs/audit_runs/
+audit/historical_exploratory_runs/
+audit/runs/architecture_review/
 *.log
 !logs/incident_execution_trace.log
 *.tmp

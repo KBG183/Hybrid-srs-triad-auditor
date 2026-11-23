@@ -516,13 +516,93 @@ foreach ($ard in $auditRunsDirs) {
 # Group by auditor and evaluate Worst Verdict Wins
 $hasAdverseVerdict = $false
 $auditorGroups = $recentVerdicts | Group-Object -Property Auditor
+$queueFile = Join-Path $projectRoot "queue\srs_pending_findings.json"
+$queueObj = $null
+if (Test-Path $queueFile) {
+    try {
+        $queueObj = [System.IO.File]::ReadAllText($queueFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        if (-not $queueObj.findings -or $queueObj.declared_count -ne $queueObj.findings.Count) {
+            Write-Host "  [QUEUE SCHEMA ERROR] srs_pending_findings.json declared_count ($($queueObj.declared_count)) mismatches actual findings count ($($queueObj.findings.Count))!" -ForegroundColor Red
+            $sidecarFails++
+            $queueObj = $null
+        } else {
+            $dupIds = $queueObj.findings | Group-Object -Property id | Where-Object { $_.Count -gt 1 }
+            if ($dupIds) {
+                Write-Host "  [QUEUE DUPLICATE ID] srs_pending_findings.json contains duplicate finding ID: $($dupIds[0].Name)" -ForegroundColor Red
+                $sidecarFails++
+                $queueObj = $null
+            }
+            foreach ($qf in $queueObj.findings) {
+                if (-not $qf.id -or -not $qf.status -or -not $qf.evidence -or $qf.evidence.ToString().Trim().Length -lt 10) {
+                    Write-Host "  [QUEUE EVIDENCE MISSING] Finding '$($qf.id)' has empty or insufficient physical evidence!" -ForegroundColor Red
+                    $sidecarFails++
+                    $queueObj = $null
+                    break
+                }
+                if ($qf.closure_predicates) {
+                    foreach ($pred in $qf.closure_predicates) {
+                        $predFile = Join-Path $projectRoot $pred.file
+                        if (-not (Test-Path $predFile)) {
+                            Write-Host "  [CLOSURE PREDICATE FAIL] Finding '$($qf.id)' target file missing: $($pred.file)" -ForegroundColor Red
+                            $sidecarFails++
+                            $queueObj = $null
+                            break
+                        }
+                        $predContent = [System.IO.File]::ReadAllText($predFile, [System.Text.Encoding]::UTF8)
+                        if ($pred.must_contain_regex -and ($predContent -notmatch $pred.must_contain_regex)) {
+                            Write-Host "  [CLOSURE PREDICATE FAIL] Finding '$($qf.id)' regex '$($pred.must_contain_regex)' not satisfied in $($pred.file)!" -ForegroundColor Red
+                            $sidecarFails++
+                            $queueObj = $null
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Host "  [QUEUE PARSE ERROR] srs_pending_findings.json is malformed JSON! Fail-Closed." -ForegroundColor Red
+        $sidecarFails++
+        $queueObj = $null
+    }
+}
 
 foreach ($ag in $auditorGroups) {
     $latest = $ag.Group | Sort-Object -Property Time -Descending | Select-Object -First 1
     # Check if latest verdict in the active window on this auditor issued HOLD or FAIL
     if ($latest.Verdict -eq "HOLD" -or $latest.Verdict -eq "FAIL") {
-        Write-Host "  [UNRESOLVED ADVERSE VERDICT] Auditor '$($ag.Name)' has unresolved $($latest.Verdict) verdict in: $($latest.Path)" -ForegroundColor Red
-        $hasAdverseVerdict = $true
+        # Check if all adverse findings have been formalized and verified in the central queue
+        $allResolvedInQueue = $false
+        if ($queueObj -and $queueObj.findings) {
+            $unresolvedCount = 0
+            try {
+                $vData = [System.IO.File]::ReadAllText($latest.Path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+                if ($vData.findings -and $vData.findings.Count -gt 0) {
+                    foreach ($f in $vData.findings) {
+                        $fId = if ($f.finding_id) { $f.finding_id } elseif ($f.id) { $f.id } else { "" }
+                        if (-not $fId) {
+                            $unresolvedCount++
+                        } else {
+                            $qMatch = $queueObj.findings | Where-Object { $_.id -eq $fId -and ($_.status -eq "VERIFIED" -or $_.status -eq "RESOLVED" -or $_.status -eq "CLOSED") }
+                            if (-not $qMatch) {
+                                $unresolvedCount++
+                            }
+                        }
+                    }
+                    if ($unresolvedCount -eq 0) {
+                        $allResolvedInQueue = $true
+                    }
+                }
+            } catch {
+                $allResolvedInQueue = $false
+            }
+        }
+
+        if ($allResolvedInQueue) {
+            Write-Host "  [QUEUE-RESOLVED ADVERSE VERDICT] Auditor '$($ag.Name)' adverse verdict in $($latest.Path) is fully VERIFIED in queue. Passing." -ForegroundColor Green
+        } else {
+            Write-Host "  [UNRESOLVED ADVERSE VERDICT] Auditor '$($ag.Name)' has unresolved $($latest.Verdict) verdict in: $($latest.Path)" -ForegroundColor Red
+            $hasAdverseVerdict = $true
+        }
     }
 }
 

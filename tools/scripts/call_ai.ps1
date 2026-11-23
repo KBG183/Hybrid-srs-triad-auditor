@@ -194,6 +194,7 @@ try {
             $reqObj = @{
                 model = $effectiveModel
                 max_tokens = 8192
+                thinking = @{ type = "between_tools" }
                 messages = @(@{ role = "user"; content = $finalPrompt })
             }
             $requestBody = $reqObj | ConvertTo-Json -Depth 5
@@ -236,6 +237,9 @@ try {
             if ([string]::IsNullOrWhiteSpace($outputText)) {
                 throw "EMPTY_OUTPUT: Anthropic Claude returned an empty response body."
             }
+            # Immediately preserve raw output to avoid loss on verdict parsing failure
+            [System.IO.File]::WriteAllText((Join-Path $runDir "output_raw.txt"), $outputText, [System.Text.Encoding]::UTF8)
+            if ($allLogs) { [System.IO.File]::WriteAllText((Join-Path $runDir "raw_response.json"), $allLogs, [System.Text.Encoding]::UTF8) }
         }
         "Qwen" {
             if (-not $effectiveModel) { $effectiveModel = "qwen3.8:27b" }
@@ -334,14 +338,20 @@ try {
     $p0p1Count = 0
     foreach ($f in $extractedFindings) {
         $sev = "INFO"
+        $fVerdict = "FAIL"
         if ($f -ne $null) {
             if ($f -is [PSCustomObject] -and $f.PSObject.Properties['severity']) {
                 $sev = $f.severity.ToString().ToUpperInvariant()
             } elseif ($f -is [System.Collections.IDictionary] -and $f.Contains('severity')) {
                 $sev = $f['severity'].ToString().ToUpperInvariant()
             }
+            if ($f -is [PSCustomObject] -and $f.PSObject.Properties['verdict']) {
+                $fVerdict = $f.verdict.ToString().ToUpperInvariant()
+            } elseif ($f -is [System.Collections.IDictionary] -and $f.Contains('verdict')) {
+                $fVerdict = $f['verdict'].ToString().ToUpperInvariant()
+            }
         }
-        if ($sev -eq "P0" -or $sev -eq "P1") { $p0p1Count++ }
+        if (($sev -eq "P0" -or $sev -eq "P1") -and ($fVerdict -ne "PASS" -and $fVerdict -ne "RESOLVED")) { $p0p1Count++ }
     }
 
     if ($p0p1Count -gt 0) {
@@ -374,6 +384,14 @@ try {
             -RawResponsePath $targetRawPath `
             -Verdict $detectedVerdict `
             -Findings $extractedFindings | Out-Null
+    }
+
+    $dailyAuditLogDir = Join-Path $projectRoot "docs"
+    if (Test-Path $dailyAuditLogDir) {
+        $dailyAuditLogPath = Join-Path $dailyAuditLogDir "daily_audit_temp.log"
+        $targetLabel = if ($ContextFile) { [System.IO.Path]::GetFileName($ContextFile) } else { "inline-prompt" }
+        $logEntry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | AI-RUNNER | $targetLabel | $($Provider.ToLowerInvariant()):$Model | $($sw.Elapsed.TotalSeconds.ToString('F2'))s | Verdict:$detectedVerdict | Findings:$($extractedFindings.Count)]`r`n"
+        [System.IO.File]::AppendAllText($dailyAuditLogPath, $logEntry, [System.Text.Encoding]::UTF8)
     }
 
     if (-not $Quiet) {

@@ -1,0 +1,49 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_143713_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "4a7c90ae5bb7d35484b184d27446cd3e48d2de7c7c9ed21284ed800027e60ba4",
+    "verdict":  "FAIL",
+    "findings_count":  4,
+    "p0_p1_count":  2,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027Staff\u0027s normal business is... limited to... employment_status=ACTIVE\u0027 (REQ-STORE-004). SPEC_QUOTE: \u0027Resignation... changes membership to RESIGNED\u0027 (REQ-STORE-003).",
+                         "scenario":  "Owner resigns Staff A on Nov 15. Staff A works 8 hours on Nov 15. System rejects clock-in because status is RESIGNED. Staff A loses 8 hours of wages.",
+                         "recommendation":  "Decouple employment_status from clock-in permission for the resigned_date. Allow clock-in if current_date \u003c= resigned_date regardless of RESIGNED status."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P2 Record-vs-Reality Divergence",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Resignation... sets effective_to of final valid contract to resignation date + 1.\u0027",
+                         "scenario":  "Staff resigns Nov 15. Contract ends Nov 16. Staff works 1 hour on Nov 15. Wage system may fail to look up rate due to RESIGNED status or boundary ambiguity.",
+                         "recommendation":  "Explicitly define that wage lookups for resigned_date must use the contract valid up to that date, ignoring the RESIGNED flag for rate determination."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P4 Rule Collision",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Resignation... cancels all unapplied reservations starting after resignation date.\u0027",
+                         "scenario":  "Staff has a SCHEDULED contract starting Nov 15 (today). Owner resigns Staff for Nov 15. The Nov 15 contract is NOT cancelled. This creates ambiguity in \u0027final valid contract\u0027 determination for wage proration.",
+                         "recommendation":  "Clarify if a contract starting on resigned_date is considered \u0027applied\u0027 for resignation purposes. Ensure wage proration handles this specific edge case."
+                     },
+                     {
+                         "finding_id":  "ADV-004",
+                         "vector":  "P6 Silent Default",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "SPEC_QUOTE: \u0027Lock acquisition failure... returns 503.\u0027",
+                         "scenario":  "High concurrency during resignation causes 503 errors. Client retries. State changes between retries, potentially leading to inconsistent state if not idempotent.",
+                         "recommendation":  "Ensure the resignation API is idempotent and re-validates the resigned_date against the current date on every retry."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:38:39.1705273Z"
+}

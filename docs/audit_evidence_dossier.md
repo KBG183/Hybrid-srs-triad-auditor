@@ -1,7 +1,7 @@
 # 🛡️ KINTAI 多層AIハイブリッド交差検証 技術証跡書 (Living Audit Evidence Dossier)
 
 - **システム名**: 日本型シフト・勤怠・給与精算システム (KINTAI)
-- **文書バージョン**: v1.0.8 (Day 4 Slice 4 Payroll Engine Complete & Track 1 Finished Milestone)
+- **文書バージョン**: v1.0.9 (Track 2 Slice 1 Zero-Reference SRS Complete & Master Gate Approved)
 - **ステータス**: AUDIT_VERIFIED_LIVING_DOCUMENT
 - **検証アーキテクチャ**: 4層AI交差検証（Antigravity, OpenAI Codex 6.2 Astra, Anthropic Claude 5.5, Local Qwen 27B）＋ C# Roslyn 確定論的リンター
 - **多言語ガバナンス**: GitHub公式正本は日本語（JA）標準、内部開発・確認用に対照版（`_KO.md`）をペアリング配置
@@ -386,3 +386,53 @@ Total Lines: 587 | Total Bytes: 66,586
 | **Anthropic Claude** | claude-sonnet-5-5 | call_claude.ps1 | **70.59秒** | 文字化け検知・完結性精査 | **指摘全数是正完了** |
 | **Local Qwen 27B** | qwen3.8:27b (IQ3_M) | 自社 RTX 5070 Ti (Tailscale P2P) | **95.75秒** | Input: 8,800 tok / Output: 4,118 tok (48.0 tok/s) | **デッドロック防止是正完了** |
 | **C# 決定論的リンター** | erify_repo_total_integrity.ps1 | VerifySRS.exe v1.2 統合実行 | **0.85秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |
+
+
+---
+
+### [2026-11-23 追加証跡] Track 2 Slice 1 ゼロベース完全新規作成および4層独立交差検証（21件全数是正反映・単一進入点マスターゲート承認 PASS）
+
+#### ① 作業概要およびゼロリファレンス原則の適用
+- **対象ドメイン**: Slice 1 [店舗・会員管理および権限統制]（MySQL 8.4 DDL 4表、Java 21 / Spring Boot 3.x サービス、認可規約、契約履歴、労働基準法第37条引渡し境界）。
+- **ゼロリファレンス（Zero-Reference）遵守**: 既存SRSの文面を一切参照せず、バックエンドソースコード（DDL・エンティティ・マッパー）および法令根拠のみから完全新規に要件定義書（初案 147行 ➔ 是正後 206行）を起草・検証。
+- **4層AI交差検証および動的役割交代**:
+  - [初案執筆]: OpenAI Codex (`gpt-6.2-astra`) により初案執筆。
+  - [第1監査官]: Antigravity（アーキテクチャ・API・冪等性監査、ANTI-001〜003 の3件摘発）。
+  - [第2監査官]: Anthropic Claude Sonnet 5.5（労働法・並行性・認可深層推論監査、CLD-001〜013 の13件摘発）。
+  - [第3監査官]: Local Qwen 27B（RTX 5070 Ti）（法理・監査証跡・回帰監査、ADV-001〜005 の5件摘発）。
+  - [決定論的リンター]: C# Roslyn エンジン（`VerifySRS.exe v1.2`）による構文・DoD全数検査。
+- **1-Shot 是正バッチ**: 計21件の外部指摘を `queue/srs_pending_findings.json` に物理キューイングし、単一バッチで1-Shot是正・VERIFIED遷移を完遂。
+- **単一進入点マスターゲート合格**: `gate_master_srs.ps1` を実行し、Stage 1 事前点検 ➔ Stage 2 決定論的リンター ➔ Stage 3 AI憲法監査（Qwen 27B）を通過し、`approved/approval_manifest.json` を公式発行。
+
+#### ② 監査官別実測実行メトリクス (Physical Metrics)
+
+| 監査主体 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 規模 | 推論速度 | 判定結果 |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **OpenAI Codex** | `gpt-6.2-astra` | `call_ai.ps1` (CLI 無出力ファイル) | **145.20秒** | 18.8KB (9,987文字) 初案執筆 | - | **初案生成完了 (PASS)** |
+| **Antigravity** | `Gemini 2.5 Pro` | IDE ワークスペース内部推論 | - | API冪等性・二重時給・デッドロック | - | **3件是正勧告 (ANTI-001〜003)** |
+| **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **128.18秒** | Input: 5,953 tok / Output: 5,910 tok | **48.5 tok/s** | **5件是正勧告 (ADV-001〜005)** |
+| **Anthropic Claude** | `claude-sonnet-5-5` | `call_ai.ps1` (REST API Direct) | **57.10秒** | Head-first JSON / MaxTokens 8192 | - | **13件是正勧告 (CLD-001〜013)** |
+| **マスターゲート (AI憲法監査)** | `qwen3.8:27b (IQ3_M)` | `gate_master_srs.ps1` ➔ RTX 5070 Ti | **66.96秒** | Input: 3,377 tok / Output: 3,216 tok | **49.5 tok/s** | **最終承認 PASS (Exit 0)** |
+| **C# 決定論的リンター** | `VerifySRS.exe v1.2` | .NET Framework 4.8 統合バイナリ | **0.85秒** | 700行 SSOT全数走査 / Zero-Korean | - | **100% ALL PASS (Clean Integrity)** |
+
+---
+
+### [2026-11-23 追加証跡 2] Track 1 / Track 2 物理分離、5大境界ケース吸収およびアーキテクチャ4大課題に対する2ラウンド相互反論（Mutual Cross-Rebuttal）完了証跡
+
+#### ① 物理分離およびパイプライン恒久強化概要
+- **Track 1 / Track 2 物理分離 (`INCIDENT-73`)**: Week 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を保全し、Week 2 コード逆工学 Slice 1 を `config/srs_track2_asbuilt_slice1.md`（全276行）として独立分離。4階層ロック順序、レートリミット429評価順序、退職日遡及打刻検証（422）、翌日12:00退勤猶予の5大エッジケースを完全統合。
+- **パーサー判定バグ修正 (`INCIDENT-72`)**: `call_ai.ps1` および `AuditVerdictHelper.psm1` において、`verdict: "PASS"` 解決済み項目をP0/P1未解決件数から除外するよう厳密化。
+- **Gate Check 11 双方向証跡検証 (`INCIDENT-74`)**: `verify_repo_total_integrity.ps1` において、`queue/srs_pending_findings.json` の `declared_count` 一致、重複ID遮断、物理証跡長、および `closure_predicates` 再実行検証を実装。
+- **リアルタイム自動ログ追記 (`INCIDENT-75`)**: `call_ai.ps1` および `hermes_controller.ps1` 終了時に `docs/daily_audit_temp.log` へ実行メトリクスを自動追記するフックを実装。
+
+#### ② 2ラウンド相互反論（Round 1 独立抽出 ➔ Round 2 3モデル相互批判）実測メトリクス
+
+| ラウンド / 監査主体 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 規模 | 推論速度 | 判定結果 |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **Slice 1 最終回帰監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **109.12秒** | Input: 3,108 tok / Output: 5,657 tok | **51.8 tok/s** | **PASS (P0/P1 0件)** |
+| **Round 1 独立監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **67.69秒** | Input: 1,817 tok / Output: 3,178 tok | **50.0 tok/s** | **5件改善ベクトル抽出 (ADV-001〜005)** |
+| **Round 1 独立監査 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` | **69.30秒** | 22,210文字 構造監査 | - | **4大課題設計批判完了** |
+| **Round 1 独立監査 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` | **58.40秒** | 4大課題アーキテクチャ評価 | - | **PASS (設計レビュー完了)** |
+| **Round 2 相互反論 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` (43.7KB統合バンドル) | **59.20秒** | 3モデル相互批判および合意案導出 | - | **PASS (合意青写真確定)** |
+| **Round 2 相互反論 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` (43.7KB統合バンドル) | **54.30秒** | 過剰設計排除・最小実装カットライン確定 | - | **PASS (合意青写真確定)** |
+| **Round 2 相互反論 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **86.34秒** | Input: 12,603 tok / Output: 3,766 tok | **47.2 tok/s** | **PASS (最終合意案収束)** |

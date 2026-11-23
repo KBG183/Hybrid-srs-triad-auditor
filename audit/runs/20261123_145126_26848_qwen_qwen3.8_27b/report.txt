@@ -1,0 +1,125 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_145126_26848_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 95.72s | 11011 tokens | 4264 tokens | 47.4 tokens/s | stop | 20261123_055127_1bb0ef85 |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction (Atomic Constraints)**
+*   **R1 (Resignation Scope):** `POST /stores/{storeId}/staff/{storeStaffId}/resign` requires `resignedDate`. The status changes to `RESIGNED`.
+*   **R2 (Contract Termination Logic):** "Retirement... `effective_to` of the final valid contract is set to the day after the retirement date." (Implies `effective_to = resigned_date + 1`).
+*   **R3 (Access Control - Staff):** "Staff's normal business is... limited to memberships satisfying... `employment_status=ACTIVE`."
+*   **R4 (Access Control - Post-Resignation Read):** "Staff... after resignation... can read... contract conditions... for the period `joined_date ≤ asOf ≤ resigned_date`."
+*   **R5 (Time Clock/Work Recording):** "Punching in on the day after the resignation date... is 403." (Implies `resigned_date` is the last valid day for work).
+*   **R6 (Contract Query Logic):** "Baseline date query... excludes cancelled rows... uses half-open interval `[effective_from, effective_to)`."
+*   **R7 (Wage Calculation Handoff):** "Slice 1... hands over... contract history ID... to subsequent processing."
+*   **R8 (Retry Logic):** "503 response... `Retry-After` header... client waits... re-sends as new request."
+
+**2. Event & State Extraction**
+*   **State A (Active):** `employment_status = 'ACTIVE'`.
+*   **State B (Resigned):** `employment_status = 'RESIGNED'`.
+*   **Event E1 (Resignation):** Owner sets `resigned_date = D`. System updates `store_staff` to `RESIGNED`. System updates `store_staff_contract_history` for the active contract: `effective_to = D + 1`.
+*   **Event E2 (Work Recording on Day D):** Staff clocks in/out on Day D.
+*   **Event E3 (Wage Calculation for Day D):** System queries contract for Day D.
+*   **Event E4 (Work Recording on Day D+1):** Staff attempts to clock in on Day D+1.
+
+**3. Interaction Matrix (Guard vs. Event)**
+
+| Event | Guard/Validation Rule | Expected Outcome | Potential Conflict |
+| :--- | :--- | :--- | :--- |
+| **E2: Clock In on Day D** | `employment_status == 'ACTIVE'`? | **FAIL (403)** | The spec states staff normal business is limited to `ACTIVE`. However, R5 implies Day D is a valid work day. If the clock-in API strictly checks `ACTIVE` status *before* allowing the punch, a staff member who resigned *today* (status changed to `RESIGNED` immediately upon API call) cannot clock in for the remainder of the day. |
+| **E3: Wage Calc for Day D** | `effective_from <= D < effective_to`? | **PASS** | `effective_to` is `D+1`. So `D < D+1` is true. The contract is valid for Day D. |
+| **E4: Clock In on Day D+1** | `employment_status == 'ACTIVE'`? | **FAIL (403)** | Correctly blocked. |
+| **E5: Query Contract for Day D** | `asOf = D`. `status != CANCELLED`. | **PASS** | Returns the contract. |
+
+**4. Adversarial Simulation: The "Same-Day Resignation" Deadlock**
+
+**Scenario:**
+1.  **10:00 AM, Day D:** Employee works. Status is `ACTIVE`.
+2.  **12:00 PM, Day D:** Owner calls `POST /resign` with `resignedDate = Day D`.
+    *   System updates `store_staff.employment_status` to `RESIGNED`.
+    *   System updates `store_staff_contract_history.effective_to` to `Day D + 1`.
+3.  **12:05 PM, Day D:** Employee attempts to clock out (or clock in for a second shift) via the time-keeping API.
+    *   **Check:** Does the time-keeping API allow `RESIGNED` staff to record time on `resigned_date`?
+    *   **Spec Analysis:** Section 4 states: "Punching in on the day after the resignation date... is 403... (Punching in on the resignation date is permitted as valid work performance)."
+    *   **Conflict:** Section 3 [REQ-STORE-004] states: "Staff's normal business is... limited to... `employment_status=ACTIVE`."
+    *   **The Paradox:** If the "Time Clock" endpoint is considered "normal business" (which it is, as it generates the labor record), the guard `employment_status == 'ACTIVE'` will **reject** the clock-out at 12:05 PM because the status is now `RESIGNED`.
+    *   **Result:** The employee has worked 12:00 PM to 12:05 PM. They cannot record this time because they are no longer `ACTIVE`. They cannot record it after 12:00 PM because they are `RESIGNED`. If they try to record it *before* resignation, they lose the 12:00-12:05 block. If the system allows retroactive entry, it violates the "real-time" nature of clock-ins usually implied by "punching".
+    *   **Wage Impact:** The labor record for 12:00-12:05 is lost or requires manual correction (which is not defined in Slice 1). This creates a **P0 Wage Loss** scenario for the final hours of employment.
+
+**Scenario 2: The "Ghost" Contract Query**
+*   **Query:** `GET /contracts?asOf=Day D`.
+*   **Logic:** `effective_from <= Day D < effective_to (Day D+1)`.
+*   **Result:** Returns the contract.
+*   **Wage Calc:** Uses the wage from this contract.
+*   **Verdict:** This part is safe. The contract data is consistent. The failure is purely in the **access control gate** for the *action* of recording work, not the calculation of the wage itself.
+
+**Scenario 3: Retry Idempotency (ADV-004)**
+*   **Spec:** "Re-sends as new request... Server... re-processes from current code verification."
+*   **Analysis:** If a `POST /resign` fails with 503 (lock timeout), and the client retries, the server must ensure it doesn't double-process or create inconsistent state.
+*   **Spec Check:** "Contract history... append-only audit log... same transaction."
+*   **Risk:** If the first request *partially* succeeded (e.g., updated status but failed on audit log commit due to timeout), the retry might see `RESIGNED` status and fail with 409 (Invalid State) or succeed again.
+*   **Spec Quote:** "Failure response... internal SQL... not included." "Lock conflict... 503."
+*   **Verdict:** The spec relies on ACID transactions. If the DB rolls back the first attempt, the retry is safe. If the DB commits the first attempt but the client times out, the retry hits a `RESIGNED` state. The spec says "Resignation... changes status to RESIGNED." It does *not* explicitly state that a second resignation call on an already `RESIGNED` user is idempotent (returns 200) or an error (409).
+*   **Quote:** "Exception handling... `RESIGNED` is `MembershipStateException`/409." (This is for *acceptance*, not resignation).
+*   **Quote for Resignation Exception:** "If resignation date is out of range... 422." It does *not* define the behavior for resigning an already resigned user.
+*   **Inference:** Standard REST practice suggests 409 or 200. If it returns 409, the client retry logic (which expects 200/201 or 503) might treat it as a hard failure, leaving the user in a "resigned but not confirmed" state from the client's perspective, though the server state is correct. This is a **P2** usability/reliability issue, not a P0 legal one, as the server state is authoritative.
+
+**5. Adjudication**
+
+*   **P1 Blocked-Terminator (Wage Loss):** The strict `ACTIVE` status check for "normal business" conflicts with the requirement to allow work recording on `resigned_date`. If the clock-in/out API enforces `ACTIVE` status, the employee cannot record work performed *after* the resignation API call but *on* the resignation date.
+*   **P2 Record-vs-Reality:** If the employee cannot clock out, the system has no record of the end time. If they clock out *before* resignation, the record is split. The spec does not provide a mechanism to merge or extend the clock-out time for a `RESIGNED` user.
+*   **P4 Rule Collision:** `employment_status=ACTIVE` (Access Control) vs. `resigned_date` is valid for work (Labor Law/Spec Section 4).
+
+**Recommendation:**
+The Access Control rule in [REQ-STORE-004] must be modified to allow `RESIGNED` staff to perform "Work Recording" (Clock In/Out) specifically when `current_date <= resigned_date`. The "Normal Business" definition must exclude "Work Recording" or add an exception for the resignation date.
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **SPEC_QUOTE:** "Staff's normal business is... limited to... `employment_status=ACTIVE`." <br> **SPEC_QUOTE:** "Punching in on the resignation date is permitted as valid work performance." <br> **DERIVED:** The Time Clock API is a "normal business" operation. If it checks `ACTIVE` status, it blocks `RESIGNED` users. | **Scenario:** Employee works 9-12. Owner resigns them at 12:00 (status -> RESIGNED). Employee works 12-17. Employee attempts to clock out at 17:00. API checks status: `RESIGNED`. API returns 403. Employee has 5 hours of unrecorded work. Wage calculation for these 5 hours is impossible via standard flow. <br> **Recommendation:** Modify [REQ-STORE-004] to explicitly allow `RESIGNED` users to access Time Clock endpoints if `current_date <= resigned_date`. |
+| ADV-002 | P4 Rule Collision | P1 | WARN | **SPEC_QUOTE:** "Resignation... `effective_to`... set to the day after the retirement date." <br> **SPEC_QUOTE:** "Baseline date query... `[effective_from, effective_to)`." | **Scenario:** Wage calculation for `resigned_date` works correctly because `effective_to` is `resigned_date + 1`. However, if the "Blocked Terminator" (ADV-001) prevents the clock-out, the *duration* is unknown. The wage *rate* is correct, but the *hours* are missing. This is a secondary effect of ADV-001. |
+| ADV-003 | P6 Silent Default | P2 | WARN | **SPEC_QUOTE:** "Re-sends as new request... Server... re-processes." <br> **SPEC_QUOTE:** "Exception handling... `RESIGNED` is... 409" (Context: Acceptance). <br> **ASSUMPTION:** Behavior of `POST /resign` on an already `RESIGNED` user is not explicitly defined as idempotent (200) or conflict (409). | **Scenario:** Client sends `POST /resign`. Server locks, updates status, commits. Client times out before receiving 200. Client retries `POST /resign`. Server sees status `RESIGNED`. If server returns 409, client logic may fail. If server returns 200, it is idempotent. Spec is silent on the *resign* endpoint's idempotency for already-resigned users. <br> **Recommendation:** Explicitly state that `POST /resign` on a `RESIGNED` user returns 200 (Idempotent) or 409 (Conflict) and define client handling. |
+
+### Standardized Findings Table
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **SPEC_QUOTE:** "Staff's normal business is... limited to... `employment_status=ACTIVE`." <br> **SPEC_QUOTE:** "Punching in on the resignation date is permitted as valid work performance." | **Scenario:** Employee works 9-12. Owner resigns them at 12:00 (status -> RESIGNED). Employee works 12-17. Employee attempts to clock out at 17:00. API checks status: `RESIGNED`. API returns 403. Employee has 5 hours of unrecorded work. Wage calculation for these 5 hours is impossible via standard flow. <br> **Recommendation:** Modify [REQ-STORE-004] to explicitly allow `RESIGNED` users to access Time Clock endpoints if `current_date <= resigned_date`. |
+| ADV-002 | P4 Rule Collision | P1 | WARN | **SPEC_QUOTE:** "Resignation... `effective_to`... set to the day after the retirement date." <br> **SPEC_QUOTE:** "Baseline date query... `[effective_from, effective_to)`." | **Scenario:** Wage calculation for `resigned_date` works correctly because `effective_to` is `resigned_date + 1`. However, if the "Blocked Terminator" (ADV-001) prevents the clock-out, the *duration* is unknown. The wage *rate* is correct, but the *hours* are missing. This is a secondary effect of ADV-001. |
+| ADV-003 | P6 Silent Default | P2 | WARN | **SPEC_QUOTE:** "Re-sends as new request... Server... re-processes." <br> **SPEC_QUOTE:** "Exception handling... `RESIGNED` is... 409" (Context: Acceptance). <br> **ASSUMPTION:** Behavior of `POST /resign` on an already `RESIGNED` user is not explicitly defined as idempotent (200) or conflict (409). | **Scenario:** Client sends `POST /resign`. Server locks, updates status, commits. Client times out before receiving 200. Client retries `POST /resign`. Server sees status `RESIGNED`. If server returns 409, client logic may fail. If server returns 200, it is idempotent. Spec is silent on the *resign* endpoint's idempotency for already-resigned users. <br> **Recommendation:** Explicitly state that `POST /resign` on a `RESIGNED` user returns 200 (Idempotent) or 409 (Conflict) and define client handling. |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: 'Staff's normal business is... limited to... employment_status=ACTIVE.' SPEC_QUOTE: 'Punching in on the resignation date is permitted as valid work performance.' DERIVED: The Time Clock API is a 'normal business' operation. If it checks ACTIVE status, it blocks RESIGNED users.",
+      "scenario": "Employee works 9-12. Owner resigns them at 12:00 (status -> RESIGNED). Employee works 12-17. Employee attempts to clock out at 17:00. API checks status: RESIGNED. API returns 403. Employee has 5 hours of unrecorded work. Wage calculation for these 5 hours is impossible via standard flow.",
+      "recommendation": "Modify [REQ-STORE-004] to explicitly allow RESIGNED users to access Time Clock endpoints if current_date <= resigned_date."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P4 Rule Collision",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: 'Resignation... effective_to... set to the day after the retirement date.' SPEC_QUOTE: 'Baseline date query... [effective_from, effective_to).'",
+      "scenario": "Wage calculation for resigned_date works correctly because effective_to is resigned_date + 1. However, if the 'Blocked Terminator' (ADV-001) prevents the clock-out, the duration is unknown. The wage rate is correct, but the hours are missing. This is a secondary effect of ADV-001.",
+      "recommendation": "Resolve ADV-001 first. Ensure the wage calculation engine can handle 'open-ended' shifts if the clock-out is delayed or missing, or enforce the clock-out before status change."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P6 Silent Default",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: 'Re-sends as new request... Server... re-processes.' SPEC_QUOTE: 'Exception handling... RESIGNED is... 409' (Context: Acceptance). ASSUMPTION: Behavior of POST /resign on an already RESIGNED user is not explicitly defined as idempotent (200) or conflict (409).",
+      "scenario": "Client sends POST /resign. Server locks, updates status, commits. Client times out before receiving 200. Client retries POST /resign. Server sees status RESIGNED. If server returns 409, client logic may fail. If server returns 200, it is idempotent. Spec is silent on the resign endpoint's idempotency for already-resigned users.",
+      "recommendation": "Explicitly state that POST /resign on a RESIGNED user returns 200 (Idempotent) or 409 (Conflict) and define client handling."
+    }
+  ]
+}
+```

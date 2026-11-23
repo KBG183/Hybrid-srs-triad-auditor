@@ -33,6 +33,39 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-23 — INCIDENT-75 — 監査実行時の日次一時ログ（daily_audit_temp.log）手動記録漏れおよびスクリプト自動追記の強制化
+
+- **問題**: 4層AI交差検証（Local Qwen 27B / Codex / Claude）の実行時、実行メトリクスを直ちに `docs/daily_audit_temp.log` へ物理追記（Append）する規約が定められていたにもかかわらず、エージェントの手動編集に依存していたためリアルタイム記録が漏れる規律違反が発生した。
+- **原因**: 監査スクリプト（`call_ai.ps1`, `hermes_controller.ps1`）の終了処理に物理ログへの自動追記フックが組み込まれておらず、エージェントの記憶と手動ファイル操作に依存していたこと。
+- **恒久対策**:
+  1. `tools/scripts/call_ai.ps1` および `tools/scripts/hermes_controller.ps1` の完了ブロックに、`docs/daily_audit_temp.log` へのUTF-8自動追記（タイムスタンプ、対象ファイル、モデル、所要時間、判定結果、指摘件数）を直接実装し、手動介入なしで常時記録される構造へ改修。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
+### 2026-11-23 — INCIDENT-74 — Gate Check 11（verify_repo_total_integrity.ps1）における探索的監査ログと中央キューの同期不全および双方向証跡検証の強化
+
+- **問題**: 過去の探索的監査ランにおけるFAIL/HOLDサイドカーが残存している場合、中央キュー（`queue/srs_pending_findings.json`）で全件是正・検証（`VERIFIED`）が完了していても Check 11 が機械的にリリースを遮断する一方、逆にキューのステータス文字のみを単純信頼すると改ざんや証跡欠落を見逃す二律背反が4層相互反論検証（Round 2 Mutual Cross-Rebuttal）により摘発された。
+- **原因**: Check 11 がサイドカー単体の初期判定のみを参照しており、中央キューの `declared_count` 整合性、重複ID検査、物理証跡長、およびクロージャ条件（`closure_predicates`）の再実行検証と連動していなかったこと。
+- **恒久対策**:
+  1. `verify_repo_total_integrity.ps1` の Check 11 に、① `declared_count` と配列要素数の厳格一致、② 重複ID遮断、③ 物理証跡（`evidence`）の最小記述長検証、④ `closure_predicates`（対象ファイル実在および正規表現パターン充足）の再実行検証、⑤ サイドカー内全指摘IDとキューの双方向突合を実装。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
+### 2026-11-23 — INCIDENT-73 — Track 1（As-Designed）正本と Track 2（As-Built 逆工学 Slice 1）のファイル分離隔離および5大境界エッジケースの吸収
+
+- **問題**: Week 2 Track 2（コード逆工学ベースライン）の Slice 1 作成過程において、Week 1 Track 1 の既存企画書正本（`config/srs_specification_ssot.md`）との役割境界が混同され上書き衝突が発生したほか、Claude深層監査により4階層ロック順序、退職日遡及時の打刻実績検証（422）、および翌日12:00退勤猶予の賃金計算引継ぎに関する5大エッジケース（`F-N01`〜`F-N05`）が摘発された。
+- **原因**: Track 1（設計基準）と Track 2（実装逆工学基準）の物理ファイル名分離規約が事前に固定されていなかったこと。
+- **恒久対策**:
+  1. `config/srs_specification_ssot.md` を Track 1 正本（全17要件）として完全復元・保全し、Track 2 Slice 1 を `config/srs_track2_asbuilt_slice1.md`（全276行、日本語正本）および韓国語対照版（`_KO.md`）として物理分離。
+  2. 4階層DBロック取得順序、レートリミット429評価順序、退職日遡及ガード、翌日12:00退勤打刻猶予の5大境界仕様を `srs_track2_asbuilt_slice1.md` に完全統合し、C#決定論的リンター（`VerifySRS.exe`）0エラーPASSを達成。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
+### 2026-11-23 — INCIDENT-72 — call_ai.ps1 および AuditVerdictHelper.psm1 における解消済み（verdict: PASS）項目のP0/P1誤カウントバグの是正
+
+- **問題**: Local Qwen 27B が全指摘事項の解消を確認し、JSON出力内で各項目の `verdict` を `"PASS"` と出力したにもかかわらず、ラッパースクリプトが `severity: "P0"` 文字列のみを機械的にカウントして総合判定を `FAIL` に強制上書きするバグが発生した。
+- **原因**: `call_ai.ps1` および `AuditVerdictHelper.psm1` のP0/P1集計フィルタにおいて、項目ごとの解決判定（`$fVerdict -ne 'PASS'`）を確認する条件式が欠落していたこと。
+- **恒久対策**:
+  1. `call_ai.ps1` および `AuditVerdictHelper.psm1` の集計ロジックを改修し、`verdict` が `"PASS"` 以外の未解決指摘のみをP0/P1件数としてカウントするよう厳密化。
+- **状態**: `RESOLVED`
+
 ### 2026-11-19 — INCIDENT-71 — オーケストレーター自律逸脱・直接執筆リスクの露呈と3大物理的統制線（PROC-007）の配備
 
 - **問題**: オーケストレーター（Antigravity/Gemini）がファイル編集およびシェル実行権限を保持しているため、Heavy Track作業をFast Trackと偽って直接長文執筆する便宜主義、外部監査を実行せずに「検証完了」と口頭報告する欺瞞、および指摘キューを登録せずに握りつぶす構造的自己矛盾が4重交差検証（Claude 5.5, Codex Astra, Qwen 27B）により摘発された。

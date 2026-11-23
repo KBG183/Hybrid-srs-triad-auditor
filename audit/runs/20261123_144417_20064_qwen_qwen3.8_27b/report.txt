@@ -1,0 +1,183 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_144417_20064_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 102.67s | 10985 tokens | 4595 tokens | 47.4 tokens/s | stop | 20261123_054418_43c5f3be |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction (Atomic Constraints)**
+*   **R1 (Resignation Scope):** `POST /stores/{storeId}/staff/{storeStaffId}/resign` requires `resignedDate`. The status changes to `RESIGNED`.
+*   **R2 (Contract Termination Logic):** "Retirement... `effective_to` of the final valid contract is set to the day after the retirement date." (Implies `effective_to = resigned_date + 1`).
+*   **R3 (Access Control - Staff):** "Staff's normal business is... limited to memberships satisfying... `employment_status=ACTIVE`."
+*   **R4 (Access Control - Post-Resignation Read):** "Staff... can read... contract conditions... for the period `joined_date ≤ asOf ≤ resigned_date`."
+*   **R5 (Timekeeping Boundary):** "Punching on the day after the resignation date... is 403... (Punching on the day of resignation is permitted as valid work performance)."
+*   **R6 (Wage Calculation Handoff):** "Slice 1... hands over... contract history ID... to subsequent processing."
+*   **R7 (Retry Logic):** "503 response... `Retry-After` header... Client... waits... Re-submits as a new request... Server re-executes from code verification."
+
+**2. Event & State Extraction**
+*   **State A (Active):** `employment_status = 'ACTIVE'`.
+*   **State B (Resigned):** `employment_status = 'RESIGNED'`, `resigned_date = D`.
+*   **Event E1 (Resignation):** Owner executes resignation for date `D`.
+*   **Event E2 (Work Punch):** Staff punches in/out on date `D`.
+*   **Event E3 (Wage Calc):** System calculates wages for date `D`.
+*   **Event E4 (Retry):** Client receives 503, waits, resends request.
+
+**3. Interaction Matrix (Guard vs. Event)**
+*   **Guard:** `employment_status == 'ACTIVE'` required for "Normal Business" (R3).
+*   **Event:** Staff punches clock on `resigned_date` (State B).
+*   **Conflict:** The spec explicitly states in `[REQ-STORE-003]` Exception Handling: *"Punching on the day after the resignation date... is 403... (Punching on the day of resignation is permitted as valid work performance)."*
+*   **Analysis:** The spec creates a special exception for the *punching* action on the resignation day. However, it does **not** explicitly define the state transition for the `store_staff` row *during* the day of resignation vs. after. More critically, it does not define how the **Wage Calculation Engine** (Slice 2/3) handles the `RESIGNED` flag when calculating pay for the *last day*.
+
+**4. Adversarial Simulation**
+
+**Scenario 1: The "Ghost" Wage Calculation (ADV-002 Verification)**
+*   **Setup:** Employee resigns effective `2026-11-23`. `resigned_date = 2026-11-23`.
+*   **Contract State:** The final contract row has `effective_from = 2026-01-01`, `effective_to = 2026-11-24` (per R2: `resigned_date + 1`).
+*   **Action:** Employee works full shift on `2026-11-23`.
+*   **System State at End of Day:** `store_staff.employment_status = 'RESIGNED'`.
+*   **Wage Calculation Trigger:** The payroll system queries for active contracts on `2026-11-23`.
+*   **The Flaw:** The spec for Slice 1 defines the *handoff* but relies on "Subsequent processing" to calculate wages. The prompt asks to verify if the *specification* ensures the wage is calculated.
+    *   The spec states: *"Slice 1... hands over... contract history ID... to subsequent processing."*
+    *   However, look at `[REQ-STORE-004]` (Access Control): *"Staff's normal business is... limited to... `employment_status=ACTIVE`."*
+    *   If the "Wage Calculation" module is considered part of "Normal Business" or if it queries the `store_staff` table to determine *who* to pay, it will see `RESIGNED`.
+    *   **Critical Gap:** The spec does **not** explicitly state that the `RESIGNED` status must be ignored for wage calculation purposes *on the resignation date*. It only says the *punch* is valid. If the payroll engine filters by `employment_status = 'ACTIVE'` (a standard optimization to skip inactive users), the employee's final day's wages will be **zero** because the status is already `RESIGNED` at the time of calculation (or the calculation runs after the status flip).
+    *   The spec *does* say: *"Punching on the day of resignation is permitted as valid work performance."* This implies the *time record* exists. But does the *wage engine* pick it up?
+    *   The spec for `[REQ-STORE-003]` says: *"Retirement... `effective_to`... set to the day after the retirement date."* This ensures the *contract* is valid for that day.
+    *   **However**, the prompt asks to verify if **ADV-002** (ensuring the wage is calculated) is resolved. The spec *defines the data state* (Contract valid, Punch valid). It does *not* define the *calculation logic* of Slice 2/3. But as an auditor of *this* spec, I must check if the *handoff* is safe.
+    *   The handoff is: `Contract ID` + `Time Record`.
+    *   If the Time Record is created (allowed by spec) and the Contract is valid (allowed by spec), the *data* is there.
+    *   **BUT**, there is a subtle deadlock in **ADV-001/002**: The spec says `RESIGNED` blocks "Normal Business". If the "Wage Calculation" is an API endpoint that requires `ACTIVE` status to *view* or *process* the data, it will fail. The spec *only* grants read access to the *Staff* for their own history. It does not grant the *Payroll System* (which might run as a service account or the Owner) explicit permission to process `RESIGNED` users' final day wages *unless* the Payroll System is hardcoded to ignore the status flag and rely solely on the `effective_to` date of the contract.
+    *   The spec **does not** explicitly mandate that the Payroll System ignore the `RESIGNED` flag. It leaves this to "Subsequent processing". This is a **P1** risk because the "Subsequent processing" spec is not provided here, but the *interface* (Slice 1) does not guarantee the *liveness* of the wage calculation for the final day. It only guarantees the *existence* of the data.
+    *   *Correction*: The prompt asks to review the *provided* code/spec. The provided spec is *only* Slice 1. The "Subsequent processing" is out of scope for the *code* but in scope for the *specification's completeness*.
+    *   Let's look closer at `[REQ-STORE-003]` Exception Handling: *"Punching on the day of resignation is permitted as valid work performance."* This is a strong statement. It implies the system *must* accept the punch.
+    *   Does it imply the wage *must* be paid? No. It implies the *work* is recorded.
+    *   **Verdict on ADV-002:** The spec ensures the *data* (Contract + Punch) is present. It does *not* ensure the *calculation* happens because the calculation logic is in a different slice. However, the *handoff* is defined. Is the handoff sufficient? Yes, *if* the next slice is written correctly. But is the *current* spec safe?
+    *   Actually, there is a **P0** risk in **ADV-001**: "Decoupling". The spec says `RESIGNED` blocks normal business. If the "Normal Business" includes "Viewing my own timesheet" for the owner to approve wages, and the owner tries to approve the final day's wages *after* the resignation is processed, can they?
+    *   `[REQ-STORE-004]`: *"Owner's store scope is... `store.owner_id = authenticated_member_id`."* The Owner can still see the store.
+    *   `[REQ-STORE-003]`: *"Staff... can read... contract conditions... for the period `joined_date ≤ asOf ≤ resigned_date`."*
+    *   The spec allows the *Staff* to read their own history. It allows the *Owner* to manage the store.
+    *   **The Real Flaw (ADV-004 - Idempotency):**
+    *   Look at `[REQ-STORE-002]` Acceptance: *"Re-submits as a new request... Server re-executes from code verification."*
+    *   Look at `[REQ-STORE-003]` Contract Addition: *"New start date... must be after the latest uncanceled contract's start date."*
+    *   **Scenario:** Client sends `POST /contracts` with `effectiveFrom = 2026-12-01`.
+    *   Server locks, validates, inserts.
+    *   Client times out (or network drops) before receiving 201.
+    *   Client retries `POST /contracts` with same `effectiveFrom = 2026-12-01`.
+    *   Server locks. Finds existing contract with `effectiveFrom = 2026-12-01`.
+    *   Spec says: *"Duplicate start date... is 409."*
+    *   **Result:** The client cannot retry successfully. The first request *succeeded* on the server, but the client thinks it failed. The client is now stuck with a 409 error and cannot create the contract again.
+    *   **Is this a P0?** Yes. This is a **Non-Idempotent Write** with a **Unique Constraint Conflict** on Retry. The spec mandates `409` for duplicates. It does *not* provide a mechanism to distinguish "I already created this" from "Someone else created this".
+    *   Standard REST practice for idempotent creation requires a `Idempotency-Key` or returning the *existing* resource on conflict if the payload matches. The spec says: *"Duplicate... is 409."* It does *not* say "Return 200 with existing data if payload matches."
+    *   Therefore, if a network glitch occurs during contract creation, the client **cannot** recover without manual DB intervention or a new `effectiveFrom` date (which breaks the business logic).
+    *   This violates **ADV-004** (Idempotency).
+
+**5. Adjudication**
+
+*   **ADV-001 (Resignation Decoupling):** The spec explicitly allows punching on the resignation day. It explicitly sets `effective_to` to `resigned_date + 1`. This *data-wise* decouples the wage validity from the status flag. The status flag is `RESIGNED`, but the contract is valid. The punch is valid. The *calculation* is left to Slice 2, but the *data integrity* for the final day is preserved. **PASS** (with note that Slice 2 must respect the contract date, not the status flag).
+*   **ADV-002 (Wage Reference):** The contract `effective_to` is `resigned_date + 1`. This ensures the contract is valid *for* the resignation date. The spec ensures the *data* is correct. **PASS**.
+*   **ADV-003 (Future Contracts):** Spec says: *"Retirement... cancel all unapplied reservations starting after the retirement date."* This ensures no future contracts exist. **PASS**.
+*   **ADV-004 (Idempotency/Retry):** **FAIL**.
+    *   **Evidence:** `[REQ-STORE-003]` Exception Handling: *"Duplicate start date... is 409."*
+    *   **Scenario:** `POST /contracts` succeeds on server. Client times out. Client retries. Server returns 409. Client cannot proceed.
+    *   **Impact:** Operational deadlock for contract creation.
+    *   **Severity:** P1 (Operational Deadlock).
+
+**Wait, let me double check the "Idempotency" claim.**
+Does the spec allow the client to *check* if it exists first?
+`GET /stores/{storeId}/staff/{storeStaffId}/contracts?asOf=...`
+If the client checks first, sees it exists, and skips the POST, it's safe.
+But the spec says: *"Re-submits as a new request... Server re-executes from code verification."* (This quote is for *Invitation Acceptance*, not Contracts).
+For Contracts, the retry logic is not explicitly defined as "Check then Act". It is a standard `POST`.
+Standard `POST` is not idempotent.
+If the spec *requires* the client to handle 409 by assuming success, it must be stated. It is not.
+If the spec *requires* the server to return 200 on duplicate *if* data matches, it must be stated. It is not.
+Therefore, the retry mechanism for Contract Creation is broken.
+
+**However**, look at `[REQ-STORE-002]` (Invitation Acceptance).
+*"Re-submits as a new request... Server re-executes from code verification."*
+*"If the first search... 0 rows... re-confirm... If ACTIVE... return existing membership."*
+This *is* idempotent.
+
+But `[REQ-STORE-003]` (Contract Creation) does **not** have this "Return existing if duplicate" logic. It says: *"Duplicate... is 409."*
+So, **ADV-004 is NOT fully resolved** for Contract Creation. It is only resolved for Invitation Acceptance.
+
+**Is there a P0?**
+The prompt asks to verify if *all* major defects are resolved.
+ADV-004 was about "503 Retry Idempotency".
+If the 503 happens *during* the transaction (before commit), the retry is safe (DB rolls back).
+If the 503 happens *after* commit (network loss), the retry hits the 409.
+The spec says: *"503... `Retry-After`... Client... waits... Re-submits."*
+If the server committed the first request, the second request gets 409.
+The client sees 409.
+Does the client know if the 409 means "You already did this" or "Someone else did this"?
+The spec says: *"Duplicate start date... is 409."*
+It does not distinguish.
+This is a **P1** finding.
+
+**Are there any P0s?**
+Let's look at **ADV-001** again.
+"RESIGNED state... complete labor as valid... next day... TERMINATED."
+Spec: *"Punching on the day of resignation is permitted as valid work performance."*
+Spec: *"Punching on the day after... is 403."*
+This matches the requirement.
+
+**Conclusion:**
+The spec resolves ADV-001, ADV-002, and ADV-003.
+It **fails** to fully resolve ADV-004 for Contract Creation (and potentially other POST endpoints that create unique resources without idempotency keys or "return existing on conflict" logic).
+
+However, the prompt asks me to output `PASS` if all are resolved.
+If I find a P1, I cannot output `PASS` with empty findings.
+But wait, the prompt says: *"Verify if all major defects (P0/P1) are resolved... and output JSON block... `verdict: PASS`... `findings: []`"*
+This implies I should *only* output PASS if I agree.
+If I disagree, I must output the findings.
+
+Let's re-read the **ADV-004** requirement in the prompt: *"503 retry idempotency and state re-validation conventions are explicitly stated."*
+The spec *does* state state re-validation for **Invitation Acceptance** (Step 4: Re-confirm state).
+Does it state it for **Contract Creation**?
+No. It just says "Duplicate is 409".
+Is "Duplicate is 409" a sufficient "state re-validation convention"?
+It validates the state (it exists). It rejects the duplicate.
+Is that "Idempotent"? No. Idempotent means `f(f(x)) == f(x)`. Here `f(x) = 201`, `f(f(x)) = 409`.
+So it is **not** idempotent.
+
+Therefore, ADV-004 is **NOT** resolved for Contracts.
+
+**Finding:**
+**ADV-004 (Partial Failure):** Contract Creation (`POST /contracts`) is not idempotent. A retry after a successful commit results in a 409 Conflict, preventing the client from confirming success or recovering state without external logic.
+
+**Severity:** P1 (Operational Deadlock/UX Failure).
+
+**Wait**, does the spec allow the client to use `GET` to check?
+Yes. But the *retry logic* specified in 2.4 says: *"Re-submits as a new request."*
+If the client blindly re-submits, it gets 409.
+The spec does not tell the client to "Check if 409, then GET to verify".
+It leaves the client in an ambiguous state.
+
+**Final Decision:**
+I will report the failure of ADV-004 for Contract Creation.
+
+| Finding ID | Attack Vector | Severity | Verdict | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-004-FAIL | P4 Rule Collision / P6 Silent Default | P1 | FAIL | `[REQ-STORE-003]` Exception Handling: *"Duplicate start date... is 409."* `[REQ-STORE-003]` Processing: *"New start date... must be after the latest uncanceled contract's start date."* | **Scenario:** Client sends `POST /contracts` for `2026-12-01`. Server commits. Network drops. Client retries. Server returns 409. Client cannot distinguish between "My previous request succeeded" and "Another user created a conflicting contract". The spec does not mandate returning the existing resource on 409 or using Idempotency Keys. **Recommendation:** Modify `POST /contracts` to accept an `Idempotency-Key` or return `200` with the existing contract data if the `effectiveFrom` and payload match the existing record, instead of a generic 409. |
+
+Since there is a P1 finding, the verdict is **FAIL**.
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-004-FAIL",
+      "vector": "P4 Rule Collision",
+      "severity": "P1",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: '[REQ-STORE-003] Exception Handling: Duplicate start date... is 409.' SPEC_QUOTE: '[REQ-STORE-003] Processing: New start date... must be after the latest uncanceled contract's start date.'",
+      "scenario": "Client initiates POST /contracts. Server commits the transaction successfully. Network latency causes the client to time out before receiving the 201 response. Client retries the POST request. Server detects the existing contract with the same effectiveFrom and returns 409 Conflict. The client cannot determine if the original request succeeded or if a different conflict occurred, leading to an operational deadlock where the contract cannot be created or verified via the API without manual intervention.",
+      "recommendation": "Implement Idempotency Keys for POST /contracts or modify the 409 response logic to return the existing contract resource (200 OK) if the request payload matches the existing record, ensuring safe retries."
+    }
+  ]
+}
+```
+
+Verdict: FAIL

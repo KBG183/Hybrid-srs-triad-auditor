@@ -1,0 +1,149 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_144648_29896_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 101.33s | 11011 tokens | 4529 tokens | 47.4 tokens/s | stop | 20261123_054648_1bb0ef85 |
+
+### Interaction Matrix & Adversarial Simulation
+
+**System Context:**
+The specification defines a multi-tenant store management system with strict row-level security, contract history versioning, and labor law compliance hand-offs. The core entities are `member`, `store`, `store_staff` (membership), and `store_staff_contract_history` (wage terms).
+
+**Key State Transitions:**
+1.  **Invitation:** `PENDING` -> `ACTIVE` (upon acceptance).
+2.  **Contract Lifecycle:** `SCHEDULED`/`ACTIVE` -> `CANCELLED` (logical delete) or `effective_to` update.
+3.  **Resignation:** `ACTIVE` -> `RESIGNED`. Triggers cancellation of future contracts and setting `effective_to` on the final active contract.
+
+**Adversarial Simulation: The "Resignation Day" Boundary (P1/P2 Focus)**
+
+*Scenario:* A staff member (`Member A`) resigns from `Store X`.
+*   `joined_date`: 2026-11-01
+*   `resigned_date`: 2026-11-23 (Today)
+*   Current Contract: `effective_from` 2026-11-01, `effective_to` NULL, `hourly_wage` 1500 JPY.
+*   Future Contract: `effective_from` 2026-12-01, `effective_to` NULL, `hourly_wage` 2000 JPY (Scheduled).
+
+**Step 1: Resignation Execution (`POST /resign`)**
+*   **Spec Quote:** "退職日より後に開始する未適用予約をすべて論理取消し、退職日を含む最終有効契約の `effective_to` を退職日の翌日に設定します."
+*   **Action:**
+    1.  `store_staff.employment_status` becomes `RESIGNED`.
+    2.  `store_staff.resigned_date` becomes `2026-11-23`.
+    3.  Future Contract (Dec 1) is marked `CANCELLED`.
+    4.  Current Contract (Nov 1) `effective_to` is set to `2026-11-24` (Nov 23 + 1 day).
+*   **State Check:** The contract row for Nov 1 now has `effective_from` = 2026-11-01, `effective_to` = 2026-11-24.
+
+**Step 2: Time Clock Punch on Resignation Day (2026-11-23)**
+*   **Spec Quote (REQ-STORE-003 Exception):** "退職日の翌日以降の...打刻...は403... (退職日当日の打刻は正当な勤務実績として許容)."
+*   **Spec Quote (Section 4 Hand-off):** "Slice 1 は、対象所属と日本の業務日から一意に決定した契約履歴ID...を後続処理に引き渡します."
+*   **Simulation:** Member A clocks in at 09:00 on 2026-11-23.
+*   **Query Logic (Derived):** The system must find the valid contract for date `2026-11-23`.
+    *   Query: `WHERE store_staff_id = :id AND contract_status <> 'CANCELLED' AND effective_from <= '2026-11-23' AND (effective_to IS NULL OR '2026-11-23' < effective_to)`
+    *   Result: The Nov 1 contract matches (`2026-11-01 <= 2026-11-23` AND `2026-11-23 < 2026-11-24`).
+    *   Wage: 1500 JPY.
+*   **Verdict:** This specific flow works *if* the resignation logic correctly updates `effective_to`.
+
+**Step 3: The "Ghost Wage" / Unrecorded Work Paradox (P1 Blocked-Terminator / P2 Divergence)**
+*   **Critical Gap Analysis:** The specification defines the *data model* and *API contracts* for Slice 1. However, it explicitly states in Section 4: "後続処理では労働基準法第34条・第37条...に従い...計算します." (Subsequent processing shall calculate according to Labor Standards Act...).
+*   **The Flaw:** The specification **does not define the mechanism** by which the "Subsequent Processing" (Payroll/Timekeeping) retrieves the wage rate for a `RESIGNED` employee on their last day.
+    *   `store_staff.employment_status` is `RESIGNED`.
+    *   Standard payroll systems often filter by `employment_status = 'ACTIVE'` to determine who is eligible for payroll.
+    *   If the payroll engine filters out `RESIGNED` staff *before* checking the date range, the work performed on `resigned_date` is **unrecorded** or **unpaid**.
+    *   The spec says "退職日当日の打刻は正当な勤務実績として許容" (Punching is allowed), but it **fails to specify that the Payroll Calculation Engine must bypass the `RESIGNED` status filter for dates `<= resigned_date`**.
+    *   Furthermore, Section 4 states: "Slice 1 は...契約履歴ID...を後続処理に引き渡します." It does not define the API or data structure for this hand-off. It assumes the "Subsequent Processing" knows how to handle the `RESIGNED` state. This is a **Silent Default (P6)** failure. The spec defines the *storage* of the resignation but not the *consumption* logic for the final day's wage calculation.
+
+**Step 4: Concurrent Resignation and Contract Addition (P4 Rule Collision)**
+*   **Scenario:** Owner adds a contract effective `2026-11-24` (Day after resignation) while Staff is resigning on `2026-11-23`.
+*   **Spec Quote (REQ-STORE-003):** "退職日より後に開始する未適用予約をすべて論理取消し..."
+*   **Conflict:** If the resignation transaction commits *after* the contract addition transaction commits, the resignation logic will cancel the new contract. If the resignation commits *first*, the contract addition logic must check if the staff is `RESIGNED`.
+*   **Spec Quote (REQ-STORE-003 Processing):** "契約追加: `ACTIVE` 所属を対象とします."
+*   **Analysis:** The spec explicitly states Contract Addition targets `ACTIVE` membership.
+    *   If Staff is `RESIGNED`, they cannot have a new contract added.
+    *   However, the Resignation endpoint sets the status to `RESIGNED`.
+    *   **Race Condition:**
+        1.  T1 (Resign): Locks `store_staff` (Exclusive). Sets status to `RESIGNED`. Commits.
+        2.  T2 (Add Contract): Tries to lock `store_staff`. Waits.
+        3.  T2 Acquires Lock. Checks `employment_status`. It is `RESIGNED`.
+        4.  T2 Returns 409 or 404 (depending on scope resolution).
+    *   **Verdict:** This is handled correctly by the `ACTIVE` check in Contract Addition. **PASS** on this vector.
+
+**Step 5: The "Midnight" Boundary for Wage Calculation (P3 Boundary Instant)**
+*   **Spec Quote (Section 4):** "深夜労働: Japan time `[22:00, 翌05:00)`..."
+*   **Spec Quote (Section 2.1):** "業務日は `Asia/Tokyo` の `YYYY-MM-DD`..."
+*   **Scenario:** Staff works from 23:00 to 01:00 on `resigned_date`.
+*   **Issue:** The `resigned_date` is a `DATE` type (YYYY-MM-DD). The `effective_to` is `resigned_date + 1`.
+*   **Wage Calculation:** The spec says "実労働・休憩の実績...に基づいて計算します."
+*   **Gap:** Does the "Subsequent Processing" know that the employee is *only* employed until 23:59:59.999 of `resigned_date`?
+    *   The `store_staff` row has `resigned_date` = `2026-11-23`.
+    *   The contract `effective_to` = `2026-11-24`.
+    *   If the employee clocks out at 01:00 on `2026-11-24`, is that work valid?
+    *   Spec Quote (REQ-STORE-003 Exception): "退職日の翌日以降の...打刻...は403".
+    *   So, a punch at 01:00 on `2026-11-24` is rejected.
+    *   **However**, the labor *performed* between 23:00 and 24:00 on `2026-11-23` is valid.
+    *   The labor *performed* between 00:00 and 01:00 on `2026-11-24` is **physically performed** but **systemically rejected** (403 on punch).
+    *   **Result:** The employee worked 2 hours. The system records 1 hour (23:00-24:00). The 00:00-01:00 work is **unrecorded** because the punch-out event is rejected due to the date boundary, even though the work was continuous.
+    *   **Severity:** P0. This creates a "Ghost Work" scenario where physical labor is not compensated because the *termination event* (punch out) is blocked by the date boundary logic, while the *start event* was valid. The spec does not provide a mechanism to "close" a shift that spans the resignation date boundary.
+
+**Step 6: Idempotency of Resignation (P7 Irreversibility)**
+*   **Spec Quote:** "退職処理時に確定" (Confirmed at resignation processing).
+*   **Spec Quote (REQ-STORE-003):** "退職日より後に開始する未適用予約をすべて論理取消し..."
+*   **Issue:** If the resignation API is called twice (e.g., network timeout, client retry):
+    1.  First call: Status -> `RESIGNED`. Contracts cancelled.
+    2.  Second call: Status is already `RESIGNED`.
+    3.  Spec Quote (Exception): "既に適用開始済みの後続契約の取消を要する場合は422... 全行を変更前の状態に保ちます."
+    4.  Does the second call return 409 (Conflict) or 200 (Idempotent Success)?
+    5.  Spec Quote (REQ-STORE-003 Exception): "退職日が許容範囲外の場合...は422". It does not explicitly define the response for a *duplicate* resignation request on an already `RESIGNED` staff member.
+    6.  However, `store_staff` has `UNIQUE uq_store_member`. The status change is an update.
+    7.  If the second call attempts to cancel contracts that are *already* cancelled, it might fail or succeed silently.
+    8.  **Critical:** The spec says "取消済み行への再取消は409". So the second call will likely fail with 409 when trying to cancel the already-cancelled contracts. This breaks idempotency. The client cannot safely retry a resignation.
+
+### Findings Table
+
+| Finding ID | Attack Vector | Severity | Verdict | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **SPEC_QUOTE:** "退職日の翌日以降の...打刻...は403" (REQ-STORE-003). **SPEC_QUOTE:** "実労働・休憩の実績...に基づいて計算します" (Section 4). **DERIVED:** No mechanism defined to handle shift spans crossing `resigned_date` 23:59:59 to next day 00:00:01. | **Scenario:** Staff works 23:00 to 01:00 on their last day. The system allows the 23:00 punch-in. The 01:00 punch-out is rejected (403) because the date is `resigned_date + 1`. The work from 00:00 to 01:00 is physically performed but has no valid time record. The employee is underpaid for 1 hour of work. **Recommendation:** Define a "Grace Period" or "Shift Closure" logic where a punch-out within X hours of resignation is valid, or allow the timekeeping system to auto-close shifts at `resigned_date` 23:59:59 if no explicit out-punch is received, attributing the time to the previous day. |
+| ADV-002 | P6 Silent Default | P1 | FAIL | **SPEC_QUOTE:** "Slice 1 は...契約履歴ID...を後続処理に引き渡します." (Section 4). **DERIVED:** The specification does not define the API or data contract for "Subsequent Processing" to retrieve wages for `RESIGNED` staff. It assumes the payroll engine knows to ignore `employment_status = 'RESIGNED'` for dates `<= resigned_date`. | **Scenario:** The Payroll module queries `store_staff` for active employees. It filters `WHERE employment_status = 'ACTIVE'`. The resigned employee is excluded. Their final day's wages are not calculated. **Recommendation:** Explicitly define the "Wage Calculation Hand-off" API. It must accept a `date` parameter and return the valid contract for that date, regardless of current `employment_status`, provided `date <= resigned_date`. |
+| ADV-003 | P7 Irreversibility | P1 | FAIL | **SPEC_QUOTE:** "取消済み行への再取消は409" (REQ-STORE-003 Exception). **SPEC_QUOTE:** "退職日より後に開始する未適用予約をすべて論理取消し" (REQ-STORE-003 Processing). | **Scenario:** Client sends `POST /resign`. Network timeout occurs before response. Client retries `POST /resign`. The first request succeeded, cancelling contracts. The second request attempts to cancel the same contracts. The spec states re-cancellation is 409. The client receives an error, assuming the resignation failed, and may attempt to re-hire or create data inconsistency. **Recommendation:** Make the Resignation endpoint idempotent. If the status is already `RESIGNED` and the `resigned_date` matches, return 200 OK without attempting to re-cancel contracts. |
+| ADV-004 | P4 Rule Collision | P2 | WARN | **SPEC_QUOTE:** "契約追加: `ACTIVE` 所属を対象とします." (REQ-STORE-003). **SPEC_QUOTE:** "退職日より後に開始する未適用予約をすべて論理取消し" (REQ-STORE-003). | **Scenario:** Owner tries to add a contract effective `resigned_date + 1` while the resignation is being processed. If the resignation commits first, the addition fails (404/409). If the addition commits first, the resignation cancels it. This is logically consistent but operationally confusing. The spec does not warn the Owner that adding a contract on the *day of* resignation for a *future* date is volatile. **Recommendation:** Add a UI/UX warning or API validation that prevents adding contracts with `effective_from > resigned_date` if the staff is in the process of resigning. |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: '退職日の翌日以降の...打刻...は403' (REQ-STORE-003). DERIVED: No mechanism defined to handle shift spans crossing resigned_date 23:59:59 to next day 00:00:01.",
+      "scenario": "Staff works 23:00 to 01:00 on their last day. The system allows the 23:00 punch-in. The 01:00 punch-out is rejected (403) because the date is resigned_date + 1. The work from 00:00 to 01:00 is physically performed but has no valid time record. The employee is underpaid for 1 hour of work.",
+      "recommendation": "Define a 'Grace Period' or 'Shift Closure' logic where a punch-out within X hours of resignation is valid, or allow the timekeeping system to auto-close shifts at resigned_date 23:59:59 if no explicit out-punch is received, attributing the time to the previous day."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P6 Silent Default",
+      "severity": "P1",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: 'Slice 1 は...契約履歴ID...を後続処理に引き渡します.' (Section 4). DERIVED: The specification does not define the API or data contract for 'Subsequent Processing' to retrieve wages for RESIGNED staff.",
+      "scenario": "The Payroll module queries store_staff for active employees. It filters WHERE employment_status = 'ACTIVE'. The resigned employee is excluded. Their final day's wages are not calculated.",
+      "recommendation": "Explicitly define the 'Wage Calculation Hand-off' API. It must accept a date parameter and return the valid contract for that date, regardless of current employment_status, provided date <= resigned_date."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P7 Irreversibility",
+      "severity": "P1",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: '取消済み行への再取消は409' (REQ-STORE-003 Exception). SPEC_QUOTE: '退職日より後に開始する未適用予約をすべて論理取消し' (REQ-STORE-003 Processing).",
+      "scenario": "Client sends POST /resign. Network timeout occurs. Client retries. The first request succeeded, cancelling contracts. The second request attempts to cancel the same contracts. The spec states re-cancellation is 409. The client receives an error, assuming the resignation failed.",
+      "recommendation": "Make the Resignation endpoint idempotent. If the status is already RESIGNED and the resigned_date matches, return 200 OK without attempting to re-cancel contracts."
+    },
+    {
+      "finding_id": "ADV-004",
+      "vector": "P4 Rule Collision",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: '契約追加: ACTIVE 所属を対象とします.' (REQ-STORE-003). SPEC_QUOTE: '退職日より後に開始する未適用予約をすべて論理取消し' (REQ-STORE-003).",
+      "scenario": "Owner tries to add a contract effective resigned_date + 1 while the resignation is being processed. If the resignation commits first, the addition fails. If the addition commits first, the resignation cancels it. This is logically consistent but operationally confusing.",
+      "recommendation": "Add a UI/UX warning or API validation that prevents adding contracts with effective_from > resigned_date if the staff is in the process of resigning."
+    }
+  ]
+}
+```

@@ -58,19 +58,25 @@ function New-AuditVerdictSidecar {
     $treeHash = Get-GitTreeHash
 
     # Invariant A-2 enforcement:
-    # PASS must not carry P0/P1 findings
-    # HOLD/FAIL must have at least one P0/P1 finding
+    # PASS must not carry unresolved P0/P1 findings
+    # HOLD/FAIL must have at least one unresolved P0/P1 finding
     $p0p1Count = 0
     foreach ($f in $Findings) {
         $sev = "INFO"
+        $fVerdict = "FAIL"
         if ($f -ne $null) {
             if ($f -is [PSCustomObject] -and $f.PSObject.Properties['severity']) {
                 $sev = $f.severity.ToString().ToUpperInvariant()
             } elseif ($f -is [System.Collections.IDictionary] -and $f.Contains('severity')) {
                 $sev = $f['severity'].ToString().ToUpperInvariant()
             }
+            if ($f -is [PSCustomObject] -and $f.PSObject.Properties['verdict']) {
+                $fVerdict = $f.verdict.ToString().ToUpperInvariant()
+            } elseif ($f -is [System.Collections.IDictionary] -and $f.Contains('verdict')) {
+                $fVerdict = $f['verdict'].ToString().ToUpperInvariant()
+            }
         }
-        if ($sev -eq "P0" -or $sev -eq "P1") {
+        if (($sev -eq "P0" -or $sev -eq "P1") -and ($fVerdict -ne "PASS" -and $fVerdict -ne "RESOLVED")) {
             $p0p1Count++
         }
     }

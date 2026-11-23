@@ -1,0 +1,136 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_143713_9668_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 84.67s | 10874 tokens | 3733 tokens | 47.5 tokens/s | stop | 20261123_053713_c4da0938 |
+
+### Interaction Matrix & Adversarial Simulation Narrative
+
+**1. Rule Extraction & State Analysis**
+The specification defines a multi-tenant store management system with strict concurrency controls (MySQL `FOR UPDATE NOWAIT` / `FOR SHARE NOWAIT`) and a specific state machine for staff employment (`PENDING` -> `ACTIVE` -> `RESIGNED`). Key legal/operational constraints include:
+*   **Wage Integrity:** `hourly_wage` is immutable after initial contract creation unless a new contract is scheduled.
+*   **Concurrency:** Lock acquisition order is Member -> Store -> Staff -> Contract. Failure results in 503 `STORE_RETRY_LATER`.
+*   **Contract Continuity:** Contracts must form a continuous timeline. Inserting a contract before an existing `SCHEDULED` contract is forbidden (409 `CONTRACT_ORDER_VIOLATION`).
+*   **Resignation Logic:** Resignation cancels future contracts and sets the `effective_to` of the current contract to `resigned_date + 1`.
+
+**2. Adversarial Simulation: The "Mid-Shift Resignation" & Wage Gap Paradox**
+
+*Scenario:*
+1.  **State:** Staff Member A is `ACTIVE` at Store X. Current contract: `effective_from: 2026-11-01`, `effective_to: NULL`, `hourly_wage: 1500 JPY`.
+2.  **Event:** On **2026-11-15**, the Owner initiates resignation for Member A with `resignedDate: 2026-11-15`.
+3.  **System Action (REQ-STORE-003):**
+    *   Sets `store_staff.employment_status` to `RESIGNED`.
+    *   Sets `store_staff.resigned_date` to `2026-11-15`.
+    *   Updates the current contract row: `effective_to` becomes `2026-11-16` (resigned_date + 1).
+    *   *Crucially:* The specification states: *"Staff is... limited to... `employment_status=ACTIVE`"* for normal business operations (REQ-STORE-004).
+    *   *Crucially:* The specification states: *"Staff... can read... labor condition notice... for `joined_date <= asOf <= resigned_date`"* (REQ-STORE-003 Output).
+
+*The Conflict:*
+The system immediately flips `employment_status` to `RESIGNED` upon the resignation API call. However, the physical reality of labor is that the employee works *through* the day of resignation.
+*   **Time 09:00:** Employee clocks in. System checks `employment_status`. It is `RESIGNED`.
+*   **Result:** The system denies clock-in or marks the work as invalid/unrecorded because the "normal business" scope requires `ACTIVE` status.
+*   **Legal/Operational Harm:** The employee has worked 8 hours on their final day. The system has no mechanism to record this work because the `ACTIVE` flag was revoked at the *start* of the resignation process (or the moment the API was called), not at the *end* of the workday.
+*   **Wage Calculation Gap:** Section 4 states Slice 1 hands off "unique contract history ID... to subsequent processing." If the clock-in system rejects the punch due to `RESIGNED` status, no work record exists. If the clock-in system *allows* the punch (ignoring status), it violates REQ-STORE-004's scope definition for "normal business." If it allows it but the wage calculation engine only looks at `ACTIVE` periods, the wages are lost.
+
+**3. Adversarial Simulation: The "Contract Insertion Deadlock" vs. "Resignation Race"**
+
+*Scenario:*
+1.  **State:** Contract A (`2026-11-01` to `NULL`).
+2.  **Thread 1 (Owner):** Attempts to add Contract B (`2026-12-01` to `NULL`).
+3.  **Thread 2 (Owner):** Attempts to Resign Staff on `2026-11-15`.
+4.  **Lock Order:** Both acquire `store_staff` lock.
+5.  **Race Condition:**
+    *   Thread 1 succeeds: Contract A `effective_to` becomes `2026-12-01`. Contract B created.
+    *   Thread 2 (Resignation) proceeds. It looks for "contracts starting after resigned_date (2026-11-15)".
+    *   It finds Contract B (`2026-12-01`). It cancels Contract B.
+    *   It sets Contract A `effective_to` to `2026-11-16`.
+    *   **Result:** The staff is resigned. The future contract is cancelled.
+    *   **The Flaw:** What if Thread 2 (Resignation) acquires the lock *first*?
+        *   Thread 2 sets `employment_status` to `RESIGNED`.
+        *   Thread 1 (Add Contract) attempts to run. REQ-STORE-003 states: *"Contract addition targets `ACTIVE` membership."*
+        *   Since Thread 2 already committed `RESIGNED`, Thread 1 fails with 404 or 409.
+        *   *This is safe.*
+
+    *   **However, consider the "Same Day" Resignation Edge Case:**
+        *   Resignation Date: `2026-11-15`.
+        *   Current Date: `2026-11-15`.
+        *   Spec: *"Resignation date... must be Japanese business day... prior to or including today."*
+        *   Spec: *"Resignation... cancels all unapplied reservations starting after resignation date."*
+        *   Spec: *"Sets `effective_to` of final valid contract to resignation date + 1."*
+        *   **Ambiguity:** Does "final valid contract" include the one being modified? Yes.
+        *   **Ambiguity:** What if there is a `SCHEDULED` contract starting *today* (`2026-11-15`)?
+            *   Spec: *"Resignation date... prior to or including today."*
+            *   Spec: *"Cancels... reservations starting after resignation date."*
+            *   If a contract starts *on* the resignation date, it is NOT cancelled (since it doesn't start *after*).
+            *   But the resignation sets the *previous* contract's end to `resigned_date + 1`.
+            *   If the "previous" contract was the one starting today, its `effective_to` is set to `2026-11-16`.
+            *   This creates a 1-day contract.
+            *   **Legal Risk:** If the employee worked 1 hour, they are entitled to wages. If the system treats `RESIGNED` status as "no access to clock in," the 1 hour is unrecorded.
+
+**4. Adversarial Simulation: The "Ghost Work" via 503 Retry Failure**
+
+*Scenario:*
+1.  Employee attempts to clock in.
+2.  System hits a lock timeout (503 `STORE_RETRY_LATER`).
+3.  Client retries.
+4.  Between retry 1 and retry 2, the Store Owner rotates the Invite Code (REQ-STORE-001).
+5.  The clock-in endpoint (implied in Section 4 "Handover to Attendance") likely relies on the Store's existence and validity.
+6.  If the clock-in logic depends on the `store_staff` row being `ACTIVE`, and the resignation happened in the interim, the retry fails with 404.
+7.  **Result:** The employee physically worked, but the system has no record because the state changed between the physical act and the successful API commit. The "Silent Default" of 503 retries assumes state stability which is not guaranteed in a high-churn environment.
+
+**5. Adjudication of Findings**
+
+*   **P1 Blocked-Terminator (Wage Loss):** The transition to `RESIGNED` status immediately upon API call, combined with the requirement for `ACTIVE` status for "normal business" (clock-in), creates a window where work performed on the resignation day cannot be recorded if the API call precedes the work.
+*   **P2 Record-vs-Reality Divergence:** The `effective_to` boundary logic (`resigned_date + 1`) assumes the contract covers the entire resignation day. If the employee leaves at 10:00 AM, the system still marks the contract as valid until 23:59:59 of that day. If they are re-hired the next day, the contract continuity might be broken or require complex merging, but more importantly, the *wage calculation* for the partial day relies on "actual work time" which is not captured in Slice 1's schema (no `clock_in` table in Slice 1, but Slice 1 *hands off* to it). The handoff contract is fragile.
+*   **P4 Rule Collision:** REQ-STORE-003 states "Resignation... cancels all unapplied reservations starting *after* resignation date." It does *not* cancel reservations starting *on* the resignation date. However, it sets the `effective_to` of the *current* contract to `resigned_date + 1`. If the "current" contract *is* the one starting on the resignation date (a same-day start), its `effective_to` is set to `resigned_date + 1`. This is logically consistent but operationally dangerous for wage proration if the "actual work" system doesn't handle the `RESIGNED` status override for the final day.
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **SPEC_QUOTE:** "Staff's normal business is... limited to... `employment_status=ACTIVE`" (REQ-STORE-004). **SPEC_QUOTE:** "Resignation... changes membership to `RESIGNED`" (REQ-STORE-003). **DERIVED:** No mechanism allows clock-in for `RESIGNED` staff on `resigned_date`. | **Scenario:** Owner resigns Staff A on Nov 15. Staff A works 8 hours on Nov 15. System rejects clock-in because status is `RESIGNED`. Staff A loses 8 hours of wages. **Recommendation:** Decouple `employment_status` from clock-in permission for the `resigned_date`. Allow clock-in if `current_date <= resigned_date` regardless of `RESIGNED` status, or introduce a `TERMINATED` status that only applies after `resigned_date + 1`. |
+| ADV-002 | P2 Record-vs-Reality Divergence | P1 | WARN | **SPEC_QUOTE:** "Resignation... sets `effective_to` of final valid contract to resignation date + 1." **SPEC_QUOTE:** "Wage calculation... based on actual work... and applicable system." | **Scenario:** Staff resigns Nov 15. Contract ends Nov 16. Staff works 1 hour on Nov 15. Wage system calculates based on "Actual Work" (1 hr) but must look up wage rate. If the lookup fails due to `RESIGNED` status or contract boundary ambiguity, the 1 hour is unpaid. **Recommendation:** Explicitly define that wage lookups for `resigned_date` must use the contract valid *up to* that date, ignoring the `RESIGNED` flag for rate determination. |
+| ADV-003 | P4 Rule Collision | P2 | WARN | **SPEC_QUOTE:** "Resignation... cancels all unapplied reservations starting *after* resignation date." **SPEC_QUOTE:** "Contract addition... new start date is... after latest uncancelled contract's start date." | **Scenario:** Staff has a `SCHEDULED` contract starting Nov 15 (today). Owner resigns Staff for Nov 15. The Nov 15 contract is NOT cancelled (starts *on*, not *after*). The previous contract's end is set to Nov 16. The Nov 15 contract remains `SCHEDULED` (or `ACTIVE` if date reached). This creates a potential overlap or confusion in the "Final Valid Contract" logic if the resignation API doesn't explicitly handle the "Same Day Start" edge case for wage proration. **Recommendation:** Clarify if a contract starting on `resigned_date` is considered "applied" for resignation purposes. If yes, it should be the "final valid contract." If no, it should be cancelled. Current spec leaves it active, which is correct for wage payment, but ambiguous for "final valid" determination. |
+| ADV-004 | P6 Silent Default | P2 | WARN | **SPEC_QUOTE:** "Lock acquisition failure... returns 503." **SPEC_QUOTE:** "Client... retries." | **Scenario:** High concurrency during resignation. 503 errors occur. Client retries. State changes between retries. If the retry logic does not re-validate the *current* state against the *original* intent (e.g., "I want to resign for Nov 15"), it might succeed with a different context or fail silently. **Recommendation:** Ensure the resignation API is idempotent and re-validates the `resigned_date` against the current date on every retry. |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: 'Staff's normal business is... limited to... employment_status=ACTIVE' (REQ-STORE-004). SPEC_QUOTE: 'Resignation... changes membership to RESIGNED' (REQ-STORE-003).",
+      "scenario": "Owner resigns Staff A on Nov 15. Staff A works 8 hours on Nov 15. System rejects clock-in because status is RESIGNED. Staff A loses 8 hours of wages.",
+      "recommendation": "Decouple employment_status from clock-in permission for the resigned_date. Allow clock-in if current_date <= resigned_date regardless of RESIGNED status."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P2 Record-vs-Reality Divergence",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: 'Resignation... sets effective_to of final valid contract to resignation date + 1.'",
+      "scenario": "Staff resigns Nov 15. Contract ends Nov 16. Staff works 1 hour on Nov 15. Wage system may fail to look up rate due to RESIGNED status or boundary ambiguity.",
+      "recommendation": "Explicitly define that wage lookups for resigned_date must use the contract valid up to that date, ignoring the RESIGNED flag for rate determination."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P4 Rule Collision",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: 'Resignation... cancels all unapplied reservations starting after resignation date.'",
+      "scenario": "Staff has a SCHEDULED contract starting Nov 15 (today). Owner resigns Staff for Nov 15. The Nov 15 contract is NOT cancelled. This creates ambiguity in 'final valid contract' determination for wage proration.",
+      "recommendation": "Clarify if a contract starting on resigned_date is considered 'applied' for resignation purposes. Ensure wage proration handles this specific edge case."
+    },
+    {
+      "finding_id": "ADV-004",
+      "vector": "P6 Silent Default",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: 'Lock acquisition failure... returns 503.'",
+      "scenario": "High concurrency during resignation causes 503 errors. Client retries. State changes between retries, potentially leading to inconsistent state if not idempotent.",
+      "recommendation": "Ensure the resignation API is idempotent and re-validates the resigned_date against the current date on every retry."
+    }
+  ]
+}
+```

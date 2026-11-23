@@ -145,7 +145,7 @@ try {
         }
 
         # Check for unfinalized placeholders (Article 0 Section 5)
-        $placeholderMatch = [regex]::Match($content, '(?i)\b(TODO|TBD|FIXME)\b|(未定|未確定|追って決定)')
+        $placeholderMatch = [regex]::Match($content, '(?i)\b(TODO|TBD|FIXME)\b|(?:\u672A\u5B9A|\u672A\u78BA\u5B9A|\u8FFD\u3063\u3066\u6C7A\u5B9A)')
         if ($placeholderMatch.Success) {
             $rejectionReasons.Add("[$relPath] Unfinalized placeholder detected: '$($placeholderMatch.Value)'")
         }
@@ -193,11 +193,11 @@ try {
 
     # Check Article 0 Section 3: 5 Mandatory KINTAI Domain Alignment Axes
     $domainAxes = @(
-        @{ Name = "Axis 1 (Working Hours & Breaks)"; Pattern = '(休憩|30分|60分|労働時間)' },
-        @{ Name = "Axis 2 (Labor Standards Act Art. 37 & Rounding)"; Pattern = '(労働基準法第37条|割増|25%|端数)' },
-        @{ Name = "Axis 3 (Concurrency & Pessimistic Lock)"; Pattern = '(FOR UPDATE|悲観的ロック)' },
-        @{ Name = "Axis 4 (Audit Trail & Immutable History)"; Pattern = '(監査証跡|audit_log|修正理由|変更履歴|原本)' },
-        @{ Name = "Axis 5 (IDOR & Multi-Tenant Isolation)"; Pattern = '(SecurityContext|IDOR|ROLE_OWNER|多店舗|テナント)' }
+        @{ Name = "Axis 1 (Working Hours & Breaks)"; Pattern = '(?:\u4F11\u61A9|30\u5206|60\u5206|\u52B4\u508D\u6642\u9593)' },
+        @{ Name = "Axis 2 (Labor Standards Act Art. 37 & Rounding)"; Pattern = '(?:\u52B4\u508D\u57FA\u6E96\u6CD5\u7B2C37\u6761|\u5272\u5897|25%|\u7AEF\u6570)' },
+        @{ Name = "Axis 3 (Concurrency & Pessimistic Lock)"; Pattern = '(?:FOR UPDATE|\u60B2\u89B3\u7684\u30ED\u30C3\u30AF)' },
+        @{ Name = "Axis 4 (Audit Trail & Immutable History)"; Pattern = '(?:\u76E3\u67FB\u8A3C\u8DE1|audit_log|\u4FEE\u6B63\u7406\u7531|\u5909\u66F4\u5C65\u6574|\u539F\u672C)' },
+        @{ Name = "Axis 5 (IDOR & Multi-Tenant Isolation)"; Pattern = '(?:SecurityContext|IDOR|ROLE_OWNER|\u591A\u5E97\u8217|\u30C6\u30CA\u30F3\u30C8)' }
     )
     foreach ($axis in $domainAxes) {
         if ($allSpecText -notmatch $axis.Pattern) {

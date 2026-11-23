@@ -1,0 +1,40 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_145539_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "6f631aaa208fd082a9b0a7448f61a56660324660a2ae501288ace34aaad99c54",
+    "verdict":  "FAIL",
+    "findings_count":  3,
+    "p0_p1_count":  3,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "[REQ-STORE-004]: \u0027retirement date same day (business day ≤ resigned_date) ... and day-crossing work\u0027s retirement grace period (until 12:00 the day after retirement date) ... employment_status=RESIGNED is also authorized as a legitimate business operation\u0027",
+                         "scenario":  "Staff resigns on 2026-11-23. System allows clock-in/out on 2026-11-23 and until 2026-11-24 12:00 despite RESIGNED status, preventing unrecorded final shift work.",
+                         "recommendation":  "None. Specification is compliant."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P2 Record-vs-Reality Divergence",
+                         "severity":  "P0",
+                         "verdict":  "PASS",
+                         "evidence":  "[Section 4]: \u0027regardless of the current value of the membership\u0027s employment_status... reliably handed over\u0027 AND \u0027[REQ-STORE-003]\u0027: \u0027Set the effective_to... to the day after the retirement date\u0027",
+                         "scenario":  "Wage calculation for resignation date successfully retrieves hourly wage from contract history because effective_to is exclusive (resigned_date + 1) and status check is bypassed for handoff.",
+                         "recommendation":  "None. Specification is compliant."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P4 Rule Collision",
+                         "severity":  "P1",
+                         "verdict":  "PASS",
+                         "evidence":  "[REQ-STORE-003]: \u0027If the target staff is already in RESIGNED state... Same retirement date... returns 200 OK\u0027",
+                         "scenario":  "Network timeout causes retry of resignation request. System returns 200 OK instead of 409 Conflict, ensuring idempotency and preventing user confusion.",
+                         "recommendation":  "None. Specification is compliant."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:56:49.0368787Z"
+}

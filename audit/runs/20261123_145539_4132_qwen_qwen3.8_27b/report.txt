@@ -1,0 +1,113 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_145539_4132_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 67.81s | 11403 tokens | 2933 tokens | 47.5 tokens/s | stop | 20261123_055539_2cbe7eb9 |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction (Atomic Constraints)**
+*   **R1 (Resignation Access):** `[REQ-STORE-004]` states: "retirement date same day (business day ≤ `resigned_date`) ... and day-crossing work's retirement grace period (until 12:00 the day after retirement date) ... `employment_status=RESIGNED` is also authorized as a legitimate business operation."
+*   **R2 (Wage Handoff):** `[Section 4]` states: "regardless of the current value of the membership's `employment_status`, the hourly wage of the contract history containing that date within the valid period (`effective_to = resigned_date + 1`) is reliably handed over."
+*   **R3 (Idempotent Resignation):** `[REQ-STORE-003]` states: "If the target staff is already in `RESIGNED` state, a retry with the same retirement date (`resignedDate`) ... returns 200 OK with the existing retirement confirmation state."
+*   **R4 (Contract Boundary):** `[DDL-004]` defines `effective_to` as "exclusive boundary date. Does not include the day itself."
+*   **R5 (Resignation Logic):** `[REQ-STORE-003]` states: "Set the `effective_to` of the final valid contract including the retirement date to the day after the retirement date."
+
+**2. Event & State Extraction**
+*   **State A (Active):** `employment_status = 'ACTIVE'`.
+*   **State B (Resigned):** `employment_status = 'RESIGNED'`, `resigned_date = D`.
+*   **Event E1 (Clock In/Out):** Occurs at time `T`.
+*   **Event E2 (Resign Request):** Occurs with `resignedDate = D`.
+*   **Event E3 (Wage Calculation):** Triggered for date `D`.
+
+**3. Interaction Matrix (Guard vs. Event)**
+*   **Guard:** `employment_status == 'RESIGNED'` AND `CurrentDate > resigned_date`.
+    *   **Action:** Block Clock In/Out (403).
+*   **Guard:** `employment_status == 'RESIGNED'` AND `CurrentDate <= resigned_date` (or within grace period).
+    *   **Action:** Allow Clock In/Out (200).
+*   **Guard:** `employment_status == 'RESIGNED'` AND `resignRequest.date == resigned_date`.
+    *   **Action:** Return 200 OK (Idempotent).
+*   **Guard:** Wage Calc for Date `D` where `D <= resigned_date`.
+    *   **Action:** Fetch contract where `effective_from <= D < effective_to`.
+
+**4. Adversarial Simulation**
+
+*   **Scenario 1: The "Ghost" Resignation (ADV-001 Verification)**
+    *   *Setup:* Staff resigns effective `2026-11-23`. `employment_status` becomes `RESIGNED`.
+    *   *Action:* Staff clocks in at `2026-11-23 09:00` and out at `2026-11-23 18:00`.
+    *   *Check:* `[REQ-STORE-004]` explicitly allows this because `business day (2026-11-23) <= resigned_date (2026-11-23)`.
+    *   *Action:* Staff clocks out at `2026-11-24 01:00` (Night shift crossing midnight).
+    *   *Check:* `[REQ-STORE-004]` allows this because it is within the "day-crossing work's retirement grace period (until 12:00 the day after retirement date)".
+    *   *Result:* No deadlock. Access is granted.
+
+*   **Scenario 2: The Wage Orphan (ADV-002 Verification)**
+    *   *Setup:* Staff resigns `2026-11-23`. Contract A: `2026-01-01` to `NULL`.
+    *   *Action:* Resignation processed. System updates Contract A `effective_to` to `2026-11-24` (Day after resignation).
+    *   *Wage Calc for 2026-11-23:*
+        *   Query: `effective_from <= '2026-11-23' AND ('2026-11-23' < effective_to OR effective_to IS NULL)`.
+        *   Contract A matches (`2026-01-01 <= 2026-11-23 < 2026-11-24`).
+    *   *Check:* `[Section 4]` mandates handing over the wage from this contract regardless of `employment_status`.
+    *   *Result:* Wage is calculated correctly. No loss of pay.
+
+*   **Scenario 3: The Double Resignation (ADV-003 Verification)**
+    *   *Setup:* Staff is `RESIGNED` with `resigned_date = 2026-11-23`.
+    *   *Action:* Owner retries `POST /resign` with `resignedDate = 2026-11-23` due to network timeout.
+    *   *Check:* `[REQ-STORE-003]` states: "Same retirement date ... returns 200 OK".
+    *   *Result:* No 409 Conflict error. Idempotency preserved.
+
+### Findings
+
+| Finding ID | Attack Vector | Severity (P0/P1/P2/Info) | Verdict (PASS / WARN / FAIL / N/A) | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | PASS | `[REQ-STORE-004]`: "retirement date same day... and day-crossing work's retirement grace period... `employment_status=RESIGNED` is also authorized as a legitimate business operation" | The specification explicitly carves out an exception to the standard `RESIGNED` block for clock-in/out events within the resignation date and the next day's 12:00 grace period. This prevents the "unrecorded work" paradox where a resigning employee's final shift is rejected by the system, leading to unpaid labor. The logic is sound and covers the midnight crossover edge case. |
+| ADV-002 | P2 Record-vs-Reality Divergence | P0 | PASS | `[Section 4]`: "regardless of the current value of the membership's `employment_status`... reliably handed over" AND `[REQ-STORE-003]`: "Set the `effective_to`... to the day after the retirement date" | The specification ensures that the contract history row remains valid for the resignation date by setting `effective_to` to `resigned_date + 1`. Since the wage calculation logic queries based on date ranges (`effective_from <= date < effective_to`) and explicitly ignores the `employment_status` flag for handoff purposes, the wage calculation will successfully retrieve the hourly rate. This prevents the "Ghost Work" scenario where work is recorded but cannot be paid because the contract is considered "ended" or "invalid" by the status flag. |
+| ADV-003 | P4 Rule Collision | P1 | PASS | `[REQ-STORE-003]`: "If the target staff is already in `RESIGNED` state... Same retirement date... returns 200 OK" | The specification explicitly handles the idempotency of the resignation endpoint. By defining that a retry with the *same* date returns 200 OK, it prevents a common operational deadlock where a network timeout causes the client to retry, receiving a 409 Conflict (because the state is already `RESIGNED`), which might be interpreted as a failure by the UI or integration layer, potentially leaving the user in a confused state or requiring manual DB intervention. This ensures smooth operational flow. |
+
+### Adversarial Simulation Narrative
+
+The target specification has successfully addressed the critical operational deadlocks identified in previous audits.
+
+1.  **Resignation Access Paradox (Resolved):** Previously, a strict interpretation of `employment_status = RESIGNED` would block any API call associated with that member, including the final clock-out. The new specification in `[REQ-STORE-004]` introduces a temporal exception. It recognizes that "Resigned" is a state that takes effect *after* the work is done, but the system must allow the work to be *recorded* before the state fully severs access. The inclusion of the "12:00 next day" grace period specifically addresses the Japanese labor context of night shifts (22:00-05:00) where a shift starting on the resignation day ends the next morning. Without this, the system would force a 403 error on the clock-out, resulting in unrecorded work and a legal wage dispute.
+
+2.  **Wage Calculation Orphan (Resolved):** The risk of wage loss arises if the contract history is marked as "inactive" or "cancelled" in a way that excludes it from the wage calculation query. The specification in `[Section 4]` decouples the *wage handoff* from the *membership status*. It relies on the `effective_to` date boundary. By mandating that `effective_to` is set to `resigned_date + 1` (exclusive), the resignation date itself remains inside the valid contract window. The explicit instruction to ignore `employment_status` during handoff ensures that even if the status flips to `RESIGNED` immediately upon processing, the wage engine can still find the valid rate. This is a robust design that prevents the "zero wage" bug.
+
+3.  **Idempotency Deadlock (Resolved):** In distributed systems, `POST` requests are not inherently idempotent. If a user clicks "Resign" and the network hangs, the client might retry. If the first request succeeded, the second request would find the user already `RESIGNED`. A naive implementation would return 409 (Conflict) or 400 (Bad Request), signaling an error. The specification in `[REQ-STORE-003]` explicitly defines the behavior for this exact case: if the date matches, return 200 OK. This "safe retry" pattern is crucial for user experience and prevents support tickets related to "failed resignation" errors that are actually successful operations.
+
+No new P0 or P1 defects were found in the revised specification. The logic is consistent, handles the temporal boundaries of Japanese labor law (night shifts, resignation dates), and provides clear idempotency guarantees.
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "PASS",
+      "evidence": "[REQ-STORE-004]: 'retirement date same day (business day ≤ resigned_date) ... and day-crossing work's retirement grace period (until 12:00 the day after retirement date) ... employment_status=RESIGNED is also authorized as a legitimate business operation'",
+      "scenario": "Staff resigns on 2026-11-23. System allows clock-in/out on 2026-11-23 and until 2026-11-24 12:00 despite RESIGNED status, preventing unrecorded final shift work.",
+      "recommendation": "None. Specification is compliant."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P2 Record-vs-Reality Divergence",
+      "severity": "P0",
+      "verdict": "PASS",
+      "evidence": "[Section 4]: 'regardless of the current value of the membership's employment_status... reliably handed over' AND '[REQ-STORE-003]': 'Set the effective_to... to the day after the retirement date'",
+      "scenario": "Wage calculation for resignation date successfully retrieves hourly wage from contract history because effective_to is exclusive (resigned_date + 1) and status check is bypassed for handoff.",
+      "recommendation": "None. Specification is compliant."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P4 Rule Collision",
+      "severity": "P1",
+      "verdict": "PASS",
+      "evidence": "[REQ-STORE-003]: 'If the target staff is already in RESIGNED state... Same retirement date... returns 200 OK'",
+      "scenario": "Network timeout causes retry of resignation request. System returns 200 OK instead of 409 Conflict, ensuring idempotency and preventing user confusion.",
+      "recommendation": "None. Specification is compliant."
+    }
+  ]
+}
+```
+
+Verdict: PASS

@@ -1,0 +1,49 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_143936_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "a49389f2e892ef93f0db8d8f3994fc19c7b8bbdf48d7e4646a12b6f7ed8cac9b",
+    "verdict":  "FAIL",
+    "findings_count":  4,
+    "p0_p1_count":  3,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-001",
+                         "vector":  "P1 Blocked-Terminator",
+                         "severity":  "P0",
+                         "verdict":  "FAIL",
+                         "evidence":  "Spec [REQ-STORE-004] limits \u0027normal business\u0027 to \u0027employment_status=ACTIVE\u0027. Spec [REQ-STORE-003] sets status to \u0027RESIGNED\u0027 on resignation day but extends contract validity to \u0027resigned_date + 1\u0027. No exception is made for time-clocking on the final day.",
+                         "scenario":  "Employee resigns effective today. Status becomes RESIGNED at 09:00. Employee works until 18:00. System blocks clock-in/out due to RESIGNED status. Work is unrecorded, leading to unpaid wages.",
+                         "recommendation":  "Modify access control to allow time-clocking and wage viewing for users with \u0027employment_status=RESIGNED\u0027 if \u0027current_date \u003c= resigned_date\u0027."
+                     },
+                     {
+                         "finding_id":  "ADV-002",
+                         "vector":  "P2 Record-vs-Reality Divergence",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "Spec [Section 4] states contract ID is determined from \u0027target affiliation and Japan business day\u0027. It does not explicitly prohibit filtering by \u0027employment_status=ACTIVE\u0027 during this lookup.",
+                         "scenario":  "Wage engine queries for contract on resigned_date. If it filters by ACTIVE status, it returns null. Wage calculation fails or defaults to 0, causing wage loss for the final day.",
+                         "recommendation":  "Explicitly state that wage calculation lookups for dates \u003c= resigned_date must ignore employment_status and rely solely on contract history date ranges."
+                     },
+                     {
+                         "finding_id":  "ADV-003",
+                         "vector":  "P3 Boundary Instant",
+                         "severity":  "P1",
+                         "verdict":  "WARN",
+                         "evidence":  "Spec [Section 4] mentions \u0027uniquely determined contract history ID\u0027 per business day, but also \u0027boundary-crossing work is split by actual time\u0027. Ambiguity exists on whether a single shift spanning midnight uses one or two contract IDs.",
+                         "scenario":  "Employee works 23:00 to 01:00. Contract changes at midnight. If system applies Day 1 contract to entire shift, Day 2 hours are underpaid.",
+                         "recommendation":  "Clarify that shifts spanning midnight must be segmented by business day, applying the contract valid for each specific day segment."
+                     },
+                     {
+                         "finding_id":  "ADV-004",
+                         "vector":  "P6 Silent Default",
+                         "severity":  "P2",
+                         "verdict":  "WARN",
+                         "evidence":  "Spec [2.4] defines retry logic but does not mandate Idempotency Keys for contract creation. Retries after timeout result in 409 Conflict, leaving client uncertain of state.",
+                         "scenario":  "Client sends contract creation. Timeout. Client retries. Server returns 409. Client cannot distinguish between \u0027duplicate request\u0027 and \u0027conflicting data\u0027 without additional query.",
+                         "recommendation":  "Implement Idempotency-Key headers for all mutating contract operations to ensure safe, unambiguous retries."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:41:08.9966892Z"
+}

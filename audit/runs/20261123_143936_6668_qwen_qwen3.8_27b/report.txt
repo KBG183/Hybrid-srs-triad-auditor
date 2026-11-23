@@ -1,0 +1,143 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_143936_6668_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 91.63s | 10964 tokens | 4077 tokens | 47.5 tokens/s | stop | 20261123_053936_1f962d6b |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction & State Analysis**
+*   **State Definitions:**
+    *   `store_staff.employment_status`: `PENDING`, `ACTIVE`, `RESIGNED`.
+    *   `store_staff_contract_history.contract_status`: `ACTIVE`, `SCHEDULED`, `CANCELLED`.
+    *   `store_staff_contract_history.effective_to`: `NULL` (open-ended) or `DATE` (exclusive boundary).
+*   **Key Constraints:**
+    *   **Resignation Logic ([REQ-STORE-003]):** "Retire... `resigned_date`... `RESIGNED`... `effective_to` [of final contract] to `resigned_date` + 1 day."
+    *   **Access Control ([REQ-STORE-004]):** "Staff's normal business... limited to... `employment_status=ACTIVE`."
+    *   **Post-Resignation Access ([REQ-STORE-003] Output):** "Staff... after resignation... can read-only query... `joined_date ≤ asOf ≤ resigned_date`."
+    *   **Contract Query Logic ([REQ-STORE-003]):** "Exclude cancelled rows... `[effective_from, effective_to)` contains `asOf`."
+    *   **Wage Handoff ([Section 4]):** "Slice 1... uniquely determined contract history ID... from target affiliation and Japan business day."
+
+**2. Adversarial Simulation: The "Resignation Day" Paradox**
+
+*   **Scenario:**
+    *   Employee `M1` is `ACTIVE` at Store `S1`.
+    *   Current Date: `2026-11-23`.
+    *   Owner initiates resignation for `M1` with `resignedDate = 2026-11-23`.
+    *   **System Action:**
+        1.  `store_staff.employment_status` changes to `RESIGNED`.
+        2.  `store_staff.resigned_date` is set to `2026-11-23`.
+        3.  The active contract row (let's say `C1`, `effective_from=2026-01-01`, `effective_to=NULL`) is updated: `effective_to` becomes `2026-11-24` (since `resigned_date` + 1 day).
+        4.  Any `SCHEDULED` contracts starting after `2026-11-23` are `CANCELLED`.
+
+*   **Conflict Point 1: The "Ghost" Access Block (P1 Blocked-Terminator / P2 Record Divergence)**
+    *   **Spec Quote:** "Staff's normal business is... limited to... `employment_status=ACTIVE`." ([REQ-STORE-004])
+    *   **Spec Quote:** "Staff... after resignation... can read-only query... `joined_date ≤ asOf ≤ resigned_date`." ([REQ-STORE-003])
+    *   **Simulation:** On `2026-11-23` (the resignation day), `M1` attempts to clock in/out or view their own wage details for *that day*.
+    *   **Analysis:** The status is now `RESIGNED`. The access control rule in [REQ-STORE-004] strictly limits "normal business" to `ACTIVE` status. However, [REQ-STORE-003] allows read-only access to contract conditions for `asOf` dates within `[joined_date, resigned_date]`.
+    *   **The Gap:** The specification does not explicitly define if "clocking in" (time recording) is permitted on the `resigned_date` for a `RESIGNED` user.
+        *   If the system blocks *all* non-read operations based on `employment_status != ACTIVE`, `M1` cannot record their final day's work hours via the standard staff interface.
+        *   If the system allows it, it violates the strict `ACTIVE` check in [REQ-STORE-004] unless an exception is carved out for `date <= resigned_date`.
+        *   **Critical Failure:** The spec defines `RESIGNED` as a terminal state for "normal business." It does not provide a mechanism for the *final day's* labor recording if the resignation is processed *before* the end of the day (e.g., at 09:00 AM). The employee is legally entitled to pay for work done on `2026-11-23`. If the system locks them out of time-clocking at 09:00 AM because their status is `RESIGNED`, the "unrecorded work" paradox occurs. The spec mandates `effective_to = resigned_date + 1` for wage calculation, implying work *on* the resigned date is valid, but the access control layer (`employment_status=ACTIVE`) contradicts this by denying access.
+
+*   **Conflict Point 2: The "Midnight" Boundary & Wage Calculation (P3 Boundary Instant)**
+    *   **Spec Quote:** "Effective to... exclusive boundary... `NULL` is end boundary unset."
+    *   **Spec Quote:** "Resignation... `effective_to` to `resigned_date` + 1 day."
+    *   **Simulation:**
+        *   `resigned_date` = `2026-11-23`.
+        *   Contract `effective_to` = `2026-11-24`.
+        *   Wage Calculation Query for `2026-11-23`: `effective_from <= '2026-11-23' AND ('2026-11-23' < effective_to)`.
+        *   `'2026-11-23' < '2026-11-24'` is TRUE. The contract is valid.
+    *   **Analysis:** This part is logically sound for *calculation*. However, the handoff constraint in Section 4 states: "Slice 1... uniquely determined contract history ID... from target affiliation and Japan business day."
+    *   **The Gap:** Does the "Target Affiliation" lookup for wage calculation filter by `employment_status = ACTIVE`?
+        *   If the wage engine queries `store_staff` for `employment_status = ACTIVE` to find the contract, it will **fail** to find `M1` on `2026-11-23` (if processed earlier in the day) or immediately after, because the status is `RESIGNED`.
+        *   The spec says "Slice 1... handoff... to subsequent processing." It does not explicitly state that the wage engine must ignore `employment_status` and rely *solely* on the date range of the contract history.
+        *   If the wage engine respects the `ACTIVE` status filter (standard practice for "current employees"), the final day's wages are lost. The spec does not explicitly decouple the *wage calculation lookup* from the *access control status* for the `resigned_date`.
+
+*   **Conflict Point 3: Retry Idempotency & State Re-validation (P6 Silent Default / P7 Irreversibility)**
+    *   **Spec Quote:** "Re-trial is sent as a new request... Server re-executes from current code verification... does not reuse store ID or affiliation state resolved in prior request." ([2.4])
+    *   **Simulation:**
+        *   Client sends `POST /me/store-invitations/accept`.
+        *   Server acquires lock, validates, updates status to `ACTIVE`, creates contract.
+        *   Network timeout occurs before response.
+        *   Client retries.
+        *   Server acquires lock. Finds status `ACTIVE`.
+        *   **Spec Quote:** "If `ACTIVE`, return existing affiliation. No update... No initial contract addition." ([REQ-STORE-002] Step 4)
+    *   **Analysis:** This is handled correctly for *invitation acceptance*.
+    *   **However**, consider `POST /stores/{storeId}/staff/{storeStaffId}/contracts` (Contract Addition).
+        *   Client sends request. Server locks, validates, inserts row.
+        *   Network timeout.
+        *   Client retries with same `effectiveFrom` and data.
+        *   Server locks. Finds existing row with same `effectiveFrom`?
+        *   **Spec Quote:** "Uniqueness key... `uq_contract_active_effective (store_staff_id, active_effective_from)`."
+        *   If the first request succeeded, the second request will hit a unique constraint violation or the business logic check "Same day duplicate... 409".
+        *   **The Gap:** The spec does not define *idempotency keys* for contract creation. It relies on `effectiveFrom` uniqueness. If a user *intends* to create a contract, fails due to timeout, and retries, they get a 409 Conflict. They must then query to see if it succeeded. This is operationally safe but creates a "User Experience Deadlock" if the client doesn't handle 409 by querying state. More critically, if the *first* request partially failed (e.g., inserted contract, failed audit log, rolled back), the retry works. But if the first request *succeeded* and the client assumes failure, the retry fails with 409. This is standard REST behavior, but the spec lacks an explicit `Idempotency-Key` header requirement for *mutating* operations other than invitation acceptance. This is a P2 operational friction, not a P0 legal paradox, as the state is consistent.
+
+*   **Conflict Point 4: The "24-Hour" Store & Midnight Crossover (P3 Boundary Instant)**
+    *   **Spec Quote:** "24-hour operation... `open_time` `00:00:00`, `close_time` `00:00:00`."
+    *   **Spec Quote:** "Night labor... `[22:00, next day 05:00)`."
+    *   **Simulation:**
+        *   Employee works `23:00` to `01:00` next day.
+        *   Wage calculation splits at midnight.
+        *   **Spec Quote:** "Boundary-crossing work is split by actual time."
+    *   **Analysis:** The spec handles this in Section 4. However, does the *contract* change at midnight?
+        *   If a contract changes at `2026-11-24 00:00:00`, and the employee is working across midnight, the wage rate changes mid-shift.
+        *   The spec says "Contract history ID... uniquely determined... from Japan business day."
+        *   **The Gap:** A single shift spanning midnight involves *two* business days. The spec says "Slice 1... handoff... contract history ID... from target affiliation and Japan business day." It implies a *single* contract ID per day.
+        *   If the wage engine processes the shift as a whole, it needs *two* contract IDs (one for Day 1, one for Day 2) if the contract changed at midnight.
+        *   The spec does not explicitly define how the "handoff" handles a single time-clock event that spans a contract boundary. It says "uniquely determined... ID" (singular). This suggests the system might fail to apply the new rate for the second half of the shift if it only looks up the contract for the *start* date.
+
+### Findings Table
+
+| Finding ID | Attack Vector | Severity | Verdict | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **Spec Quote:** "Staff's normal business is... limited to... `employment_status=ACTIVE`." ([REQ-STORE-004]) vs. "Resignation... `resigned_date`... `effective_to` to `resigned_date` + 1 day." ([REQ-STORE-003]) | **Scenario:** Employee resigns effective `2026-11-23`. At 09:00 AM, status becomes `RESIGNED`. Employee works until 18:00. System denies clock-in/out because `employment_status != ACTIVE`. Work is unrecorded. Wage calculation relies on `effective_to`, but the *recording* mechanism is blocked by access control. **Recommendation:** Explicitly state that `employment_status = RESIGNED` permits time-clocking and wage viewing for `current_date <= resigned_date`. Decouple "Access to Record Work" from "Active Employment Status" for the final day. |
+| ADV-002 | P2 Record-vs-Reality Divergence | P1 | WARN | **Spec Quote:** "Slice 1... uniquely determined contract history ID... from target affiliation and Japan business day." ([Section 4]) | **Scenario:** Wage engine queries for contract on `2026-11-23`. If it filters by `employment_status = ACTIVE`, it finds nothing (status is `RESIGNED`). If it filters by date range only, it works. The spec does not explicitly forbid the wage engine from using the `ACTIVE` status filter. This creates a risk of "Ghost Work" (work done, no wage record) if the implementation follows standard "active employee" queries. **Recommendation:** Explicitly mandate that wage calculation lookups for `date <= resigned_date` must ignore `employment_status` and rely solely on `store_staff_contract_history` date ranges. |
+| ADV-003 | P3 Boundary Instant | P1 | WARN | **Spec Quote:** "Boundary-crossing work is split by actual time." ([Section 4]) vs. "Uniquely determined contract history ID... from... Japan business day." ([Section 4]) | **Scenario:** Employee works `23:00` (Day 1) to `01:00` (Day 2). Contract changes at midnight. The spec implies a single contract ID handoff per "business day" context, but a single shift spans two days. If the system assigns the Day 1 contract to the *entire* shift, the Day 2 portion is underpaid. **Recommendation:** Clarify that for shifts spanning midnight, the wage engine must split the shift into segments per business day and apply the contract valid for *each* segment's date. |
+| ADV-004 | P6 Silent Default | P2 | WARN | **Spec Quote:** "Re-trial is sent as a new request... does not reuse... state." ([2.4]) | **Scenario:** Client retries `POST /contracts` after timeout. Server returns 409 Conflict because the first request succeeded. Client does not know if it succeeded or failed. No `Idempotency-Key` is defined for contract creation. **Recommendation:** Implement `Idempotency-Key` headers for all mutating contract operations to ensure safe retries without 409 ambiguity. |
+
+### JSON Output
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "Spec [REQ-STORE-004] limits 'normal business' to 'employment_status=ACTIVE'. Spec [REQ-STORE-003] sets status to 'RESIGNED' on resignation day but extends contract validity to 'resigned_date + 1'. No exception is made for time-clocking on the final day.",
+      "scenario": "Employee resigns effective today. Status becomes RESIGNED at 09:00. Employee works until 18:00. System blocks clock-in/out due to RESIGNED status. Work is unrecorded, leading to unpaid wages.",
+      "recommendation": "Modify access control to allow time-clocking and wage viewing for users with 'employment_status=RESIGNED' if 'current_date <= resigned_date'."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P2 Record-vs-Reality Divergence",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "Spec [Section 4] states contract ID is determined from 'target affiliation and Japan business day'. It does not explicitly prohibit filtering by 'employment_status=ACTIVE' during this lookup.",
+      "scenario": "Wage engine queries for contract on resigned_date. If it filters by ACTIVE status, it returns null. Wage calculation fails or defaults to 0, causing wage loss for the final day.",
+      "recommendation": "Explicitly state that wage calculation lookups for dates <= resigned_date must ignore employment_status and rely solely on contract history date ranges."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P3 Boundary Instant",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "Spec [Section 4] mentions 'uniquely determined contract history ID' per business day, but also 'boundary-crossing work is split by actual time'. Ambiguity exists on whether a single shift spanning midnight uses one or two contract IDs.",
+      "scenario": "Employee works 23:00 to 01:00. Contract changes at midnight. If system applies Day 1 contract to entire shift, Day 2 hours are underpaid.",
+      "recommendation": "Clarify that shifts spanning midnight must be segmented by business day, applying the contract valid for each specific day segment."
+    },
+    {
+      "finding_id": "ADV-004",
+      "vector": "P6 Silent Default",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "Spec [2.4] defines retry logic but does not mandate Idempotency Keys for contract creation. Retries after timeout result in 409 Conflict, leaving client uncertain of state.",
+      "scenario": "Client sends contract creation. Timeout. Client retries. Server returns 409. Client cannot distinguish between 'duplicate request' and 'conflicting data' without additional query.",
+      "recommendation": "Implement Idempotency-Key headers for all mutating contract operations to ensure safe, unambiguous retries."
+    }
+  ]
+}
+```

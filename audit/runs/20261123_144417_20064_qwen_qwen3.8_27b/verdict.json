@@ -1,0 +1,22 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_144417_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "03d1f30dcf01f464ea436e77867b01a372629139efe2855f8878c926ff294136",
+    "verdict":  "FAIL",
+    "findings_count":  1,
+    "p0_p1_count":  1,
+    "findings":  [
+                     {
+                         "finding_id":  "ADV-004-FAIL",
+                         "vector":  "P4 Rule Collision",
+                         "severity":  "P1",
+                         "verdict":  "FAIL",
+                         "evidence":  "SPEC_QUOTE: \u0027[REQ-STORE-003] Exception Handling: Duplicate start date... is 409.\u0027 SPEC_QUOTE: \u0027[REQ-STORE-003] Processing: New start date... must be after the latest uncanceled contract\u0027s start date.\u0027",
+                         "scenario":  "Client initiates POST /contracts. Server commits the transaction successfully. Network latency causes the client to time out before receiving the 201 response. Client retries the POST request. Server detects the existing contract with the same effectiveFrom and returns 409 Conflict. The client cannot determine if the original request succeeded or if a different conflict occurred, leading to an operational deadlock where the contract cannot be created or verified via the API without manual intervention.",
+                         "recommendation":  "Implement Idempotency Keys for POST /contracts or modify the 409 response logic to return the existing contract resource (200 OK) if the request payload matches the existing record, ensuring safe retries."
+                     }
+                 ],
+    "created_utc":  "2026-11-23T05:46:01.5097754Z"
+}

@@ -1,0 +1,107 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_144913_26096_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 86.56s | 11011 tokens | 3836 tokens | 47.5 tokens/s | stop | 20261123_054913_1bb0ef85 |
+
+### Interaction Matrix & Adversarial Simulation
+
+**1. Rule Extraction & State Analysis**
+*   **State Definitions**: `store_staff.employment_status` is strictly `PENDING`, `ACTIVE`, or `RESIGNED`.
+*   **Termination Logic (REQ-STORE-003)**: Upon resignation, `employment_status` becomes `RESIGNED`, `resigned_date` is set, and `effective_to` of the final active contract is set to `resigned_date + 1`.
+*   **Access Control (REQ-STORE-004)**: Staff business operations require `employment_status = ACTIVE`.
+*   **Post-Termination Access (REQ-STORE-003/004)**: Staff can read their own contract history for dates where `joined_date <= asOf <= resigned_date`.
+*   **Work Time Validation (Section 4)**: Work time is valid if `start <= end` and `real_work_time > 0`. It does *not* explicitly check `employment_status` in the provided snippet, but relies on the "Staff's normal business" scope defined in REQ-STORE-004.
+*   **Wage Calculation Handoff (Section 4)**: Wage calculation uses the contract history determined by the "Japanese business day."
+
+**2. Adversarial Simulation: The "Ghost Shift" & Wage Paradox**
+
+*   **Scenario A: The Resignation Day Clock-Out (P1/P2 Risk)**
+    *   **Context**: Employee `M1` resigns effective `2026-11-23`. `resigned_date` = `2026-11-23`.
+    *   **Action**: `M1` clocks in at `09:00` and clocks out at `18:00` on `2026-11-23`.
+    *   **System State**: At `18:00`, `employment_status` is `RESIGNED`.
+    *   **Access Check**: REQ-STORE-004 states: "Staff's normal business is... limited to... `employment_status=ACTIVE`."
+    *   **Conflict**: If the "Clock Out" or "Work Time Submission" endpoint is considered "normal business," it is blocked for `RESIGNED` users. However, the spec explicitly allows "resignation day's clock-in/out as legitimate work performance" in the Exception Handling of REQ-STORE-003 ("resignation day's clock-in/out is permitted as legitimate work performance").
+    *   **Gap**: The spec *says* it is permitted, but does not define the *mechanism* to bypass the `ACTIVE` status check for the specific act of recording work time on the resignation day. If the API strictly enforces `ACTIVE` for *any* staff-scoped write operation (including time recording), the work is unrecorded. If it allows it, it must specifically exempt the `RESIGNED` status *only* for the date `resigned_date`. The current DDL/Spec does not show a specific flag or logic branch for "Resignation Day Work Recording" distinct from general staff operations. It relies on the reader inferring that "legitimate work performance" overrides the `ACTIVE` constraint. This is a **Silent Default (P6)** risk: If the implementation strictly follows REQ-STORE-004's `ACTIVE` requirement for all staff endpoints, the resignation day's work is rejected or lost.
+
+*   **Scenario B: The Midnight Boundary & Wage Calculation (P3 Risk)**
+    *   **Context**: `resigned_date` = `2026-11-23`. Contract `effective_to` = `2026-11-24`.
+    *   **Action**: Employee works `2026-11-23 23:00` to `2026-11-24 01:00`.
+    *   **Wage Calc**: Section 4 states wage calculation is based on the "Japanese business day."
+    *   **Conflict**: The work spans two days. The contract is valid for `2026-11-23` (since `effective_to` is exclusive `2026-11-24`). Is the work from `00:00` to `01:00` on `2026-11-24` paid?
+    *   **Analysis**: The contract `effective_to` is `2026-11-24`. This means the contract is valid *up to but not including* `2026-11-24`. Therefore, work performed on `2026-11-24` (even 1 minute) falls outside the contract period.
+    *   **Result**: The employee is owed wages for `2026-11-23 23:00-24:00` (1 hour) but *not* for `2026-11-24 00:00-01:00` (1 hour) because the contract expired at midnight.
+    *   **Legal/Operational Hazard**: In Japan, if an employee is scheduled to work past midnight, the contract must cover that time. By setting `effective_to` to `resigned_date + 1`, the system effectively terminates the employment relationship at midnight, potentially violating labor standards if the employee was *scheduled* to work past midnight on their last day. The spec does not address "scheduled work extending past resignation date." It assumes resignation ends all rights at midnight. If the employee worked 1 hour past midnight, that hour is "unrecorded work" or "unpaid work" because the contract no longer exists to calculate the wage.
+
+*   **Scenario C: The 503 Retry & State Drift (P4 Risk)**
+    *   **Context**: User accepts invitation. Server locks row. Another process rotates token. User gets 503.
+    *   **Retry**: User retries.
+    *   **Spec**: "Server... does not reuse store ID or membership state resolved in the preceding request."
+    *   **Risk**: If the *first* request successfully created the `PENDING` row but failed to commit due to a timeout *after* the lock was acquired but *before* the response, and the client retries, the second request will find the `PENDING` row. This is handled.
+    *   **However**: What if the first request *committed* the `PENDING` row, but the client received a 503 due to a network glitch *after* commit? The client retries. The second request finds the `PENDING` row. It checks expiration. If expired, it returns 410. If not, it proceeds to `ACTIVE`. This is correct.
+    *   **Critical Gap**: The spec says "Lock acquisition failure is treated as 0 rows" in the *re-confirmation* step (Step 4 of REQ-STORE-002). But Step 3 says "Exclusively lock the membership row." If the lock in Step 3 fails (503), the transaction rolls back. The client retries. This is safe.
+
+*   **Scenario D: The "Ghost Work" of Resigned Employees (P1 Blocked-Terminator)**
+    *   **Spec Quote**: "Staff's normal business is... limited to... `employment_status=ACTIVE`."
+    *   **Spec Quote**: "Resignation day's clock-in/out is permitted as legitimate work performance."
+    *   **Contradiction**: The general rule (REQ-STORE-004) blocks `RESIGNED` users. The specific rule (REQ-STORE-003) allows clock-in/out on resignation day.
+    *   **Implementation Ambiguity**: Does the "Clock In" endpoint check `employment_status`? If yes, it must have a special case: `IF status == RESIGNED AND today == resigned_date THEN ALLOW`.
+    *   **Wage Calculation**: Section 4 says "Wage calculation... based on... contract history."
+    *   **The Fatal Flaw**: If the employee resigns on Nov 23, and the contract `effective_to` is Nov 24, the contract is valid for Nov 23.
+    *   **But**: What if the employee resigns *retroactively*? No, `resigned_date` must be `>= joined_date` and `<= today`.
+    *   **What if the employee works *after* resignation?** The spec says "From the day after resignation... complete block."
+    *   **The P0/P1 Finding**: The spec **does not define the API endpoint or logic for recording work time for a RESIGNED employee on their resignation day.** It only states the *business rule* that it is permitted. It does not specify *how* the system bypasses the `ACTIVE` status check in the authorization layer (REQ-STORE-004) for this specific case.
+    *   **Consequence**: A standard implementation of REQ-STORE-004 will return `403 Forbidden` for a `RESIGNED` user attempting to clock out on their last day. The work is lost. This is a **P0** wage loss scenario.
+
+### Findings Table
+
+| Finding ID | Attack Vector | Severity | Verdict | Code & Test Evidence | Detailed Scenario & Recommendation |
+|---|---|---|---|---|---|
+| ADV-001 | P1 Blocked-Terminator | P0 | FAIL | **SPEC_QUOTE**: REQ-STORE-004: "Staff's normal business is... limited to... `employment_status=ACTIVE`." <br> **SPEC_QUOTE**: REQ-STORE-003: "Resignation day's clock-in/out is permitted as legitimate work performance." <br> **DERIVED**: No explicit exception logic is defined in the authorization layer (REQ-STORE-004) to allow `RESIGNED` users to perform "normal business" (clock-in/out) on `resigned_date`. | **Scenario**: Employee `M1` resigns effective `2026-11-23`. On `2026-11-23` at `18:00`, `M1` attempts to clock out. The system checks `employment_status`. It is `RESIGNED`. The general rule in REQ-STORE-004 denies access. The specific rule in REQ-STORE-003 is a business requirement, not an implementation directive for the auth layer. The work record is rejected. `M1` loses wages for the final day. <br> **Recommendation**: Explicitly modify REQ-STORE-004 to state: "Staff access to time-recording endpoints is permitted if `employment_status=ACTIVE` OR (`employment_status=RESIGNED` AND `current_date <= resigned_date`)." |
+| ADV-002 | P3 Boundary Instant | P1 | WARN | **SPEC_QUOTE**: REQ-STORE-003: "Set `effective_to` to the day after the resignation date." <br> **SPEC_QUOTE**: Section 4: "Wage calculation... based on... Japanese business day." <br> **DERIVED**: Contract validity is `[effective_from, effective_to)`. If `resigned_date` is Nov 23, `effective_to` is Nov 24. Work on Nov 24 is outside the contract. | **Scenario**: Employee works `23:00` to `01:00` on their last day (Nov 23). The work spans into Nov 24. The contract expires at `00:00` Nov 24. The system cannot calculate wages for the `00:00-01:00` segment because no contract exists for Nov 24. This results in unpaid work for the final hour of the shift. <br> **Recommendation**: Clarify that if a shift extends past midnight on the resignation day, the contract must remain valid for the duration of the shift, or the wage calculation must handle "orphaned" work hours by referencing the last valid contract. |
+| ADV-003 | P6 Silent Default | P1 | WARN | **SPEC_QUOTE**: REQ-STORE-002 Step 4: "Lock acquisition failure is treated as 0 rows." <br> **SPEC_QUOTE**: Section 2.3: "Lock acquisition failure... return 503." <br> **DERIVED**: There is a contradiction in how lock failures are handled in the re-confirmation step vs. the main flow. | **Scenario**: During invitation acceptance, the system attempts to re-confirm the `PENDING` row. If the lock acquisition fails (due to concurrency), the spec says "treat as 0 rows" in the table, but Section 2.3 says return 503. If it returns 404 (0 rows), the user is told the invitation doesn't exist, even though it does. This causes a false negative. <br> **Recommendation**: Clarify that lock failures in the re-confirmation step must result in a 503 (Retry Later), not a 404 (Not Found), to prevent false negatives. |
+| ADV-004 | P7 Irreversibility | P2 | WARN | **SPEC_QUOTE**: REQ-STORE-003: "Physical deletion of contract history is prohibited." <br> **SPEC_QUOTE**: REQ-STORE-003: "Append-only audit record." <br> **DERIVED**: The spec mandates audit trails but does not specify the retention period or immutability of the audit log itself. | **Scenario**: An administrator deletes the audit log entry for a contract cancellation. The system has no mechanism to detect this tampering because the audit log is not cryptographically chained or stored in an immutable ledger. <br> **Recommendation**: Specify that audit logs must be append-only and tamper-evident (e.g., via hash chaining or WORM storage). |
+
+```json
+{
+  "audit_engine": "Hermes-2Tier-Adversarial",
+  "version": "1.2.0",
+  "findings": [
+    {
+      "finding_id": "ADV-001",
+      "vector": "P1 Blocked-Terminator",
+      "severity": "P0",
+      "verdict": "FAIL",
+      "evidence": "SPEC_QUOTE: REQ-STORE-004 'Staff's normal business is... limited to... employment_status=ACTIVE.' SPEC_QUOTE: REQ-STORE-003 'Resignation day's clock-in/out is permitted as legitimate work performance.' DERIVED: No explicit exception in authorization layer for RESIGNED users on resignation day.",
+      "scenario": "Employee resigns effective Nov 23. On Nov 23, they attempt to clock out. System checks status (RESIGNED) and denies access per REQ-STORE-004, ignoring the business rule in REQ-STORE-003. Work is unrecorded, wages lost.",
+      "recommendation": "Modify REQ-STORE-004 to explicitly allow time-recording for RESIGNED users if current_date <= resigned_date."
+    },
+    {
+      "finding_id": "ADV-002",
+      "vector": "P3 Boundary Instant",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: REQ-STORE-003 'Set effective_to to the day after the resignation date.' DERIVED: Contract validity is [effective_from, effective_to). Work extending past midnight on resignation day falls outside contract validity.",
+      "scenario": "Employee works 23:00-01:00 on last day. Contract expires at 00:00. Work from 00:00-01:00 is unpaid because no contract exists for that date.",
+      "recommendation": "Clarify wage calculation for shifts extending past midnight on resignation day, ensuring the last valid contract is used for the entire shift."
+    },
+    {
+      "finding_id": "ADV-003",
+      "vector": "P6 Silent Default",
+      "severity": "P1",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: REQ-STORE-002 Step 4 'Lock acquisition failure is treated as 0 rows.' SPEC_QUOTE: Section 2.3 'Lock acquisition failure... return 503.' DERIVED: Contradiction in error handling for lock failures during re-confirmation.",
+      "scenario": "Lock failure during re-confirmation returns 404 (Not Found) instead of 503 (Retry Later), causing false negatives for valid invitations.",
+      "recommendation": "Clarify that lock failures in re-confirmation must return 503, not 404."
+    },
+    {
+      "finding_id": "ADV-004",
+      "vector": "P7 Irreversibility",
+      "severity": "P2",
+      "verdict": "WARN",
+      "evidence": "SPEC_QUOTE: REQ-STORE-003 'Append-only audit record.' DERIVED: No specification for tamper-evidence or immutability of the audit log itself.",
+      "scenario": "Administrator deletes audit log entry. System cannot detect tampering.",
+      "recommendation": "Specify that audit logs must be tamper-evident (e.g., hash chaining)."
+    }
+  ]
+}
+```
