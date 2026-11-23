@@ -194,7 +194,6 @@ try {
             $reqObj = @{
                 model = $effectiveModel
                 max_tokens = 8192
-                thinking = @{ type = "between_tools" }
                 messages = @(@{ role = "user"; content = $finalPrompt })
             }
             $requestBody = $reqObj | ConvertTo-Json -Depth 5

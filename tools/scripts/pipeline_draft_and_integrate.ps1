@@ -20,6 +20,12 @@ param(
     [string]$ContextSection = "",
 
     [Parameter(Mandatory = $false)]
+    [string]$TargetId = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$OutputTargetFile = "",
+
+    [Parameter(Mandatory = $false)]
     [int]$TimeoutSeconds = 300
 )
 
@@ -30,6 +36,17 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 if (-not (Test-Path $projectRoot)) { $projectRoot = (Get-Location).Path }
+
+if ($TargetId -and -not $OutputTargetFile) {
+    $targetsJsonPath = Join-Path $projectRoot "config\srs_targets.json"
+    if (Test-Path $targetsJsonPath) {
+        $tCfg = [System.IO.File]::ReadAllText($targetsJsonPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        $matchedTgt = $tCfg.targets | Where-Object { $_.id -eq $TargetId } | Select-Object -First 1
+        if ($matchedTgt) {
+            $OutputTargetFile = Join-Path $projectRoot $matchedTgt.ja_path
+        }
+    }
+}
 
 # 1. Allocate Isolated Run Directory
 $runId = (Get-Date -Format "yyyyMMdd_HHmmss") + "_" + [System.Guid]::NewGuid().ToString().Substring(0, 8)
@@ -68,16 +85,12 @@ $RequirementDetails
 
 $goldenRules
 
-TASK:
-Draft a complete, production-grade SRS markdown specification for this requirement.
-Include:
-- Strict markdown IDs: [REQ-ATT-xxx], [DDL-xxx]
-- Complete DDL table (columns, types, nullability, PK, FK, indexes)
-- Business logic & edge case processing
-- Boundary exceptions and error codes
+TASK (TWO-STAGE REVERSE-ENGINEERING & FORMALIZATION):
+Stage 1 (Internal Deep Extraction): First, thoroughly extract all actors, normal paths, rejection paths (401/403/404/409/422), rollback/compensation branches, and 4-tier lock acquisition orders (`member -> store -> store_staff -> contract_history`) with concrete code anchors (`File:Line/Symbol`).
+Stage 2 (Formal Rendering): Render the extracted specification into valid `[REQ-xxx]` and `[DDL-xxx]` blocks adhering to `config/srs_track2_common_contract.md`.
 
 MANDATORY LINTER STRUCTURE PER REQUIREMENT (RULE-REQ-03):
-Each and every requirement block (### [REQ-...]) MUST strictly contain the following 5 bullet sections:
+Each and every requirement block (#### [REQ-...]) MUST strictly contain the following 5 bullet sections (Never use bare 'N/A' or 'TBD'):
 - **入力**: (Detailed input parameters, types, sources; use SecurityContext for staff/tenant to avoid IDOR)
 - **処理**: (Step-by-step logic, pessimistic locking 'FOR UPDATE', state transitions using '→')
 - **出力**: (Return fields, DTOs, generated keys, status codes)
@@ -112,7 +125,7 @@ Move-Item -Path $tmpDraftPath -Destination $finalDraftPath -Force
 Write-Host "[PIPELINE] Draft successfully authored and verified: $finalDraftPath ($($draftContent.Length) chars, $($codexSw.Elapsed.TotalSeconds.ToString('F1'))s)"
 
 # 5. Execute Deterministic Linter Gate (Fail-Closed)
-$linterBin = Join-Path $projectRoot "tools\scripts\VerifySRS_Deterministic.exe"
+$linterBin = Join-Path $projectRoot "tools\scripts\VerifySRS.exe"
 if (Test-Path $linterBin) {
     Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
     $lintOutput = & $linterBin $finalDraftPath
@@ -125,8 +138,13 @@ if (Test-Path $linterBin) {
         exit 1
     }
     Write-Host "[PIPELINE PASS] Deterministic Linter passed with 0 FATAL errors."
+    if ($OutputTargetFile) {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($OutputTargetFile, $draftContent, $utf8NoBom)
+        Write-Host "[PIPELINE INTEGRATED] Automatically integrated verified draft to target: $OutputTargetFile" -ForegroundColor Green
+    }
 } else {
-    Write-Host "[PIPELINE WARN] VerifySRS_Deterministic.exe not found at standard path."
+    Write-Host "[PIPELINE WARN] VerifySRS.exe not found at standard path."
 }
 
 Write-Host "=== Pipeline Execution Completed for Run: $runId ==="

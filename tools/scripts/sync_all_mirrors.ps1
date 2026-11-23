@@ -1,77 +1,157 @@
-<#
-.SYNOPSIS
-    KINTAI Full Mirror & Dashboard Automated Synchronization Tool
-.DESCRIPTION
-    1. Executes sync_dashboard.ps1 to synchronize Japanese dashboards and Korean mirror dashboards simultaneously.
-    2. Validates 1:1 structural alignment between config/srs_specification_ssot.md and config/srs_specification_ssot_KO.md.
-    3. Validates 1:1 structural alignment between GEMINI.md and GEMINI_KO.md.
-#>
-[CmdletBinding()]
-param()
-
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+Set-StrictMode -Version Latest
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
-if (-not (Test-Path $projectRoot)) { $projectRoot = (Get-Location).Path }
+function Assert-OrderedParity {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Label,
 
-Write-Host "=== [KINTAI FULL MIRROR SYNCHRONIZER] ===" -ForegroundColor Cyan
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$JapaneseValues,
 
-# 1. Synchronize Dashboards (Both JA and KO simultaneously)
-$dashSyncScript = Join-Path $projectRoot "tools\scripts\sync_dashboard.ps1"
-if (Test-Path $dashSyncScript) {
-    Write-Host "[1/3] Synchronizing Japanese & Korean Dashboards..." -ForegroundColor Yellow
-    & powershell -ExecutionPolicy Bypass -File $dashSyncScript
-}
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$KoreanValues,
 
-# 2. Check SSOT Structural Parity (REQ count & IDs)
-Write-Host "[2/3] Checking SSOT Japanese vs Korean Structural Parity..." -ForegroundColor Yellow
-$jaSsot = Join-Path $projectRoot "config\srs_specification_ssot.md"
-$koSsot = Join-Path $projectRoot "config\srs_specification_ssot_KO.md"
+        [Parameter(Mandatory)]
+        [string]$JapanesePath,
 
-if ((Test-Path $jaSsot) -and (Test-Path $koSsot)) {
-    $reqRegex = [System.Text.RegularExpressions.Regex]::new('^#{3,4}\s*\[(REQ-[A-Z0-9\-]+)\]')
-    
-    $jaLines = [System.IO.File]::ReadAllLines($jaSsot, [System.Text.Encoding]::UTF8)
-    $jaReqs = @()
-    foreach ($l in $jaLines) {
-        $m = $reqRegex.Match($l.Trim())
-        if ($m.Success) { $jaReqs += $m.Groups[1].Value }
+        [Parameter(Mandatory)]
+        [string]$KoreanPath
+    )
+
+    if ($JapaneseValues.Count -ne $KoreanValues.Count) {
+        throw ('[{0}] Count mismatch: {1} has {2}, {3} has {4}.' -f
+            $Label, $JapanesePath, $JapaneseValues.Count,
+            $KoreanPath, $KoreanValues.Count)
     }
 
-    $koLines = [System.IO.File]::ReadAllLines($koSsot, [System.Text.Encoding]::UTF8)
-    $koReqs = @()
-    foreach ($l in $koLines) {
-        $m = $reqRegex.Match($l.Trim())
-        if ($m.Success) { $koReqs += $m.Groups[1].Value }
-    }
-
-    Write-Host "  -> JA SSOT Requirements: $($jaReqs.Count) | KO SSOT Requirements: $($koReqs.Count)" -ForegroundColor White
-    $diff = Compare-Object $jaReqs $koReqs
-    if ($diff) {
-        Write-Host "  [WARN] Discrepancy detected in requirements between JA and KO SSOT!" -ForegroundColor Red
-        $diff | Format-Table | Out-String | Write-Host
-    } else {
-        Write-Host "  [PASS] 100% Structural Parity Confirmed (All $($jaReqs.Count) requirements matched exactly)." -ForegroundColor Green
+    for ($index = 0; $index -lt $JapaneseValues.Count; $index++) {
+        if ($JapaneseValues[$index] -cne $KoreanValues[$index]) {
+            throw ('[{0}] Position {1}: {2} has "{3}", {4} has "{5}".' -f
+                $Label, ($index + 1),
+                $JapanesePath, $JapaneseValues[$index],
+                $KoreanPath, $KoreanValues[$index])
+        }
     }
 }
 
-# 3. Check Protocol Rule Parity
-Write-Host "[3/3] Checking GEMINI.md vs GEMINI_KO.md Rule Parity..." -ForegroundColor Yellow
-$jaGemini = Join-Path $projectRoot "GEMINI.md"
-$koGemini = Join-Path $projectRoot "GEMINI_KO.md"
+function Get-HeadingValues {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
 
-if ((Test-Path $jaGemini) -and (Test-Path $koGemini)) {
-    $jaRules = (Get-Content $jaGemini -Encoding UTF8 | Select-String -Pattern '^## \d+\.').Count
-    $koRules = (Get-Content $koGemini -Encoding UTF8 | Select-String -Pattern '^## \d+\.').Count
-    Write-Host "  -> JA Protocol Rules: $jaRules | KO Protocol Rules: $koRules" -ForegroundColor White
-    if ($jaRules -eq $koRules) {
-        Write-Host "  [PASS] 100% Rule Article Parity Confirmed (All $jaRules articles matched)." -ForegroundColor Green
-    } else {
-        Write-Host "  [WARN] Rule count mismatch between JA ($jaRules) and KO ($koRules) protocols!" -ForegroundColor Red
+        [Parameter(Mandatory)]
+        [regex]$Pattern
+    )
+
+    $lines = Get-Content -LiteralPath $Path -Encoding UTF8
+    foreach ($line in $lines) {
+        $match = $Pattern.Match($line)
+        if ($match.Success) {
+            $match.Groups[1].Value
+        }
     }
 }
 
-Write-Host "=== [ALL MIRRORS FULLY SYNCHRONIZED & VERIFIED] ===" -ForegroundColor Green
+$locationPushed = $false
+try {
+    $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).ProviderPath
+    Push-Location -LiteralPath $repositoryRoot
+    $locationPushed = $true
+
+    $dashboardPath = Join-Path $PSScriptRoot 'sync_dashboard.ps1'
+    if (-not (Test-Path -LiteralPath $dashboardPath -PathType Leaf)) {
+        throw "[FATAL DASHBOARD SYNC] Script missing: $dashboardPath"
+    }
+
+    $shellName = if ($PSVersionTable.PSEdition -eq 'Desktop') {
+        'powershell.exe'
+    }
+    elseif ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+        'pwsh.exe'
+    }
+    else {
+        'pwsh'
+    }
+    $shellPath = Join-Path $PSHOME $shellName
+
+    # Check the child process exit code explicitly on all supported hosts.
+    $PSNativeCommandUseErrorActionPreference = $false
+    & $shellPath -NoLogo -NoProfile -NonInteractive -File $dashboardPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "[FATAL DASHBOARD SYNC] Dashboard sync exited with code $LASTEXITCODE."
+    }
+
+    $configPath = Join-Path $repositoryRoot 'config/srs_targets.json'
+    $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+
+    if ($null -eq $config -or
+        $null -eq $config.PSObject.Properties['targets'] -or
+        $config.targets -isnot [array] -or
+        $config.targets.Count -eq 0) {
+        throw "[FATAL TARGET CONFIG] Expected a non-empty targets array in $configPath."
+    }
+
+    $requirementPattern = [regex]'^#{3,4}\s*\[((?:REQ|CC)-[A-Z0-9_-]+)\]'
+
+    foreach ($target in $config.targets) {
+        if ($null -eq $target -or
+            $null -eq $target.PSObject.Properties['ja_path'] -or
+            $null -eq $target.PSObject.Properties['ko_path'] -or
+            $target.ja_path -isnot [string] -or
+            $target.ko_path -isnot [string] -or
+            [string]::IsNullOrWhiteSpace($target.ja_path) -or
+            [string]::IsNullOrWhiteSpace($target.ko_path)) {
+            throw "[FATAL TARGET CONFIG] Each target must define non-empty ja_path and ko_path strings."
+        }
+
+        $japanesePath = Join-Path $repositoryRoot $target.ja_path
+        $koreanPath = Join-Path $repositoryRoot $target.ko_path
+
+        if (-not (Test-Path -LiteralPath $japanesePath)) {
+            continue
+        }
+        if (-not (Test-Path -LiteralPath $japanesePath -PathType Leaf)) {
+            throw "[FATAL TARGET CONFIG] Expected a file at $japanesePath."
+        }
+        if (-not (Test-Path -LiteralPath $koreanPath -PathType Leaf)) {
+            throw "[FATAL MIRROR MISSING] Expected $koreanPath for $japanesePath."
+        }
+
+        $japaneseIds = @(Get-HeadingValues -Path $japanesePath -Pattern $requirementPattern)
+        $koreanIds = @(Get-HeadingValues -Path $koreanPath -Pattern $requirementPattern)
+        Assert-OrderedParity -Label 'FATAL REQUIREMENT PARITY' `
+            -JapaneseValues $japaneseIds -KoreanValues $koreanIds `
+            -JapanesePath $japanesePath -KoreanPath $koreanPath
+    }
+
+    $geminiJapanesePath = Join-Path $repositoryRoot 'GEMINI.md'
+    $geminiKoreanPath = Join-Path $repositoryRoot 'GEMINI_KO.md'
+    foreach ($path in @($geminiJapanesePath, $geminiKoreanPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "[FATAL GEMINI PARITY] Required file missing: $path"
+        }
+    }
+
+    $articlePattern = [regex]'^## (\d+)\.'
+    $japaneseArticles = @(Get-HeadingValues -Path $geminiJapanesePath -Pattern $articlePattern)
+    $koreanArticles = @(Get-HeadingValues -Path $geminiKoreanPath -Pattern $articlePattern)
+    Assert-OrderedParity -Label 'FATAL GEMINI PARITY' `
+        -JapaneseValues $japaneseArticles -KoreanValues $koreanArticles `
+        -JapanesePath $geminiJapanesePath -KoreanPath $geminiKoreanPath
+}
+catch {
+    [Console]::Error.WriteLine($_.Exception.Message)
+    exit 1
+}
+finally {
+    if ($locationPushed) {
+        Pop-Location
+    }
+}
+
+Write-Output '[PASS] Dashboard sync and mirror parity checks completed.'
+exit 0

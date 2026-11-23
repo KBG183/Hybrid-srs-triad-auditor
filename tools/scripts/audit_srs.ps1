@@ -162,9 +162,9 @@ try {
             $endIdx = if ($i + 1 -lt $reqMatches.Count) { $reqMatches[$i + 1].Index } else { $content.Length }
             $reqBlock = $content.Substring($startIdx, $endIdx - $startIdx)
 
-            $hasInputOrDepends = $reqBlock -match '(-\s*\*\*入力.*?\*\*:|DependsOn|先行依存関係)'
-            $hasProcessOrBody = $reqBlock -match '(-\s*\*\*処理\*\*:|-\s*\*\*概要\*\*:)'
-            $hasAcceptanceOrDod = $reqBlock -match '(-\s*\*\*完了基準\s*\(DoD\)\*\*:|Acceptance Criteria|検証基準)'
+            $hasInputOrDepends = $reqBlock -match '(-\s*\*\*\u5165\u529B.*?\*\*:|DependsOn|\u5148\u884C\u4F9D\u5B58\u95A2\u4FC2)'
+            $hasProcessOrBody = $reqBlock -match '(-\s*\*\*\u51E6\u7406\*\*:|-\s*\*\*\u6982\u8981\*\*:)'
+            $hasAcceptanceOrDod = $reqBlock -match '(-\s*\*\*\u5B8C\u4E86\u57FA\u6E96\s*\(DoD\)\*\*:|Acceptance Criteria|\u691C\u8A3C\u57FA\u6E96)'
 
             if (-not ($hasInputOrDepends -and $hasProcessOrBody -and $hasAcceptanceOrDod)) {
                 $rejectionReasons.Add("[$relPath] Requirement '$reqId' is missing mandatory structure (Input/DependsOn, Process/Body, or DoD/Acceptance Criteria).")
@@ -189,7 +189,7 @@ try {
     foreach ($fe in ($files | Select-Object -Skip 1)) {
         $allSpecText += "`n" + [System.IO.File]::ReadAllText((Join-Path $rootFull $fe.Path), $utf8NoBom)
     }
-    $digestSpecText = $combinedSpecBuilder.ToString()
+    $digestSpecText = if ($allSpecText.Length -le 65000) { $allSpecText } else { $combinedSpecBuilder.ToString() }
 
     # Check Article 0 Section 3: 5 Mandatory KINTAI Domain Alignment Axes
     $domainAxes = @(
@@ -243,7 +243,7 @@ Requirement IDs: $(($seenReqIds | Sort-Object) -join ', ')
 $digestSpecText
 
 === AUDIT INSTRUCTIONS ===
-1. Verify compliance with Article 0 Sections 1 through 5 (Fail-Closed, unique REQ-* IDs, 5 mandatory KINTAI domain axes: working hours/breaks, Labor Standards Act Article 37 overtime/night rates & rounding, SELECT FOR UPDATE pessimistic locking, audit trail preservation, and IDOR/multi-tenant isolation).
+1. Verify compliance with Article 0 Sections 1 through 5 (Fail-Closed, unique REQ-* IDs, 5 mandatory KINTAI domain axes: working hours/breaks, Labor Standards Act Article 37 overtime/night rates & rounding, SELECT FOR UPDATE pessimistic locking, audit trail preservation, and IDOR/multi-tenant isolation). Note: If the target file is a modular domain slice (e.g. Slice 1 Store/Member/Contract), verify that all 5 domain axes are properly specified either in its requirements or in its cross-slice handoff boundary sections (Sections 2 and 4).
 2. Keep your analysis concise and deterministic. Output your final structured verdict in a fenced JSON block with keys "verdict" ("PASS" or "FAIL") and "findings" (array of objects with "id", "severity" ["P0","P1","P2","INFO"], and "description"), followed by a final line "Verdict: PASS" or "Verdict: FAIL".
 "@
 

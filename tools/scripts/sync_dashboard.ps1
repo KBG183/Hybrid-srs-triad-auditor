@@ -110,7 +110,7 @@ if ($latestAuditReport -and (Test-Path $latestAuditReport)) {
 $matrixRows = @()
 
 # Dynamically run deterministic integrity linter
-$linterExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+$linterExe = Join-Path $scriptDir "VerifySRS.exe"
 $ssotPath = Join-Path $projectRoot "config\srs_specification_ssot.md"
 $linterVerdict = "PASS"
 if (Test-Path $linterExe) {

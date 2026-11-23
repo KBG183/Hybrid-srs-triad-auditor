@@ -27,6 +27,7 @@
 [CmdletBinding()]
 param(
     [string] $RepoRoot = (Get-Location).Path,
+    [string] $TargetId = '',
     [string[]] $TargetPath = @('config/srs_specification_ssot.md'),
     [string] $AiAuditScript = 'tools/scripts/audit_srs.ps1',
     [string[]] $TerminalStatus = @('CLOSED', 'VERIFIED'),
@@ -34,6 +35,17 @@ param(
     [int] $TimeoutSeconds = 900,
     [switch] $SkipAi
 )
+
+if ($TargetId) {
+    $tCfgFile = [System.IO.Path]::Combine($RepoRoot, 'config', 'srs_targets.json')
+    if ([System.IO.File]::Exists($tCfgFile)) {
+        $tCfgObj = [System.IO.File]::ReadAllText($tCfgFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        $tMatch = $tCfgObj.targets | Where-Object { $_.id -eq $TargetId } | Select-Object -First 1
+        if ($tMatch) {
+            $TargetPath = @($tMatch.ja_path)
+        }
+    }
+}
 
 if (-not (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)) {
     $script:IsWindows = [System.Environment]::OSVersion.Platform -match 'Win'

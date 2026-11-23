@@ -162,6 +162,32 @@ if ($matrixError) {
     Write-Host "  -> PASS: All $($tableLines.Count) requirement matrix rows satisfy Fail-Closed boolean logic coherence." -ForegroundColor Green
 }
 
+# Check 3.1: Multi-Track JA/KO Mirror Parity Gate (config/srs_targets.json)
+$targetsConfigPath = Join-Path $projectRoot "config\srs_targets.json"
+if (Test-Path $targetsConfigPath) {
+    $tCfg = [System.IO.File]::ReadAllText($targetsConfigPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+    $reqHdrPattern = [regex]'(?m)^#{3,4}\s*\[((?:REQ|CC)-[A-Z0-9_-]+)\]'
+    foreach ($tgt in $tCfg.targets) {
+        $jaFull = Join-Path $projectRoot $tgt.ja_path
+        $koFull = Join-Path $projectRoot $tgt.ko_path
+        if (Test-Path $jaFull) {
+            if (-not (Test-Path $koFull)) {
+                Write-Host "  [MIRROR MISSING] Korean mirror missing for $($tgt.ja_path): expected $($tgt.ko_path)!" -ForegroundColor Red
+                $hasFailure = $true
+            } else {
+                $jaReqs = @([regex]::Matches([System.IO.File]::ReadAllText($jaFull, [System.Text.Encoding]::UTF8), $reqHdrPattern) | ForEach-Object { $_.Groups[1].Value })
+                $koReqs = @([regex]::Matches([System.IO.File]::ReadAllText($koFull, [System.Text.Encoding]::UTF8), $reqHdrPattern) | ForEach-Object { $_.Groups[1].Value })
+                if ($jaReqs.Count -ne $koReqs.Count -or (($jaReqs -join ',') -cne ($koReqs -join ','))) {
+                    Write-Host "  [MIRROR DESYNC] Target '$($tgt.id)' JA ($($jaReqs.Count) reqs) vs KO ($($koReqs.Count) reqs) requirement ID parity mismatch!" -ForegroundColor Red
+                    $hasFailure = $true
+                } else {
+                    Write-Host "  -> PASS: Target '$($tgt.id)' JA/KO mirror parity verified ($($jaReqs.Count) requirements 1:1 matched)." -ForegroundColor Green
+                }
+            }
+        }
+    }
+}
+
 # -------------------------------------------------------------------------
 # Test 4: Dual-Linter Pipeline Hard-Gate Wiring
 # -------------------------------------------------------------------------

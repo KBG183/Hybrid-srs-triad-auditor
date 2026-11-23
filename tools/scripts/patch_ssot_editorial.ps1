@@ -8,7 +8,10 @@ param(
     [string]$TargetText,
 
     [Parameter(Mandatory = $true)]
-    [string]$ReplacementText
+    [string]$ReplacementText,
+
+    [Parameter(Mandatory = $false)]
+    [string]$TargetFile = "config/srs_specification_ssot.md"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,5 +21,5 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $unifiedPatcher = Join-Path $scriptDir "patch_ssot.ps1"
 
-& powershell -ExecutionPolicy Bypass -File $unifiedPatcher -TargetText $TargetText -ReplacementText $ReplacementText
+& powershell -ExecutionPolicy Bypass -File $unifiedPatcher -TargetFile $TargetFile -TargetText $TargetText -ReplacementText $ReplacementText
 exit $LASTEXITCODE

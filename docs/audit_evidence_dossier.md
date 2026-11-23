@@ -436,3 +436,23 @@ Total Lines: 587 | Total Bytes: 66,586
 | **Round 2 相互反論 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` (43.7KB統合バンドル) | **59.20秒** | 3モデル相互批判および合意案導出 | - | **PASS (合意青写真確定)** |
 | **Round 2 相互反論 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` (43.7KB統合バンドル) | **54.30秒** | 過剰設計排除・最小実装カットライン確定 | - | **PASS (合意青写真確定)** |
 | **Round 2 相互反論 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **86.34秒** | Input: 12,603 tok / Output: 3,766 tok | **47.2 tok/s** | **PASS (最終合意案収束)** |
+
+
+---
+
+### [2026-11-23 追加証跡 3] 3者合同全数構造監査に基づく憲法（GEMINI.md v1.07）・マルチトラック対象レジストリ（srs_targets.json）・単一リンター完全統合証跡（INCIDENT-76）
+
+#### ① 構造的断片化の根絶および単一真実原書（SSOT）統合概要
+- **憲法・キューパス・終端状態の完全統一**: `GEMINI.md`（v1.07）および `GEMINI_KO.md`（v1.07）を改定し、`governance/ARTICLE_0_SRS.md` との優先順位連結、単一キューパス（`queue/srs_pending_findings.json` / `VERIFIED`）、および `staged_blob_sha256` 領収書ハッシュ検証を完全統一。
+- **マルチトラック対象レジストリおよびJA/KO 1対1パリティハードゲート**: `config/srs_targets.json` を新設し、`sync_all_mirrors.ps1` および `verify_repo_total_integrity.ps1` Check 3.1 にて全スライス（Track 1 全17要件 + Track 2 Slice 1〜4）のJA正本・KO対照版の1対1要件ID一致をFail-Closedで強制検証。`srs_specification_ssot_KO.md` の欠落5要件（Slice 3）を完全同期（17/17一致）。
+- **リンターバイナリ呼び出しの完全単一化**: 全スクリプト内の旧 `VerifySRS_Deterministic.exe` / `VerifySRS_Integrity.exe` 参照を単一バイナリ `VerifySRS.exe` へ統一。
+
+#### ② 全数構造監査および憲法条項衝突監査 実測メトリクス
+
+| 監査・執行フェーズ | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 規模 | 推論速度 | 判定結果 |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **全数構造監査 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` (75.6KB 全数バンドル) | **83.80秒** | 21スクリプト・憲法・規則全数診断 | - | **PASS (統合設計確定)** |
+| **全数構造監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **134.65秒** | Input: 14,214 tok / Output: 5,912 tok | **46.5 tok/s** | **5件改善ベクトル抽出 (ADV-001〜005)** |
+| **ミラー同期スクリプト刷新** | `gpt-6.2-sol` | `call_codex.ps1` (`sync_all_mirrors.ps1`) | **43.40秒** | 157行 厳格順序パリティ検査生成 | - | **PASS (欠落5要件即時検知)** |
+| **憲法v1.07条項衝突監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **82.13秒** | Input: 6,839 tok / Output: 3,824 tok | **48.6 tok/s** | **PASS (条項間矛盾0件確認)** |
+| **KO対照版Slice 3完全同期** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **152.86秒** | Input: 9,549 tok / Output: 6,835 tok | **47.5 tok/s** | **PASS (17/17要件パリティ達成)** |

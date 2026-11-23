@@ -33,6 +33,16 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-23 — INCIDENT-76 — 憲法・ターゲットレジストリ・リンターバイナリの多世代断片化解消およびマルチスライスJA/KOパリティ強制化
+
+- **問題**: 3者合同全数構造監査（Antigravity + OpenAI Codex + Local Qwen 27B）の結果、① `GEMINI.md`（旧 `scratch/pending_findings.json` / `RESOLVED`）と `governance/ARTICLE_0_SRS.md`（`queue/srs_pending_findings.json` / `VERIFIED`）のパス・終端状態衝突、② 全スクリプトにおける Track 1 ファイル名（`srs_specification_ssot.md`）のハードコード固着および `srs_specification_ssot_KO.md` の Slice 3（5要件）同期漏れ、③ 旧リンターバイナリ名（`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`）の残存参照が摘発された。
+- **原因**: 障害対応を重ねる過程で旧世代のパス定義やハードコードされたターゲット設定を廃止・統合せず、新世代ゲートを上積み（Layering）していたこと。
+- **恒久対策**:
+  1. `GEMINI.md`（v1.07）および `GEMINI_KO.md`（v1.07）を改定し、第0条憲法（`governance/ARTICLE_0_SRS.md`）との優先順位連結、単一キューパス（`queue/srs_pending_findings.json` / `VERIFIED`）、および `staged_blob_sha256` 領収書ハッシュ検証を完全統一（Local Qwen 27B 条項衝突監査合格）。
+  2. マルチトラック対象レジストリ（`config/srs_targets.json`）を新設し、`sync_all_mirrors.ps1` および `verify_repo_total_integrity.ps1`（Check 3.1）が登録済み全スライス（Track 1 全17要件 + Track 2 Slice 1〜4）のJA正本・KO対照版の1対1要件ID一致をFail-Closedで強制検証するよう刷新。あわせて `srs_specification_ssot_KO.md` の欠落5要件を完全同期（17/17一致）。
+  3. 全スクリプト（`pipeline_draft_and_integrate.ps1`, `run_quad_audit.ps1`, `run_lab_benchmark.ps1`, `sync_dashboard.ps1`）のリンター呼び出しを単一バイナリ `VerifySRS.exe` へ完全統一。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
 ### 2026-11-23 — INCIDENT-75 — 監査実行時の日次一時ログ（daily_audit_temp.log）手動記録漏れおよびスクリプト自動追記の強制化
 
 - **問題**: 4層AI交差検証（Local Qwen 27B / Codex / Claude）の実行時、実行メトリクスを直ちに `docs/daily_audit_temp.log` へ物理追記（Append）する規約が定められていたにもかかわらず、エージェントの手動編集に依存していたためリアルタイム記録が漏れる規律違反が発生した。

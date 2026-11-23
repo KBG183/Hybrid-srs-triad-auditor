@@ -17,7 +17,7 @@
 1. Antigravityが作成したSRSドラフトを一時ワークスペースに配置。
 2. `tools/scripts/call_codex.ps1` を呼び出し、標準監査契約に基づき検証を実行。
 3. Codexの出力から重大度（P0/P1/P2）を解析し、監査レポートに反映。
-4. 指摘事項を補正した後、C#決定論的リンター（`VerifySRS_Integrity.exe`）による検証を実施。
+4. 指摘事項を `queue/srs_pending_findings.json` に登録・補正した後、C#決定論的リンター（`VerifySRS.exe`）および `verify_repo_total_integrity.ps1` による検証を実施。
 
 ---
 

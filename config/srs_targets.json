@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0.0",
+  "default_target": "track1",
+  "targets": [
+    {
+      "id": "track1",
+      "track": "Track1_AsDesigned",
+      "name": "Track 1 As-Designed Baseline SSOT (All 17 Requirements)",
+      "ja_path": "config/srs_specification_ssot.md",
+      "ko_path": "config/srs_specification_ssot_KO.md",
+      "required": true
+    },
+    {
+      "id": "track2_common_contract",
+      "track": "Track2_AsBuilt",
+      "name": "Track 2 As-Built Cross-Slice Common Contract (CC-* Rules & Exceptions Register)",
+      "ja_path": "config/srs_track2_common_contract.md",
+      "ko_path": "config/srs_track2_common_contract_KO.md",
+      "required": true
+    },
+    {
+      "id": "track2_slice1",
+      "track": "Track2_AsBuilt",
+      "name": "Track 2 As-Built Reverse-Engineered Slice 1 (Store, Member & RBAC)",
+      "ja_path": "config/srs_track2_asbuilt_slice1.md",
+      "ko_path": "config/srs_track2_asbuilt_slice1_KO.md",
+      "required": true
+    },
+    {
+      "id": "track2_slice2",
+      "track": "Track2_AsBuilt",
+      "name": "Track 2 As-Built Reverse-Engineered Slice 2 (Shift & Concurrency)",
+      "ja_path": "config/srs_track2_asbuilt_slice2.md",
+      "ko_path": "config/srs_track2_asbuilt_slice2_KO.md",
+      "required": false
+    },
+    {
+      "id": "track2_slice3",
+      "track": "Track2_AsBuilt",
+      "name": "Track 2 As-Built Reverse-Engineered Slice 3 (Attendance & Break Logic)",
+      "ja_path": "config/srs_track2_asbuilt_slice3.md",
+      "ko_path": "config/srs_track2_asbuilt_slice3_KO.md",
+      "required": false
+    },
+    {
+      "id": "track2_slice4",
+      "track": "Track2_AsBuilt",
+      "name": "Track 2 As-Built Reverse-Engineered Slice 4 (Payroll Engine & Closing Lock)",
+      "ja_path": "config/srs_track2_asbuilt_slice4.md",
+      "ko_path": "config/srs_track2_asbuilt_slice4_KO.md",
+      "required": false
+    }
+  ]
+}

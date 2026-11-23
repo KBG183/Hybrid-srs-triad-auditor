@@ -1,12 +1,12 @@
 # 📊 多層パイプライン検証メトリクス ＆ 監査ダッシュボード
 
-最終更新: 2026-11-20 | システムバージョン: v1.02
+最終更新: 2026-11-23 | システムバージョン: v1.02
 
 ---
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
 * **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全17要件
-* **最新統合監査判定**: `AUDIT_FINDINGS_REPORTED`（`enterprise_audit_ledger.csv` BATCH-11 準拠: 4層交差検証実行（C#リンターPASS・Qwen27B完了・Codex指摘・Claude5.5により法定休日除外およびEXCLUDE排他制約P0課題是正確定））
+* **最新統合監査判定**: `PRODUCTION_PASS`（`enterprise_audit_ledger.csv` BATCH-14 準拠: 3者合同全数構造監査に基づくGEMINI.md v1.07統一・srs_targets.json新設・VerifySRS.exe単一化・Track1/2全スライスJA/KO完全同期）
 * **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
 * **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-6.2 Astra自動ルーティング対応）
 * **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
@@ -15,7 +15,7 @@
 
 ---
 
-## 2. 要件完全性検証スコア (SSOT 全17要件 - BATCH-11 4層交差監査連動)
+## 2. 要件完全性検証スコア (SSOT 全17要件 - BATCH-14 4層交差監査連動)
 | ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | PASS | PASS | PASS | PASS | **PASS** |
@@ -33,8 +33,8 @@
 | REQ-ATT-003 | 打刻事後修正の二者承認フローおよび不変監査ログ | PASS | PASS | PASS | PASS | **PASS** |
 | REQ-LABOR-001 | 法定労働時間超過・時間外割増手当（日8時間および週40時間基準）の算定 | PASS | PASS | PASS | PASS | **PASS** |
 | REQ-LABOR-002 | 深夜労働割増手当（深夜手当・半開区間境界）の算定 | PASS | PASS | PASS | PASS | **PASS** |
-| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび月次端数処理統制 | PASS | PASS | PASS | PASS | **PASS** |
-| REQ-LABOR-004 | 悲観的ロック（Pessimistic Lock）および一意制約に基づく給与確定トランザクション整合性 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-003 | 時間外・深夜・法定休日の重畳割増マトリクスおよび基発第150号月次端数処理統制 | PASS | PASS | PASS | PASS | **PASS** |
+| REQ-LABOR-004 | 階層的悲観的ロック・複合一意制約および冪等給与確定トランザクション整合性 | PASS | PASS | PASS | PASS | **PASS** |
 
 ---
 

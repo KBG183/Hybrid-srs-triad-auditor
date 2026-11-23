@@ -23,7 +23,7 @@ if ((Split-Path -Leaf $projectRoot) -eq "tools") {
 
 $fixtureDir = Join-Path $projectRoot "tools\fixtures"
 $benchmarkCsv = Join-Path $projectRoot "logs\evidence_benchmark.csv"
-$linterExe = Join-Path $projectRoot "tools\scripts\VerifySRS_Integrity.exe"
+$linterExe = Join-Path $projectRoot "tools\scripts\VerifySRS.exe"
 
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host " [LAB BENCHMARK] Running Local Auditor Deterministic Benchmark   " -ForegroundColor Cyan

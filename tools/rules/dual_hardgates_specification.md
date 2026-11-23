@@ -1,9 +1,9 @@
 # 🏛️ KINTAI Governance Specification: Triple Hard-Gates Architecture (PROC-005, PROC-006 & PROC-007)
 
-Version: 1.0.6 (GEMINI.md v1.06 附則仕様)  
-Date: 2026-11-19  
+Version: 1.0.7 (GEMINI.md v1.07 附則仕様)  
+Date: 2026-11-23  
 Status: APPROVED_GOVERNANCE_SPECIFICATION  
-Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
+Target System: VerifySRS.exe v1.2 (C# Unified Linter), Git Pre-Commit Hook, Automation Engine
 
 ---
 
@@ -31,10 +31,9 @@ Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
 
 ### 2.1 監視対象ファイル (Monitored Paths)
 ステージング（`git diff --cached --name-only`）に以下のいずれかが含まれる場合、Heavy Track検証を発動する：
-- `config/srs_specification_ssot.md`
+- `config/srs_specification_ssot.md` および `config/srs_track2_asbuilt_slice*.md`（`config/srs_targets.json` 登録対象）
 - `domain_target/**/*.java`
-- `tools/scripts/VerifySRS_Integrity.cs`
-- `tools/scripts/VerifySRS_Deterministic.cs`
+- `tools/scripts/VerifySRS.cs`
 
 ### 2.2 検証ルール (Fail-Closed Verification)
 1. **領収書および監査レポートの同時ステージング義務**:
@@ -90,7 +89,7 @@ Target System: VerifySRS_Integrity (C#), Git Pre-Commit Hook, Automation Engine
    - SSOT（`srs_specification_ssot.md`）の直接編集ツール（`edit_file` / `write_file`）呼び出しを全面禁止。
    - Heavy Trackの更新は `tools/scripts/pipeline_draft_and_integrate.ps1`、Fast Trackの更新は `tools/scripts/patch_ssot_editorial.ps1` の単一スクリプト経由でのみ実行を許可する。
 2. **統制線 2 (監査ログ物理結束・C#ハードゲート)**:
-   - C#リンター（`VerifySRS_Integrity.exe`）の Phase 9 において、Heavy Track資産の変更時、過去24時間以内の完了外部監査実機ログ（`audit/runs/` または `docs/audit_runs/` 内の非空ログ・`.done`）がディスク上に物理的に存在することを検証する。
+   - C#リンター（`VerifySRS.exe`）の Phase 9 において、Heavy Track資産の変更時、過去24時間以内の完了外部監査実機ログ（`audit/runs/` または `docs/audit_runs/` 内の非空ログ・`.done`）がディスク上に物理的に存在することを検証する。
    - 存在しない場合、直ちに `[FATAL] [PROC-007]` を送出してビルド・コミットを即時遮断する。
 3. **統制線 3 (実物証跡事前ブリーフィング義務)**:
    - コミット提案時、エージェントは口頭説明を排除し、外部監査実機ログの絶対パス、欠陥0件証明、およびリンター合格出力をテーブル形式で事前提示し、ユーザーの明示的承認を待機する。

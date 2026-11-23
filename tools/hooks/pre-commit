@@ -50,16 +50,16 @@ if [ $? -ne 0 ]; then
 fi
 
 # 5. Master Deterministic Integrity Gate (Staged Assets & SSOT Verification)
-tools/scripts/VerifySRS_Integrity.exe "config/srs_specification_ssot.md"
+tools/scripts/VerifySRS.exe "config/srs_specification_ssot.md"
 if [ $? -ne 0 ]; then
     echo "[BLOCK] Deterministic Integrity verification failed on SSOT. Aborting commit."
     exit 1
 fi
 
 git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' FILE; do
-    if echo "$FILE" | grep -qE '^(domain_target/.*|tools/scripts/VerifySRS_.*\.cs|config/.*\.md)$'; then
+    if echo "$FILE" | grep -qE '^(domain_target/.*|tools/scripts/VerifySRS.*\.cs|config/.*\.md)$'; then
         if [ -f "$FILE" ] && [ "$FILE" != "config/srs_specification_ssot.md" ]; then
-            tools/scripts/VerifySRS_Integrity.exe "$FILE"
+            tools/scripts/VerifySRS.exe "$FILE"
             if [ $? -ne 0 ]; then
                 echo "[BLOCK] Deterministic Integrity verification failed on staged file: $FILE"
                 exit 1

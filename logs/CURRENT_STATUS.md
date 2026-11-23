@@ -1,20 +1,20 @@
 # 📍 KINTAI 品質検証パイプライン 統括ステータス台帳
 
-最終更新: 2026-11-23 14:12（Track 2 Slice 1 ゼロベース完全新規SRS作成・4層独立交差検証・単一進入点マスターゲート合格・SSOT統合完了）
+最終更新: 2026-11-23 16:35（Track 1 企画書正本の保全、Track 2 Slice 1 逆工学仕様書・共通契約の独立新設、および単一進入点マスターゲート承認完了）
 
 ---
 
 ## 1. 現在のマイルストーン
 
 - **プロジェクト位置づけ**: 本リポジトリは、アルバイト勤怠・給与SaaS「KINTAI」の労働基準法計算・並行性制御を担保するための独立品質検証パイプラインです。
-- **現行フェーズ**: Track 2（ゼロリファレンスによる完全新規SRS作成および設計対比検証）Slice 1 [店舗・会員管理および権限統制] 完走。
+- **現行フェーズ**: Track 2（ゼロリファレンスによる実装逆工学SRS作成および設計対比検証）Slice 1 [店舗・会員管理および権限統制] 完走および共通契約（`srs_track2_common_contract.md`）確立。
 - **進捗状況**:
-  - OpenAI Codex (`gpt-6.2-astra`) によるゼロベース初案起草（18.8KB, 9,987文字）。
+  - OpenAI Codex (`gpt-6.2-astra`) によるゼロベース初案起草および5大境界エッジケース（4階層ロック・429評価順序・退職日遡及422・翌日12:00退勤猶予）の統合。
   - Antigravity、Claude Sonnet 5.5、Local Qwen 27B、C# Roslyn リンターによる4層独立交差監査の完走（指摘21件全数摘発）。
   - `queue/srs_pending_findings.json` への全件キューイングおよび1-Shot統合是正完了（全21件 VERIFIED 遷移）。
   - 単一進入点マスターゲート（`gate_master_srs.ps1`）Stage 1〜3 完全突破、`approval_manifest.json` 公式発行。
-  - 単一真実原書（`config/srs_specification_ssot.md`）への原子的一体パッチ（`patch_ssot.ps1`）統合完了。
-- **最新ヘルスチェック判定**: `PIPELINE_TRACK2_SLICE1_VERIFIED` (全11項目リポジトリ整合性ゲート100% PASS)
+  - Track 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を完全保全し、Track 2 Slice 1 逆工学仕様書（`config/srs_track2_asbuilt_slice1.md` 全276行）および共通契約（`config/srs_track2_common_contract.md`）を独立分離配置。
+- **最新ヘルスチェック判定**: `PRODUCTION_PASS` (enterprise_audit_ledger.csv BATCH-14: 3者合同全数構造監査に基づくGEMINI.md v1.07統一・srs_targets.json新設・VerifySRS.exe単一化・Track1/2全スライスJA/KO完全同期)
 
 ---
 

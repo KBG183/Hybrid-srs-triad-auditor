@@ -6,7 +6,7 @@
     1. OpenAI Codex (gpt-6.2-astra / gpt-6.2-sol)
     2. Anthropic Claude (claude-sonnet-5-5)
     3. Local Qwen 27B (qwen3.8:27b / qwen27b:latest via RTX 5070 Ti)
-    4. Deterministic C# Linters (VerifySRS_Deterministic.exe & verify_repo_total_integrity.ps1)
+    4. Deterministic C# Linters (VerifySRS.exe & verify_repo_total_integrity.ps1)
 #>
 [CmdletBinding()]
 param(

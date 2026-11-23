@@ -1,0 +1,14 @@
+{
+    "schema":  "audit-verdict/v1",
+    "auditor":  "qwen",
+    "run_id":  "20261123_164129_qwen",
+    "tree_hash":  "WORKING_TREE",
+    "response_sha256":  "4c2b8a44511b4dcd300979be736fd47772cffa7d04bba7ba672465f3391b7a0c",
+    "verdict":  "PASS",
+    "findings_count":  0,
+    "p0_p1_count":  0,
+    "findings":  [
+
+                 ],
+    "created_utc":  "2026-11-23T07:41:48.8843907Z"
+}

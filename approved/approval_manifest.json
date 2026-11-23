@@ -1,13 +1,13 @@
 {
-    "RunId":  "646b9d89-ce15-4fec-a05c-b6ce4f9835fc",
-    "GitCommitSha":  "442c923c55c5b3dfeb4d114037c6fc21202c332d",
+    "RunId":  "22a7715f-d667-40e0-bdfe-57e43a91fc90",
+    "GitCommitSha":  "f56e25ddc9ad13869e9bcf5dee525f0227f76e36",
     "ConstitutionSha256":  "d0c7a64d3520f987454465668ad640a28ac95da1f262ada8a41fe597797aabd6",
     "Files":  [
                   {
-                      "Path":  "scratch/runs/20261123_133749_787fb459/draft.md",
-                      "Sha256":  "a5e25326df82b8ef27279a82227c6eb8332e273b18dff7f40ab4c42a36ba2a31"
+                      "Path":  "config/srs_track2_asbuilt_slice1.md",
+                      "Sha256":  "5e250e080d4a384b677d8a107c6afd5593487fc74cd16abf199876369e509384"
                   }
               ],
-    "Timestamp":  "2026-11-23T05:09:43.3480522+00:00",
-    "AuditBundleSha256":  "3855320044a8c680c97722b04acfa219920b9f93c9da852a87ec885efc3c45ca"
+    "Timestamp":  "2026-11-23T07:41:49.1300025+00:00",
+    "AuditBundleSha256":  "08725504c9e621223c46456970f8db7897d44f2f888bf4502e3d915dd091c74a"
 }

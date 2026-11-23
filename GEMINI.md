@@ -1,6 +1,6 @@
-# KINTAI 品質検証パイプライン 運用規約 v1.06
+# KINTAI 品質検証パイプライン 運用規約 v1.07
 
-施行日: 2026-11-17 (改定: 2026-11-19)  
+施行日: 2026-11-17 (改定: 2026-11-23)  
 適用対象: アルバイト勤怠・給与管理SaaS（KINTAI）の詳細要件定義書（SRS）作成および多層AIハイブリッド交差検証システム
 
 ---
@@ -34,7 +34,7 @@
 ## 3. 情報優先順位およびSSOT原則
 
 1. ユーザーからの最新の明示的指示
-2. 承認済みの単一真実原書（`config/srs_specification_ssot.md`）
+2. 第0条 SRS絶対憲法（`governance/ARTICLE_0_SRS.md`）および承認済みの単一真実原書（`config/srs_targets.json` に登録された `config/srs_specification_ssot.md` および `config/srs_track2_asbuilt_slice*.md`）
 3. 本運用規約（`GEMINI.md`）
 4. 運用台帳・ポリシー（`tools/rules/`, `logs/incident_history_ledger.md`）
 5. 実装ドメインベース（`domain_target/`）
@@ -59,8 +59,8 @@
   - 監査・静的検収は、ハートビート監視を備えた検証済みスクリプト（`hermes_controller.ps1` / `call_codex.ps1`）を標準インターフェースとして使用する。
   - 標準入力をパイプラインで接続したままプロセスが無応答（Hang）に陥る独断のバックグラウンド実行を防止する。
 - **Gitコミットおよびプッシュの直列5段階パイプライン (Fail-Closed)**:
-  1. **キュー全件解消**: 第9条に基づく `scratch/pending_findings.json` の全指摘項目が `RESOLVED` であることを確認。
-  2. **二重検証通過**: 決定論的リンターおよびローカル監査の合格を確認。
+  1. **キュー全件検証完了**: 第9条および `governance/ARTICLE_0_SRS.md` 第4条に基づく `queue/srs_pending_findings.json` の全指摘項目が独立再検証を経て `VERIFIED` であることを確認。
+  2. **二重検証通過**: 決定論的リンター（`VerifySRS.exe`）およびローカル監査の合格を確認。
   3. **Zero-Koreanゲート**: 第6条第3項に基づき、ステージング全ファイルおよびコミットメッセージの韓国語非含有（0文字）を機械的検証。
   4. **バイリンガル事前提示**: ユーザーへ [日本語原文] と [韓国語対訳] を提示し、明示的な「コミットして」の指示を待機（「OK」「確認」等の曖昧な表現を承認と解釈しない）。
   5. **コミット・プッシュ同期実行**: ユーザーの明示承認受領後、直ちに `git commit` と `git push` を同期実行し、リモート同期完了までを報告する。
@@ -112,7 +112,7 @@
    - 必ず `tools/scripts/pipeline_draft_and_integrate.ps1` を経由して OpenAI Codex (`gpt-6.2-astra`) が `scratch/runs/{runId}/draft.md` を初案執筆し、決定論的リンター（`VerifySRS.exe`）の検証を通過した後にのみ SSOT へ統合する。
    - 初案執筆後の交差監査においては、第1.1条の動的役割交代規約に従い、執筆者Codexの自己交差監査を排除し、Antigravity（第1監査官: アーキテクチャ・整合性）、Anthropic Claude（第2監査官: 労基法・分岐）、ローカルQwen 27B（第3監査官: 文脈・回帰）、およびC#決定論的リンターの独立4重体制で検証する。
 3. **物理的ハードゲートによる機械的強制 (PROC-005, PROC-006 & PROC-007)**:
-   - Heavy Track資産の変更時、Gitステージングインデックス内に Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
+   - Heavy Track資産の変更時、Gitステージングインデックス内にステージング対象のSHA-256ハッシュ（`staged_blob_sha256`）と一致する Codex の実機領収書（`codex_receipt.json`）および監査レポート（`codex_report.txt`）が同時にステージングされていない場合、C#リンター（`VerifySRS.exe`）が `[FATAL] [PROC-005]` を送出してビルド・コミットを即時遮断する。
    - 実行時障害は `logs/incident_execution_trace.log` に自動記録され、未登録の失敗が存在する場合、またはログが改ざん・切断された場合は `[FATAL] [PROC-006]` により即時遮断される。
    - **オーケストレーター自律抑制3大物理線 (`PROC-007`)**:
      - ① **SSOT直接執筆遮断**: SSOT中核ファイル（`srs_specification_ssot.md`）の直接編集を厳禁とし、Heavy Trackは `pipeline_draft_and_integrate.ps1`、Fast Trackは `patch_ssot_editorial.ps1` の単一チョークポイント経由でのみ更新を許可する。
@@ -124,13 +124,13 @@
 ## 9. 外部指摘の記憶外在化および 1-Shot 是正バッチ規約 (External Finding Queue & 1-Shot Remediation Policy)
 
 1. **発動条件と宣言件数の義務化**:
-   - 外部監査またはユーザーから2件以上の欠陥指摘、あるいはSSOT中核要件（労働法第37条・並行性排他制御・認可）の論理的欠陥指摘を受領した際、エージェントはコード修正に先行して直ちに `scratch/pending_findings.json` を発行し、総指摘件数（`declared_count`）および全件を `PENDING` として物理キューイングする。
+   - 外部監査またはユーザーから2件以上の欠陥指摘、あるいはSSOT中核要件（労働法第37条・並行性排他制御・認可）の論理的欠陥指摘を受領した際、エージェントはコード修正に先行して直ちに `queue/srs_pending_findings.json` を更新し、総指摘件数（`declared_count`）および新規指摘を `PENDING` として物理キューイングする。
 2. **登録漏れ・自己承認の遮断 (Fail-Closed Gate)**:
-   - キュー内の `declared_count` と実際の配列要素数が合致しない場合、または1件でも `PENDING` が残存している場合、第4条に基づくコミット提案およびコミット実行をFail-Closedで遮断する。
-   - `RESOLVED` へのステータス変更時は、必ず `evidence`（修正ファイル、該当行番号、変更内容、リンター/テスト結果）の物理的紐付けを義務付ける。
+   - キューファイル（`queue/srs_pending_findings.json`）の不在、JSON構文解析失敗、または `declared_count` と実際の配列要素数が合致しない場合、もしくは1件でも `PENDING` や未検証の `RESOLVED` が残存している場合、第4条および `governance/ARTICLE_0_SRS.md` 第4条に基づく最終承認およびコミット実行をFail-Closed（即時失敗）で遮断する。
+   - 独立再検証を経た `VERIFIED` へのステータス変更時は、必ず `evidence`（修正ファイル、該当行番号、変更内容、リンター/テスト結果）の物理的紐付けを義務付ける。
 3. **1-Shot 是正バッチによる履歴集約および段階的運用 (Two-Tier Execution)**:
-   - 指摘事項に対する小刻みな個別パッチコミットを抑制し、キュー内の全項目が `RESOLVED` に達し、二重リンターおよびローカル監査を通過した段階で、第4条の5段階パイプラインに従って単一の Conventional Commit（1-Shot）として集約して同期する。
-   - 日中の段階的作業においては、P0/P1（重大欠陥）の解消を優先確認した上での安全な部分コミットを許容し、複雑な課題による軽微な修正の滞留を防止する。ただし日次スプリントの最終締結コミット時には、全指摘項目が `RESOLVED` であることを必須とする。
+   - 指摘事項に対する小刻みな個別パッチコミットを抑制し、キュー内の全項目が `VERIFIED` に達し、決定論的リンター（`VerifySRS.exe`）およびローカル監査を通過した段階で、第4条の5段階パイプラインに従って単一の Conventional Commit（1-Shot）として集約して同期する。
+   - 日中の段階的作業においては、P0/P1（重大欠陥）の解消を優先確認した上での安全な中間セーブポイントコミットを許容し、複雑な課題による修正の滞留を防止する。ただし日次スプリントの最終締結承認時には、全指摘項目が `VERIFIED` であることを必須とする。
 
 ---
 
