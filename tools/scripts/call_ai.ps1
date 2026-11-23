@@ -25,6 +25,9 @@ param(
     [string]$Model = "",
 
     [Parameter(Mandatory = $false)]
+    [string]$SystemPrompt = "",
+
+    [Parameter(Mandatory = $false)]
     [int]$TimeoutSeconds = 180,
 
     [Parameter(Mandatory = $false)]
@@ -245,7 +248,11 @@ try {
             $qwenOut = Join-Path $runDir "qwen_output.md"
             if (Test-Path $qwenOut) { Remove-Item $qwenOut -Force }
 
-            & powershell -ExecutionPolicy Bypass -File $hermesScript -TargetFile $targetPromptPath -OutputFile $qwenOut -Model $effectiveModel -AuditMode "STANDARD"
+            $hermesArgs = @("-TargetFile", $targetPromptPath, "-OutputFile", $qwenOut, "-Model", $effectiveModel, "-AuditMode", "STANDARD")
+            if (-not [string]::IsNullOrWhiteSpace($SystemPrompt)) {
+                $hermesArgs += @("-SystemPromptOverride", $SystemPrompt)
+            }
+            & powershell -ExecutionPolicy Bypass -File $hermesScript @hermesArgs
             $qwenExit = $LASTEXITCODE
             if ($qwenExit -ne 0) {
                 throw "QWEN_EXECUTION_ERROR: audit_with_hermes.ps1 failed with exit code $qwenExit"
@@ -253,6 +260,7 @@ try {
 
             if (Test-Path $qwenOut) {
                 $outputText = [System.IO.File]::ReadAllText($qwenOut, [System.Text.Encoding]::UTF8)
+                $outputText = $outputText.Replace($projectRoot, "<WORKSPACE_ROOT>").Replace($env:USERPROFILE, "<USER_HOME>")
             }
             if ([string]::IsNullOrWhiteSpace($outputText)) {
                 throw "EMPTY_OUTPUT: Local Qwen 27B produced empty audit output."
@@ -294,6 +302,11 @@ try {
     if ($outputText -match '(?s)```json\s*(\{.*?"findings".*?\})\s*```') {
         try {
             $parsedJson = $matches[1] | ConvertFrom-Json
+            if ($null -ne $parsedJson.PSObject.Properties['findings']) {
+                $extractedFindings = @($parsedJson.findings)
+                $detectedVerdict = if ($extractedFindings.Count -gt 0) { "WARN" } else { "PASS" }
+                $structuredVerdictFound = $true
+            }
             if ($parsedJson.verdict) {
                 $vStr = $parsedJson.verdict.ToString().ToUpperInvariant()
                 if ($vStr -match '^(PASS|WARN|HOLD|FAIL)$') {
@@ -301,7 +314,6 @@ try {
                     $structuredVerdictFound = $true
                 }
             }
-            if ($parsedJson.findings) { $extractedFindings = @($parsedJson.findings) }
         } catch {}
     }
 

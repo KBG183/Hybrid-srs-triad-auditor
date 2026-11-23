@@ -20,6 +20,14 @@
 
 - **33件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、チェックリスト安住症、オーケストレーター自律逸脱をC#ハードゲート（PROC-005~007）および2-Tier敵対的監査で迎撃した全記録)*
+- **単一進入点直列マスターゲート**: [`tools/scripts/gate_master_srs.ps1`](tools/scripts/gate_master_srs.ps1)
+  *(事前点検 ➔ 規格検証 ➔ 最終承認のFail-Closed直列パイプライン・終了コード0〜4厳格契約・SkipAi承認遮断)*
+- **第0条 SRS 絶対憲法およびSHA-256整合性ロック**: [`governance/ARTICLE_0_SRS.md`](governance/ARTICLE_0_SRS.md)
+  *(冗長ルールを約2.1KBの高密度規則へ圧縮・SHA-256ハッシュ照合による改ざん即時遮断)*
+- **外部指摘事項追跡および1-Shot是正キュー**: [`queue/srs_pending_findings.json`](queue/srs_pending_findings.json)
+  *(外部監査指摘を物理キューへ外在化し、未解消欠陥残存時の承認物理遮断)*
+- **アーキテクチャ決定記録 (ADR-004)**: [`docs/adr/ADR-004_adoption_of_shared_verification_core.md`](docs/adr/ADR-004_adoption_of_shared_verification_core.md)
+  *(事前検証済み共通検証コアのSRSプロファイル適合化・導入意思決定書)*
 - **C#統合マスター静的解析エンジン（VerifySRS.cs）**: [`tools/scripts/VerifySRS.cs`](tools/scripts/VerifySRS.cs)
 - **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
 - **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](tools/fixtures/)

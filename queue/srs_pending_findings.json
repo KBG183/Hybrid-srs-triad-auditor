@@ -1,6 +1,25 @@
 {
-    "schema_version": "1.0",
-    "project": "KINTAI-SRS",
-    "last_updated": "2026-11-23T12:00:00Z",
-    "findings": []
+  "declared_count": 2,
+  "findings": [
+    {
+      "id": "F-STORE-001",
+      "rule": "RULE-WAGE-RETROACTIVE-CORRECTION",
+      "severity": "P1",
+      "status": "VERIFIED",
+      "file": "scratch/runs/20261123_133749_787fb459/draft.md",
+      "line": 105,
+      "description": "初期時給の誤入力時に遡及訂正を行う経路が存在せず、未払い賃金トラブルを誘発する脆弱性。点検ログおよび承認を伴う訂正APIの明記が必要。",
+      "evidence": "REQ-STORE-003 に誤入力是正用API（POST /stores/{storeId}/staff/{storeStaffId}/contracts/correction）および是正理由必須化・差額精算フラグ有効化要件を追加。VerifySRS.exe Clean PASS。"
+    },
+    {
+      "id": "F-STORE-002",
+      "rule": "RULE-MIDNIGHT-BOUNDARY-ASOF",
+      "severity": "P2",
+      "status": "VERIFIED",
+      "file": "scratch/runs/20261123_133749_787fb459/draft.md",
+      "line": 110,
+      "description": "日付を跨ぐ深夜勤務時における時給参照基準日（asOf）の判定基準（勤務開始基準日=Work Date）が未定義である問題。",
+      "evidence": "REQ-STORE-003 に日跨ぎ深夜勤務（22:00〜翌05:00）における契約条件参照基準日（asOf）を一貫して『勤務開始基準日（Work Date）』とする決定論的判定基準を追加。VerifySRS.exe Clean PASS。"
+    }
+  ]
 }

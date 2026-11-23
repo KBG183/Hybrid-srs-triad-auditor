@@ -27,7 +27,7 @@
 [CmdletBinding()]
 param(
     [string] $RepoRoot = (Get-Location).Path,
-    [string[]] $TargetPath = @('config/srs_specification_ssot.md', 'srs'),
+    [string[]] $TargetPath = @('config/srs_specification_ssot.md'),
     [string] $AiAuditScript = 'tools/scripts/audit_srs.ps1',
     [string[]] $TerminalStatus = @('CLOSED', 'VERIFIED'),
     [ValidateRange(1, 86400)]

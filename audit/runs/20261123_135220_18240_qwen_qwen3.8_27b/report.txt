@@ -1,0 +1,22 @@
+### [Hermes Audit Execution Metrics v1.2.0]
+| Target File | Model | Duration | Input Code Tokens | Output Tokens | Speed | Done Reason | Run ID |
+|---|---|---|---|---|---|---|---|
+| <WORKSPACE_ROOT>\scratch\runs\unified_20261123_135220_18240_qwen\prompt.txt | qwen3.8:27b (IQ3_M) | 13.76s | 9710 tokens | 404 tokens | 48.3 tokens/s | stop | 20261123_045220_99be359a |
+
+Verification Summary:
+The specification bundle contains 17 unique requirements with valid `REQ-*` identifiers. The specification explicitly addresses all five mandatory KINTAI domain axes:
+1. **Labor Time Calculation**: REQ-LABOR-001, REQ-LABOR-002, and REQ-LABOR-003 define precise calculation formulas for overtime, night work, and statutory holidays, including unit precision (seconds/BigDecimal) and rounding rules (HALF_UP).
+2. **Salary & Legal Rates**: REQ-LABOR-003 and REQ-LABOR-005 cite Labor Standards Act Article 37 rates (25%, 35%, 50%) and minimum wage adjustments.
+3. **Concurrency & Locking**: REQ-STAFF-002, REQ-SHIFT-001, REQ-ATT-002, and REQ-LABOR-004 mandate `SELECT ... FOR UPDATE` pessimistic locking and strict lock ordering to prevent race conditions and deadlocks.
+4. **Audit Trail**: REQ-ATT-003 details an immutable audit log with two-person approval (or single-owner bypass with flag) for attendance corrections, preserving original data, reason, timestamp, and actor ID.
+5. **IDOR & Multi-tenant Isolation**: REQ-MEMBER-001, REQ-SHIFT-002, REQ-SHIFT-003, and REQ-ATT-001 enforce tenant/store binding via `SecurityContext` and database constraints to prevent cross-tenant data access.
+
+Fail-Closed principles are adhered to in error handling (e.g., REQ-STORE-002, REQ-LABOR-005). No statutory contradictions or missing mandatory axes were detected.
+
+```json
+{
+  "verdict": "PASS",
+  "findings": []
+}
+```
+Verdict: PASS
