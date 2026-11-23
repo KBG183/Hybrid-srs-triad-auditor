@@ -162,6 +162,115 @@ if ($matrixError) {
     Write-Host "  -> PASS: All $($tableLines.Count) requirement matrix rows satisfy Fail-Closed boolean logic coherence." -ForegroundColor Green
 }
 
+# Check 3.2: Repository-wide JA/KO Markdown Structure Parity Gate
+# Enforces strict 1:1 structural skeleton match (heading-level sequence & markdown table row count)
+# while strictly ignoring lines inside fenced code blocks (``` or ~~~).
+$koPairFiles = @(Get-ChildItem -LiteralPath $projectRoot -Filter "*_KO.md" -Recurse -File -ErrorAction Stop | Where-Object {
+    $rel = $_.FullName.Substring($projectRoot.Length).TrimStart('\', '/')
+    $rel -notmatch '^(scratch|\.git|node_modules)[\\/]' -and
+    $rel -notmatch '^audit[\\/]runs[\\/]' -and
+    $rel -notmatch '^docs[\\/]audit_runs[\\/]'
+})
+
+$hdrLevelPattern = [regex]'^(#{1,6})\s+'
+$tblRowPattern = [regex]'^\s*\|.*\|\s*$'
+
+# Standalone KO documents permitted without direct JA counterpart (e.g. developer internal retrospectives/historical raw dumps)
+$allowedStandaloneKo = @(
+    'audit/audit_hermes_verify_humanize_KO.md',
+    'audit/HERMES_Audit_srs_specification_ssot_20261117_174430_KO.md',
+    'audit/HERMES_Audit_VerifySRS_Integrity.cs_20261118_135026_KO.md',
+    'audit/HERMES_Audit_VerifySRS_Integrity.cs_20261118_135145_KO.md',
+    'audit/hermes_integrated_audit_slice4_20261115_KO.md',
+    'audit/qwen_rfc_audit_KO.md',
+    'docs/audit_report_plan_a_qwen_KO.md',
+    'docs/daily_retrospective_20261123_KO.md',
+    'docs/sprint_schedule_KO.md',
+    'docs/srs_diff_analysis_slice1_KO.md',
+    'docs/srs_governance_upgrade_analysis_report_KO.md',
+    'logs/project_evolution_ledger_KO.md'
+)
+
+# Established static fixtures excluded from active structural skeleton drift checking
+$excludedFixturePairs = @(
+    'domain_target/01_specifications_and_rtm/kintai_master_srs_KO.md'
+)
+
+function Get-MarkdownSkeleton {
+    param([string]$FilePath)
+    $lines = [System.IO.File]::ReadAllLines($FilePath, [System.Text.Encoding]::UTF8)
+    $inFence = $false
+    $levels = [System.Collections.Generic.List[int]]::new()
+    $tableRows = 0
+    foreach ($line in $lines) {
+        if ($line -match '^\s*(```|~~~)') {
+            $inFence = -not $inFence
+            continue
+        }
+        if ($inFence) { continue }
+        if ($line -match '^(#{1,6})\s+') {
+            $levels.Add($Matches[1].Length)
+        }
+        if ($line -match '^\s*\|.*\|\s*$') {
+            $tableRows++
+        }
+    }
+    return [PSCustomObject]@{
+        Levels    = $levels.ToArray()
+        TableRows = $tableRows
+    }
+}
+
+$pairCount = 0
+$pairError = $false
+
+foreach ($koPairFile in $koPairFiles) {
+    $relKo = $koPairFile.FullName.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
+    $jaPairPath = $koPairFile.FullName -replace '_KO\.md$', '.md'
+    $relJa = $jaPairPath.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
+
+    if ($excludedFixturePairs -contains $relKo) {
+        continue
+    }
+
+    if (-not (Test-Path -LiteralPath $jaPairPath -PathType Leaf)) {
+        if ($allowedStandaloneKo -contains $relKo) {
+            continue
+        } else {
+            Write-Host "  [MIRROR ORPHAN] Unregistered standalone KO mirror without source: $relKo" -ForegroundColor Red
+            $pairError = $true
+            continue
+        }
+    }
+
+    $pairCount++
+    try {
+        $jaSkel = Get-MarkdownSkeleton -FilePath $jaPairPath
+        $koSkel = Get-MarkdownSkeleton -FilePath $koPairFile.FullName
+
+        if (($jaSkel.Levels -join ',') -cne ($koSkel.Levels -join ',')) {
+            Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo headings: JA=$($jaSkel.Levels.Count) vs KO=$($koSkel.Levels.Count) (level sequence differs)!" -ForegroundColor Red
+            $pairError = $true
+        }
+        if ($jaSkel.TableRows -ne $koSkel.TableRows) {
+            Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo table rows: JA=$($jaSkel.TableRows) vs KO=$($koSkel.TableRows)!" -ForegroundColor Red
+            $pairError = $true
+        }
+    } catch {
+        Write-Host "  [MIRROR READ ERROR] Failed to parse markdown skeleton for $($relKo) - $($_.Exception.Message)" -ForegroundColor Red
+        $pairError = $true
+    }
+}
+
+if ($pairError) {
+    $hasFailure = $true
+} elseif ($pairCount -lt 15) {
+    Write-Host "  [MIRROR GATE FAIL-CLOSED] Insufficient paired mirrors scanned: only $pairCount pairs found (expected >= 15)." -ForegroundColor Red
+    $hasFailure = $true
+} else {
+    Write-Host "  -> PASS: All $pairCount JA/KO markdown pairs match on fence-aware heading sequence and table row count." -ForegroundColor Green
+}
+
 # Check 3.1: Multi-Track JA/KO Mirror Parity Gate (config/srs_targets.json)
 $targetsConfigPath = Join-Path $projectRoot "config\srs_targets.json"
 if (Test-Path $targetsConfigPath) {

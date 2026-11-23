@@ -354,7 +354,7 @@ Total Lines: 587 | Total Bytes: 66,586
 
 ---
 
-### [2026-11-20 追加証跡] 検証パイプライン統合マスター化 (v1.2) および4層交差検証是正証跡
+### 6.3 Day 4.5 (2026-11-20) 検証パイプライン統合マスター化 (v1.2) および4層交差検証是正証跡
 
 #### ① ツールチェーン統合概要
 - **リンター統合**: `VerifySRS_Integrity` と `VerifySRS_Deterministic` を単一の `tools/scripts/VerifySRS.cs` (`VerifySRS.exe v1.2`) へ完全統合。カルチャ非依存 (`InvariantCulture`) 日付パースおよび構造・DoD全数検査を0.8秒で完結。
@@ -370,13 +370,16 @@ Total Lines: 587 | Total Bytes: 66,586
 | **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **174.12秒** | Input: 8,539 tok / Output: 8,277 tok (49.8 tok/s) | **指摘全数是正完了** (TOCTOU/Fail-Closed是正) |
 | **C# 決定論的リンター** | `verify_repo_total_integrity.ps1` | `VerifySRS.exe v1.2` 統合実行 | **0.82秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |
 
+---
 
-### [2026-11-23 追加証跡] 単一進入点ハードゲート (gate_master_srs.ps1) および第0条不変憲法配備証跡
+### 6.4 Day 5 (2026-11-23) Track 2 Slice 1 ゼロベース逆工学新設およびマルチトラック・ガバナンス完全統合実証
+
+### 6.4.1 [Phase 1] 単一進入点ハードゲート (gate_master_srs.ps1) および第0条不変憲法配備証跡
 
 #### ① ガバナンスおよび検証パイプライン高度化概要
-- **単一進入点ハードゲート確立**: 	ools/scripts/gate_master_srs.ps1 を配備し、事前点検（事前整合性・ハッシュ検証） ➔ 規格検収（ID一意性・C#リンター） ➔ 最終承認（AI監査・欠陥キュー空）の直列3段階Fail-Closedパイプラインを確立。
-- **第0条絶対憲法およびSHA-256ロック**: governance/ARTICLE_0_SRS.md を高密度約2.1KBで新設し、SHA-256ハッシュ対照による規則改変の機械的遮断を配備。
-- **外部欠陥追跡キュー**: queue/srs_pending_findings.json を新設し、PENDING/RESOLVED残存時の承認を物理遮断。
+- **単一進入点ハードゲート確立**: `tools/scripts/gate_master_srs.ps1` を配備し、事前点検（事前整合性・ハッシュ検証） ➔ 規格検収（ID一意性・C#リンター） ➔ 最終承認（AI監査・欠陥キュー空）の直列3段階Fail-Closedパイプラインを確立。
+- **第0条絶対憲法およびSHA-256ロック**: `governance/ARTICLE_0_SRS.md` を高密度約2.1KBで新設し、SHA-256ハッシュ対照による規則改変の機械的遮断を配備。
+- **外部欠陥追跡キュー**: `queue/srs_pending_findings.json` を新設し、PENDING/RESOLVED残存時の承認を物理遮断。
 
 #### ② パイプライン資産に対する4層交差検証実測メトリクス
 
@@ -385,12 +388,12 @@ Total Lines: 587 | Total Bytes: 66,586
 | **OpenAI Codex** | gpt-6.2-astra | call_codex.ps1 | **61.65秒** | 4大防御策（終了コード/SkipAi遮断/キュー権限） | **初案生成および是正完了** |
 | **Anthropic Claude** | claude-sonnet-5-5 | call_claude.ps1 | **70.59秒** | 文字化け検知・完結性精査 | **指摘全数是正完了** |
 | **Local Qwen 27B** | qwen3.8:27b (IQ3_M) | 自社 RTX 5070 Ti (Tailscale P2P) | **95.75秒** | Input: 8,800 tok / Output: 4,118 tok (48.0 tok/s) | **デッドロック防止是正完了** |
-| **C# 決定論的リンター** | erify_repo_total_integrity.ps1 | VerifySRS.exe v1.2 統合実行 | **0.85秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |
+| **C# 決定論的リンター** | verify_repo_total_integrity.ps1 | VerifySRS.exe v1.2 統合実行 | **0.85秒** | 全11ゲート全数スキャン (167ファイル) | **100% ALL PASS (11/11)** |
 
 
 ---
 
-### [2026-11-23 追加証跡] Track 2 Slice 1 ゼロベース完全新規作成および4層独立交差検証（21件全数是正反映・単一進入点マスターゲート承認 PASS）
+### 6.4.2 [Phase 2] Track 2 Slice 1 ゼロベース完全新規作成および4層独立交差検証（21件全数是正反映・単一進入点マスターゲート承認 PASS）
 
 #### ① 作業概要およびゼロリファレンス原則の適用
 - **対象ドメイン**: Slice 1 [店舗・会員管理および権限統制]（MySQL 8.4 DDL 4表、Java 21 / Spring Boot 3.x サービス、認可規約、契約履歴、労働基準法第37条引渡し境界）。
@@ -409,7 +412,7 @@ Total Lines: 587 | Total Bytes: 66,586
 | 監査主体 | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 規模 | 推論速度 | 判定結果 |
 |---|---|---|:---:|:---:|:---:|:---:|
 | **OpenAI Codex** | `gpt-6.2-astra` | `call_ai.ps1` (CLI 無出力ファイル) | **145.20秒** | 18.8KB (9,987文字) 初案執筆 | - | **初案生成完了 (PASS)** |
-| **Antigravity** | `Gemini 2.5 Pro` | IDE ワークスペース内部推論 | - | API冪等性・二重時給・デッドロック | - | **3件是正勧告 (ANTI-001〜003)** |
+| **Antigravity** | `Gemini 3.8 Flash` | IDE ワークスペース内部推論 | - | API冪等性・二重時給・デッドロック | - | **3件是正勧告 (ANTI-001〜003)** |
 | **Local Qwen 27B** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **128.18秒** | Input: 5,953 tok / Output: 5,910 tok | **48.5 tok/s** | **5件是正勧告 (ADV-001〜005)** |
 | **Anthropic Claude** | `claude-sonnet-5-5` | `call_ai.ps1` (REST API Direct) | **57.10秒** | Head-first JSON / MaxTokens 8192 | - | **13件是正勧告 (CLD-001〜013)** |
 | **マスターゲート (AI憲法監査)** | `qwen3.8:27b (IQ3_M)` | `gate_master_srs.ps1` ➔ RTX 5070 Ti | **66.96秒** | Input: 3,377 tok / Output: 3,216 tok | **49.5 tok/s** | **最終承認 PASS (Exit 0)** |
@@ -417,7 +420,7 @@ Total Lines: 587 | Total Bytes: 66,586
 
 ---
 
-### [2026-11-23 追加証跡 2] Track 1 / Track 2 物理分離、5大境界ケース吸収およびアーキテクチャ4大課題に対する2ラウンド相互反論（Mutual Cross-Rebuttal）完了証跡
+### 6.4.3 [Phase 3] Track 1 / Track 2 物理分離、5大境界ケース吸収およびアーキテクチャ4大課題に対する2ラウンド相互反論（Mutual Cross-Rebuttal）完了証跡
 
 #### ① 物理分離およびパイプライン恒久強化概要
 - **Track 1 / Track 2 物理分離 (`INCIDENT-73`)**: Week 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を保全し、Week 2 コード逆工学 Slice 1 を `config/srs_track2_asbuilt_slice1.md`（全276行）として独立分離。4階層ロック順序、レートリミット429評価順序、退職日遡及打刻検証（422）、翌日12:00退勤猶予の5大エッジケースを完全統合。
@@ -440,7 +443,7 @@ Total Lines: 587 | Total Bytes: 66,586
 
 ---
 
-### [2026-11-23 追加証跡 3] 3者合同全数構造監査に基づく憲法（GEMINI.md v1.07）・マルチトラック対象レジストリ（srs_targets.json）・単一リンター完全統合証跡（INCIDENT-76）
+### 6.4.4 [Phase 4] 3者合同全数構造監査に基づく憲法（GEMINI.md v1.07）・マルチトラック対象レジストリ（srs_targets.json）・単一リンター完全統合証跡（INCIDENT-76）
 
 #### ① 構造的断片化の根絶および単一真実原書（SSOT）統合概要
 - **憲法・キューパス・終端状態の完全統一**: `GEMINI.md`（v1.07）および `GEMINI_KO.md`（v1.07）を改定し、`governance/ARTICLE_0_SRS.md` との優先順位連結、単一キューパス（`queue/srs_pending_findings.json` / `VERIFIED`）、および `staged_blob_sha256` 領収書ハッシュ検証を完全統一。
