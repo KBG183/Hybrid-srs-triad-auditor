@@ -1,5 +1,7 @@
 # 🏛️ Hybrid SRS Quad-Auditor & Linter Engine
 
+[![KINTAI SRS CI](https://github.com/KBG183/Hybrid-srs-triad-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/KBG183/Hybrid-srs-triad-auditor/actions/workflows/ci.yml)
+
 > **ドメイン非依存型（Domain-Agnostic）高信頼性ソフトウェア要件定義書（SRS）自動生成・4核AI多層相互監査フレームワーク**  
 
 > **Status: 開発中（WIP）** — 現在、開発AIと独立ローカルLLM監査を分離したハイブリッド開発・監査パイプライン、およびガバナンス規約の検証・高度化を進めています。  
@@ -157,7 +159,8 @@ flowchart TD
 │   │   ├── VerifySRS.cs              # C#統合マスター静的解析リンター（テキスト整合性・DoD・IDOR遮断統合）
 │   │   ├── TestV52Suite_Regression.cs# 11/11決定論的回帰テストスイート
 │   │   ├── verify_srs.ps1            # リンター検証スクリプト
-│   │   └── verify_integrity.ps1      # テキスト無欠性検証スクリプト
+│   │   ├── verify_integrity.ps1      # テキスト無欠性検証スクリプト
+│   │   └── demo_offline_replay.ps1   # APIキー不要・3秒オフライン再生デモ
 │   ├── rules/                        # ガバナンス運用規律
 │   │   ├── sandbox_execution_policy.md         # 読み取り専用サンドボックス運用ポリシー
 │   │   └── srs_authoring_multi_audit_protocol.md # SRS作成および多層検証プロトコル
@@ -170,6 +173,16 @@ flowchart TD
     ├── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
     ├── 04_api_contracts_and_dtos/    # API契約およびDTO
     └── 05_core_domain_tests_fixtures/# 単体・統合テストフィクスチャ
+```
+
+---
+
+## ⚡ クイックスタート（APIキー不要・オフライン再生デモ）
+
+外部クラウドAPIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（11/11）・SSOT決定論的リンター・4重監査ログ再生を3秒以内に再現できます（Windows PowerShell / `.NET Framework 4.0` `csc.exe` 環境）。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "tools\scripts\demo_offline_replay.ps1"
 ```
 
 ---

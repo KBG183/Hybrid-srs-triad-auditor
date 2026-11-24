@@ -1,0 +1,100 @@
+name: KINTAI SRS CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deterministic-verification:
+    name: Build & Deterministic Verification
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compile C# Linter and Regression Suite
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+          }
+          if (-not (Test-Path $csc)) {
+            throw "C# compiler (csc.exe) not found."
+          }
+          & $csc /nologo /target:exe /out:tools\scripts\VerifySRS.exe tools\scripts\VerifySRS.cs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $csc /nologo /target:exe /out:tools\scripts\TestV52Suite_Regression.exe tools\scripts\TestV52Suite_Regression.cs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Deterministic Regression Testbed (11/11)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tools\scripts\TestV52Suite_Regression.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run VerifySRS Linter on SSOT Targets
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $targets = @(
+            'config\srs_specification_ssot.md',
+            'config\srs_track2_common_contract.md',
+            'config\srs_track2_asbuilt_slice1.md'
+          )
+          foreach ($t in $targets) {
+            Write-Host "Verifying $t ..."
+            & .\tools\scripts\VerifySRS.exe $t
+            if ($LASTEXITCODE -ne 0) {
+              throw "VerifySRS failed on $t with exit code $LASTEXITCODE"
+            }
+          }
+
+      - name: Run Zero-Korean, UTF-8 BOM, and PowerShell Syntax Gate
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $koreanPattern = '[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F\uA960-\uA97F\uD7B0-\uD7FF\uFFA0-\uFFDC]'
+          $tracked = git ls-files
+          $failures = 0
+
+          foreach ($f in $tracked) {
+            if (-not (Test-Path $f)) { continue }
+            if ($f -match '\.(exe|dll|png|jpg|ico)$') { continue }
+
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $f).Path)
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+              Write-Host "[BOM ERROR] $f contains UTF-8 BOM"
+              $failures++
+            }
+
+            $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+            if ($text -match $koreanPattern) {
+              Write-Host "[KOREAN ERROR] $f contains Korean characters"
+              $failures++
+            }
+
+            if ($f -match '\.ps1$') {
+              $tokens = $null
+              $parseErrors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path, [ref]$tokens, [ref]$parseErrors)
+              if ($parseErrors -and $parseErrors.Count -gt 0) {
+                Write-Host "[PS SYNTAX ERROR] $f : $($parseErrors[0].Message)"
+                $failures++
+              }
+            }
+          }
+
+          if ($failures -gt 0) {
+            throw "Static repository gate failed with $failures violation(s)."
+          }
+          Write-Host "PASS: Zero-Korean, Zero-BOM, and PowerShell syntax checks succeeded across $($tracked.Count) files."

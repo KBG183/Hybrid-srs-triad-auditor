@@ -459,3 +459,21 @@ Total Lines: 587 | Total Bytes: 66,586
 | **ミラー同期スクリプト刷新** | `gpt-6.2-sol` | `call_codex.ps1` (`sync_all_mirrors.ps1`) | **43.40秒** | 157行 厳格順序パリティ検査生成 | - | **PASS (欠落5要件即時検知)** |
 | **憲法v1.07条項衝突監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **82.13秒** | Input: 6,839 tok / Output: 3,824 tok | **48.6 tok/s** | **PASS (条項間矛盾0件確認)** |
 | **KO対照版Slice 3完全同期** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **152.86秒** | Input: 9,549 tok / Output: 6,835 tok | **47.5 tok/s** | **PASS (17/17要件パリティ達成)** |
+
+---
+
+## 📅 2026-11-24（Fast Track 拡張：CI・オフライン再生デモ・労基法37条3層追跡表）
+
+#### ① 実施概要
+- **GitHub Actions 軽量CI構築**: `.github/workflows/ci.yml` を新設し、`windows-latest` 上で `.NET Framework 4.0` (`csc.exe`) による `VerifySRS.cs` / `TestV52Suite_Regression.cs` ビルド、11/11回帰テスト、SSOTリンター、および Zero-Korean・Zero-BOM・PowerShell構文ゲートを自動化。`README.md` にCIバッジを追加。
+- **APIキー不要・オフライン再生デモ**: `tools/scripts/demo_offline_replay.ps1` を新規実装し、実測 **0.55秒** で回帰テスト(11/11)・SSOT検証・4重監査ログ再生（`21/21 VERIFIED`）を再現。
+- **労働基準法第37条 3層貫通トレーサビリティ**: `docs/labor37_e2e_traceability.md` を策定し、`REQ-LABOR-001`〜`005`（SSOT）↔ Java実装 ↔ JUnit 5 の対応関係および現行フィクスチャの境界（1円端数丸め差異・未検証ギャップ）を明文化。
+
+#### ② 4重交差監査（Quad-Audit）実測メトリクス（対象: `docs/labor37_e2e_traceability.md`）
+
+| 監査・執行フェーズ | 使用モデル | 実行環境 / 接続方式 | 所要時間 | 処理トークン / 規模 | 推論速度 | 判定結果 |
+|---|---|---|:---:|:---:|:---:|:---:|
+| **技術・数式反例監査 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` | **69.37秒** | 3段追跡表・端数丸め反例検証 | - | **差戻指摘反映済** (69円/70円差異・未検証範囲分離を追記) |
+| **労務法規深層監査 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` | **71.25秒** | `max_tokens(8192)` 到達 | - | **指摘反映済** (単体試験ギャップ・境界注記を明文化) |
+| **敵対的文脈監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **79.82秒** | Input: 3,325 tok / Output: 3,489 tok | **49.6 tok/s** | **4件抽出反映済** (ADV-001〜004 境界注記へ反映) |
+| **全体整合性ゲート (C# Linter)** | `VerifySRS.exe` + Total Integrity | ローカル確定論的検証 | **0.55秒** | 11項目静的・回帰検査 | - | **PASS (Exit 0)** |
