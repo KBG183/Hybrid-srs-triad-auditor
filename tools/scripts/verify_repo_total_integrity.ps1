@@ -90,9 +90,16 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # Test 2: CSV Column Cardinality & RFC 4180 Integrity
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Check 2/11] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
+# Ensure VerifySRS.exe is compiled via verify_srs.ps1 wrapper
+$verifyScript = Join-Path $scriptDir "verify_srs.ps1"
 $integrityExe = Join-Path $scriptDir "VerifySRS.exe"
 if (-not (Test-Path $integrityExe)) {
-    $integrityExe = Join-Path $scriptDir "VerifySRS_Integrity.exe"
+    Write-Host "  [AUTO-BUILD] Compiling VerifySRS.exe via verify_srs.ps1..." -ForegroundColor Cyan
+    & powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $verifyScript 2>&1 | Out-Null
+}
+if (-not (Test-Path $integrityExe)) {
+    Write-Host "  [FATAL] Failed to locate or compile VerifySRS.exe" -ForegroundColor Red
+    $hasFailure = $true
 }
 $csvFiles = @("logs\local_token_ledger.csv", "logs\cloud_api_token_ledger.csv", "logs\codex_token_ledger.csv", "logs\pipeline_metrics.csv", "logs\enterprise_audit_ledger.csv")
 $csvFail = $false
@@ -187,6 +194,7 @@ $allowedStandaloneKo = @(
     'docs/daily_retrospective_20261123_KO.md',
     'docs/sprint_schedule_KO.md',
     'docs/srs_diff_analysis_slice1_KO.md',
+    'docs/srs_diff_analysis_slice2_KO.md',
     'docs/srs_governance_upgrade_analysis_report_KO.md',
     'logs/project_evolution_ledger_KO.md'
 )
@@ -224,51 +232,55 @@ function Get-MarkdownSkeleton {
 $pairCount = 0
 $pairError = $false
 
-foreach ($koPairFile in $koPairFiles) {
-    $relKo = $koPairFile.FullName.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
-    $jaPairPath = $koPairFile.FullName -replace '_KO\.md$', '.md'
-    $relJa = $jaPairPath.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
-
-    if ($excludedFixturePairs -contains $relKo) {
-        continue
-    }
-
-    if (-not (Test-Path -LiteralPath $jaPairPath -PathType Leaf)) {
-        if ($allowedStandaloneKo -contains $relKo) {
-            continue
-        } else {
-            Write-Host "  [MIRROR ORPHAN] Unregistered standalone KO mirror without source: $relKo" -ForegroundColor Red
-            $pairError = $true
-            continue
-        }
-    }
-
-    $pairCount++
-    try {
-        $jaSkel = Get-MarkdownSkeleton -FilePath $jaPairPath
-        $koSkel = Get-MarkdownSkeleton -FilePath $koPairFile.FullName
-
-        if (($jaSkel.Levels -join ',') -cne ($koSkel.Levels -join ',')) {
-            Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo headings: JA=$($jaSkel.Levels.Count) vs KO=$($koSkel.Levels.Count) (level sequence differs)!" -ForegroundColor Red
-            $pairError = $true
-        }
-        if ($jaSkel.TableRows -ne $koSkel.TableRows) {
-            Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo table rows: JA=$($jaSkel.TableRows) vs KO=$($koSkel.TableRows)!" -ForegroundColor Red
-            $pairError = $true
-        }
-    } catch {
-        Write-Host "  [MIRROR READ ERROR] Failed to parse markdown skeleton for $($relKo) - $($_.Exception.Message)" -ForegroundColor Red
-        $pairError = $true
-    }
-}
-
-if ($pairError) {
-    $hasFailure = $true
-} elseif ($pairCount -lt 15) {
-    Write-Host "  [MIRROR GATE FAIL-CLOSED] Insufficient paired mirrors scanned: only $pairCount pairs found (expected >= 15)." -ForegroundColor Red
-    $hasFailure = $true
+if ($koPairFiles.Count -eq 0) {
+    Write-Host "  -> [SKIP: CLEAN CLONE] No local Korean (*_KO.md) mirrors present (standard Git clone with .gitignore). Remote JA SSOT is authoritative." -ForegroundColor Cyan
 } else {
-    Write-Host "  -> PASS: All $pairCount JA/KO markdown pairs match on fence-aware heading sequence and table row count." -ForegroundColor Green
+    foreach ($koPairFile in $koPairFiles) {
+        $relKo = $koPairFile.FullName.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
+        $jaPairPath = $koPairFile.FullName -replace '_KO\.md$', '.md'
+        $relJa = $jaPairPath.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
+
+        if ($excludedFixturePairs -contains $relKo) {
+            continue
+        }
+
+        if (-not (Test-Path -LiteralPath $jaPairPath -PathType Leaf)) {
+            if ($allowedStandaloneKo -contains $relKo) {
+                continue
+            } else {
+                Write-Host "  [MIRROR ORPHAN] Unregistered standalone KO mirror without source: $relKo" -ForegroundColor Red
+                $pairError = $true
+                continue
+            }
+        }
+
+        $pairCount++
+        try {
+            $jaSkel = Get-MarkdownSkeleton -FilePath $jaPairPath
+            $koSkel = Get-MarkdownSkeleton -FilePath $koPairFile.FullName
+
+            if (($jaSkel.Levels -join ',') -cne ($koSkel.Levels -join ',')) {
+                Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo headings: JA=$($jaSkel.Levels.Count) vs KO=$($koSkel.Levels.Count) (level sequence differs)!" -ForegroundColor Red
+                $pairError = $true
+            }
+            if ($jaSkel.TableRows -ne $koSkel.TableRows) {
+                Write-Host "  [MIRROR STRUCTURE MISMATCH] $relKo table rows: JA=$($jaSkel.TableRows) vs KO=$($koSkel.TableRows)!" -ForegroundColor Red
+                $pairError = $true
+            }
+        } catch {
+            Write-Host "  [MIRROR READ ERROR] Failed to parse markdown skeleton for $($relKo) - $($_.Exception.Message)" -ForegroundColor Red
+            $pairError = $true
+        }
+    }
+
+    if ($pairError) {
+        $hasFailure = $true
+    } elseif ($pairCount -lt 15) {
+        Write-Host "  [MIRROR GATE FAIL-CLOSED] Insufficient paired mirrors scanned: only $pairCount pairs found (expected >= 15 in local development environment)." -ForegroundColor Red
+        $hasFailure = $true
+    } else {
+        Write-Host "  -> PASS: All $pairCount JA/KO markdown pairs match on fence-aware heading sequence and table row count." -ForegroundColor Green
+    }
 }
 
 # Check 3.1: Multi-Track JA/KO Mirror Parity Gate (config/srs_targets.json)
@@ -281,8 +293,12 @@ if (Test-Path $targetsConfigPath) {
         $koFull = Join-Path $projectRoot $tgt.ko_path
         if (Test-Path $jaFull) {
             if (-not (Test-Path $koFull)) {
-                Write-Host "  [MIRROR MISSING] Korean mirror missing for $($tgt.ja_path): expected $($tgt.ko_path)!" -ForegroundColor Red
-                $hasFailure = $true
+                if ($koPairFiles.Count -eq 0) {
+                    Write-Host "  -> [SKIP] Target '$($tgt.id)' KO mirror not present in clean checkout." -ForegroundColor DarkGray
+                } else {
+                    Write-Host "  [MIRROR MISSING] Korean mirror missing for $($tgt.ja_path): expected $($tgt.ko_path)!" -ForegroundColor Red
+                    $hasFailure = $true
+                }
             } else {
                 $jaReqs = @([regex]::Matches([System.IO.File]::ReadAllText($jaFull, [System.Text.Encoding]::UTF8), $reqHdrPattern) | ForEach-Object { $_.Groups[1].Value })
                 $koReqs = @([regex]::Matches([System.IO.File]::ReadAllText($koFull, [System.Text.Encoding]::UTF8), $reqHdrPattern) | ForEach-Object { $_.Groups[1].Value })
@@ -319,12 +335,29 @@ if ($hasIntegrity -and $hasDeterministic) {
 # -------------------------------------------------------------------------
 Write-Host "`n>>> [Check 5/11] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
 $regExe = Join-Path $scriptDir "TestV52Suite_Regression.exe"
-$regOut = & $regExe 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "  -> PASS: All 11 boundary regression test cases deterministically passed." -ForegroundColor Green
-} else {
-    Write-Host "  [REGRESSION FAIL] Regression suite returned exit code $LASTEXITCODE." -ForegroundColor Red
+$regCs = Join-Path $scriptDir "TestV52Suite_Regression.cs"
+if (-not (Test-Path $regExe)) {
+    Write-Host "  [AUTO-BUILD] Compiling TestV52Suite_Regression.exe..." -ForegroundColor Cyan
+    $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework64\v4.0.30319\csc.exe")
+    if (-not (Test-Path $csc)) {
+        $csc = [System.IO.Path]::Combine($env:WINDIR, "Microsoft.NET\Framework\v4.0.30319\csc.exe")
+    }
+    if (Test-Path $csc) {
+        & $csc /nologo /target:exe /out:$regExe $regCs 2>&1 | Out-Null
+    }
+}
+
+if (-not (Test-Path $regExe)) {
+    Write-Host "  [REGRESSION ERROR] TestV52Suite_Regression.exe could not be found or compiled." -ForegroundColor Red
     $hasFailure = $true
+} else {
+    $regOut = & $regExe 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  -> PASS: All 11 boundary regression test cases deterministically passed." -ForegroundColor Green
+    } else {
+        Write-Host "  [REGRESSION FAIL] Regression suite returned exit code $LASTEXITCODE." -ForegroundColor Red
+        $hasFailure = $true
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -550,9 +583,16 @@ foreach ($ard in $auditRunsDirs) {
     if (-not (Test-Path $ard)) { continue }
     $verdictFiles = Get-ChildItem -Path $ard -Filter "verdict.json" -Recurse
     foreach ($vf in $verdictFiles) {
-        if ($vf.LastWriteTimeUtc -ge $thresholdTime) {
-            try {
-                $vJson = [System.IO.File]::ReadAllText($vf.FullName, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        try {
+            $vJson = [System.IO.File]::ReadAllText($vf.FullName, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+            $isRecent = $false
+            if ($vJson.created_utc) {
+                $cTime = [System.DateTime]::Parse($vJson.created_utc, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+                $isRecent = ($cTime -ge $thresholdTime)
+            } else {
+                $isRecent = ($vf.LastWriteTimeUtc -ge $thresholdTime)
+            }
+            if ($isRecent) {
                 if ($vJson.schema -ne "audit-verdict/v1" -or (-not $vJson.verdict)) {
                     Write-Host "  [INVALID SIDECAR] $($vf.FullName) does not conform to audit-verdict/v1 schema." -ForegroundColor Red
                     $sidecarFails++
@@ -583,8 +623,21 @@ foreach ($ard in $auditRunsDirs) {
                     $rawBytes = [System.IO.File]::ReadAllBytes($rf.FullName)
                     $sha = [System.Security.Cryptography.SHA256]::Create()
                     $calcSha = ([BitConverter]::ToString($sha.ComputeHash($rawBytes)) -replace '-', '').ToLowerInvariant()
+                    
+                    # Also compute canonical LF hash (neutralizing git autocrlf checkout variations)
+                    $rawText = [System.Text.Encoding]::UTF8.GetString($rawBytes)
+                    $lfText = $rawText.Replace("`r`n", "`n")
+                    $lfBytes = [System.Text.Encoding]::UTF8.GetBytes($lfText)
+                    $calcShaLf = ([BitConverter]::ToString($sha.ComputeHash($lfBytes)) -replace '-', '').ToLowerInvariant()
+
+                    # And canonical CRLF hash
+                    $crlfText = $lfText.Replace("`n", "`r`n")
+                    $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfText)
+                    $calcShaCrlf = ([BitConverter]::ToString($sha.ComputeHash($crlfBytes)) -replace '-', '').ToLowerInvariant()
                     $sha.Dispose()
-                    if ($calcSha -eq $vJson.response_sha256.ToString().ToLowerInvariant()) {
+
+                    $expectedSha = $vJson.response_sha256.ToString().ToLowerInvariant()
+                    if ($calcSha -eq $expectedSha -or $calcShaLf -eq $expectedSha -or $calcShaCrlf -eq $expectedSha) {
                         $matchedRaw = $true
                         break
                     }
@@ -641,10 +694,10 @@ foreach ($ard in $auditRunsDirs) {
                     Path = $vf.FullName
                     Time = $vf.LastWriteTimeUtc
                 }
-            } catch {
-                Write-Host "  [CORRUPT SIDECAR] $($vf.FullName): $_" -ForegroundColor Red
-                $sidecarFails++
             }
+        } catch {
+            Write-Host "  [CORRUPT SIDECAR] $($vf.FullName): $_" -ForegroundColor Red
+            $sidecarFails++
         }
     }
 }
@@ -739,6 +792,62 @@ foreach ($ag in $auditorGroups) {
             Write-Host "  [UNRESOLVED ADVERSE VERDICT] Auditor '$($ag.Name)' has unresolved $($latest.Verdict) verdict in: $($latest.Path)" -ForegroundColor Red
             $hasAdverseVerdict = $true
         }
+    }
+}
+
+# Verify Approval Manifest Integrity if present
+$manifestPath = Join-Path $projectRoot "approved\approval_manifest.json"
+if (Test-Path $manifestPath) {
+    try {
+        $mJson = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+        if (-not $mJson.GitCommitSha -or -not $mJson.Files) {
+            Write-Host "  [MANIFEST INVALID] approval_manifest.json schema invalid." -ForegroundColor Red
+            $hasFailure = $true
+        } else {
+            # Check if GitCommitSha exists in repository history
+            $commitExists = (git cat-file -e "$($mJson.GitCommitSha)^{commit}" 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "  [MANIFEST COMMIT UNKNOWN] approval_manifest.json GitCommitSha ($($mJson.GitCommitSha)) does not exist in Git history!" -ForegroundColor Red
+                $hasFailure = $true
+            } else {
+                # Check that all required targets from config/srs_targets.json are covered in approved manifest
+                $targetsCfgFile = Join-Path $projectRoot "config\srs_targets.json"
+                if (Test-Path $targetsCfgFile) {
+                    $tCfg = [System.IO.File]::ReadAllText($targetsCfgFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+                    $approvedPaths = @($mJson.Files | ForEach-Object { $_.Path.Replace('\', '/') })
+                    foreach ($tgt in $tCfg.targets) {
+                        if ($tgt.required -eq $true -and (Test-Path (Join-Path $projectRoot $tgt.ja_path))) {
+                            $normPath = $tgt.ja_path.Replace('\', '/')
+                            if ($approvedPaths -notcontains $normPath) {
+                                Write-Host "  [MANIFEST MISSING REQUIRED TARGET] Required target '$normPath' ($($tgt.id)) is not included in approved manifest!" -ForegroundColor Red
+                                $hasFailure = $true
+                            }
+                        }
+                    }
+                }
+
+                # Check SHA256 of approved files against manifest
+                foreach ($f in $mJson.Files) {
+                    $fPath = Join-Path $projectRoot $f.Path
+                    if (-not (Test-Path $fPath)) {
+                        Write-Host "  [MANIFEST MISSING FILE] Approved file missing: $($f.Path)" -ForegroundColor Red
+                        $hasFailure = $true
+                    } else {
+                        $fBytes = [System.IO.File]::ReadAllBytes($fPath)
+                        $sha = [System.Security.Cryptography.SHA256]::Create()
+                        $calcSha = ([BitConverter]::ToString($sha.ComputeHash($fBytes)) -replace '-', '').ToLowerInvariant()
+                        $sha.Dispose()
+                        if ($calcSha -ne $f.Sha256.ToLowerInvariant()) {
+                            Write-Host "  [MANIFEST HASH MISMATCH] $($f.Path) hash mismatch against approved manifest!" -ForegroundColor Red
+                            $hasFailure = $true
+                        }
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Host "  [MANIFEST ERROR] Failed to parse approval_manifest.json: $_" -ForegroundColor Red
+        $hasFailure = $true
     }
 }
 

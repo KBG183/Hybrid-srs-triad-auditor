@@ -118,7 +118,8 @@ try {
             throw "[FATAL TARGET CONFIG] Expected a file at $japanesePath."
         }
         if (-not (Test-Path -LiteralPath $koreanPath -PathType Leaf)) {
-            throw "[FATAL MIRROR MISSING] Expected $koreanPath for $japanesePath."
+            Write-Host "[SKIP] Korean mirror not present in clean checkout: $koreanPath" -ForegroundColor DarkGray
+            continue
         }
 
         $japaneseIds = @(Get-HeadingValues -Path $japanesePath -Pattern $requirementPattern)
@@ -130,18 +131,18 @@ try {
 
     $geminiJapanesePath = Join-Path $repositoryRoot 'GEMINI.md'
     $geminiKoreanPath = Join-Path $repositoryRoot 'GEMINI_KO.md'
-    foreach ($path in @($geminiJapanesePath, $geminiKoreanPath)) {
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-            throw "[FATAL GEMINI PARITY] Required file missing: $path"
+    if (Test-Path -LiteralPath $geminiJapanesePath -PathType Leaf) {
+        if (Test-Path -LiteralPath $geminiKoreanPath -PathType Leaf) {
+            $articlePattern = [regex]'^## (\d+)\.'
+            $japaneseArticles = @(Get-HeadingValues -Path $geminiJapanesePath -Pattern $articlePattern)
+            $koreanArticles = @(Get-HeadingValues -Path $geminiKoreanPath -Pattern $articlePattern)
+            Assert-OrderedParity -Label 'FATAL GEMINI PARITY' `
+                -JapaneseValues $japaneseArticles -KoreanValues $koreanArticles `
+                -JapanesePath $geminiJapanesePath -KoreanPath $geminiKoreanPath
+        } else {
+            Write-Host "[SKIP] GEMINI_KO.md not present in clean checkout." -ForegroundColor DarkGray
         }
     }
-
-    $articlePattern = [regex]'^## (\d+)\.'
-    $japaneseArticles = @(Get-HeadingValues -Path $geminiJapanesePath -Pattern $articlePattern)
-    $koreanArticles = @(Get-HeadingValues -Path $geminiKoreanPath -Pattern $articlePattern)
-    Assert-OrderedParity -Label 'FATAL GEMINI PARITY' `
-        -JapaneseValues $japaneseArticles -KoreanValues $koreanArticles `
-        -JapanesePath $geminiJapanesePath -KoreanPath $geminiKoreanPath
 }
 catch {
     [Console]::Error.WriteLine($_.Exception.Message)

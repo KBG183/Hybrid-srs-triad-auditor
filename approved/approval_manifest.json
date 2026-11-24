@@ -1,13 +1,25 @@
 {
-    "RunId":  "22a7715f-d667-40e0-bdfe-57e43a91fc90",
-    "GitCommitSha":  "f56e25ddc9ad13869e9bcf5dee525f0227f76e36",
+    "RunId":  "929506ae-18ab-4f3d-8ba4-7d476f36a2bf",
+    "GitCommitSha":  "8e6c969897d90ae0d3703636eb23f74926b73a4b",
     "ConstitutionSha256":  "d0c7a64d3520f987454465668ad640a28ac95da1f262ada8a41fe597797aabd6",
     "Files":  [
                   {
+                      "Path":  "config/srs_specification_ssot.md",
+                      "Sha256":  "e1cea61eef4f937034956d0f15d3c696139305fedd48322584ffb7df9a14f466"
+                  },
+                  {
+                      "Path":  "config/srs_track2_common_contract.md",
+                      "Sha256":  "2ded17bac5ac25cc5f466ee75f039ee2d967d9eb903875d17b316ab3a377a916"
+                  },
+                  {
                       "Path":  "config/srs_track2_asbuilt_slice1.md",
-                      "Sha256":  "5e250e080d4a384b677d8a107c6afd5593487fc74cd16abf199876369e509384"
+                      "Sha256":  "fa004b1b652e465181019b9c0c0aeccf929b7818dfc8b9ca84c46c9b7ce8b7f5"
+                  },
+                  {
+                      "Path":  "config/srs_track2_asbuilt_slice2.md",
+                      "Sha256":  "a930be103c458b600601c94da0301173590188c62488a5e04b05e729dad35a29"
                   }
               ],
-    "Timestamp":  "2026-11-23T07:41:49.1300025+00:00",
-    "AuditBundleSha256":  "08725504c9e621223c46456970f8db7897d44f2f888bf4502e3d915dd091c74a"
+    "Timestamp":  "2026-11-24T04:44:08.5310728+00:00",
+    "AuditBundleSha256":  "d186a406de4fdec38eab908fee7488d389bfd8beb75265bde4363e4bc2d71483"
 }

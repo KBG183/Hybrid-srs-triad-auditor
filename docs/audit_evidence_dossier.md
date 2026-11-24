@@ -423,7 +423,7 @@ Total Lines: 587 | Total Bytes: 66,586
 ### 6.4.3 [Phase 3] Track 1 / Track 2 物理分離、5大境界ケース吸収およびアーキテクチャ4大課題に対する2ラウンド相互反論（Mutual Cross-Rebuttal）完了証跡
 
 #### ① 物理分離およびパイプライン恒久強化概要
-- **Track 1 / Track 2 物理分離 (`INCIDENT-73`)**: Week 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を保全し、Week 2 コード逆工学 Slice 1 を `config/srs_track2_asbuilt_slice1.md`（全276行）として独立分離。4階層ロック順序、レートリミット429評価順序、退職日遡及打刻検証（422）、翌日12:00退勤猶予の5大エッジケースを完全統合。
+- **Track 1 / Track 2 物理分離 (`INCIDENT-73`)**: Week 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を保全し、Week 2 コード逆工学 Slice 1 を `config/srs_track2_asbuilt_slice1.md`（全275行）として独立分離。4階層ロック順序、レートリミット429評価順序、退職日遡及打刻検証（422）、翌日12:00退勤猶予の5大エッジケースを完全統合。
 - **パーサー判定バグ修正 (`INCIDENT-72`)**: `call_ai.ps1` および `AuditVerdictHelper.psm1` において、`verdict: "PASS"` 解決済み項目をP0/P1未解決件数から除外するよう厳密化。
 - **Gate Check 11 双方向証跡検証 (`INCIDENT-74`)**: `verify_repo_total_integrity.ps1` において、`queue/srs_pending_findings.json` の `declared_count` 一致、重複ID遮断、物理証跡長、および `closure_predicates` 再実行検証を実装。
 - **リアルタイム自動ログ追記 (`INCIDENT-75`)**: `call_ai.ps1` および `hermes_controller.ps1` 終了時に `docs/daily_audit_temp.log` へ実行メトリクスを自動追記するフックを実装。
@@ -468,6 +468,7 @@ Total Lines: 587 | Total Bytes: 66,586
 - **GitHub Actions 軽量CI構築**: `.github/workflows/ci.yml` を新設し、`windows-latest` 上で `.NET Framework 4.0` (`csc.exe`) による `VerifySRS.cs` / `TestV52Suite_Regression.cs` ビルド、11/11回帰テスト、SSOTリンター、および Zero-Korean・Zero-BOM・PowerShell構文ゲートを自動化。`README.md` にCIバッジを追加。
 - **APIキー不要・オフライン再生デモ**: `tools/scripts/demo_offline_replay.ps1` を新規実装し、実測 **0.55秒** で回帰テスト(11/11)・SSOT検証・4重監査ログ再生（`21/21 VERIFIED`）を再現。
 - **労働基準法第37条 3層貫通トレーサビリティ**: `docs/labor37_e2e_traceability.md` を策定し、`REQ-LABOR-001`〜`005`（SSOT）↔ Java実装 ↔ JUnit 5 の対応関係および現行フィクスチャの境界（1円端数丸め差異・未検証ギャップ）を明文化。
+- **Track 2 Slice 2 逆工学自動合成およびDiff分析**: `domain_target/03_core_domain_services/ShiftService.java` および `schema.sql` (`shift_schedule`) から OpenAI Codex (`gpt-6.2-astra`) により観測仕様初案 (`config/srs_track2_asbuilt_slice2.md`) を自動合成 (6,434文字、92.2秒)。C# 決定論的リンター (`VerifySRS.exe`) および4重交差監査を経て、Track 1 (`REQ-SHIFT-001`〜`004`) との双方向収束Diff分析書 (`docs/srs_diff_analysis_slice2_KO.md`) を策定。
 
 #### ② 4重交差監査（Quad-Audit）実測メトリクス（対象: `docs/labor37_e2e_traceability.md`）
 
@@ -477,3 +478,6 @@ Total Lines: 587 | Total Bytes: 66,586
 | **労務法規深層監査 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` | **71.25秒** | `max_tokens(8192)` 到達 | - | **指摘反映済** (単体試験ギャップ・境界注記を明文化) |
 | **敵対的文脈監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **79.82秒** | Input: 3,325 tok / Output: 3,489 tok | **49.6 tok/s** | **4件抽出反映済** (ADV-001〜004 境界注記へ反映) |
 | **全体整合性ゲート (C# Linter)** | `VerifySRS.exe` + Total Integrity | ローカル確定論的検証 | **0.55秒** | 11項目静的・回帰検査 | - | **PASS (Exit 0)** |
+| **Slice 2 Codex 逆工学執筆** | `gpt-6.2-astra` | `pipeline_draft_and_integrate.ps1` | **92.20秒** | 6,434文字・As-Built観測仕様合成 | - | **PASS (VerifySRS.exe 適合)** |
+| **Slice 2 Codex 交差監査** | `gpt-6.2-astra` | `call_codex.ps1` (Quad-Audit) | **98.17秒** | 14列定義・第34条通算ギャップ検証 | - | **指摘反映済** (14列整合・日次通算注記追記) |
+| **Slice 2 Qwen 文脈監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **4.16秒** | Input: 935 tok / Output: 160 tok | **51.2 tok/s** | **PASS (文脈整合確認)** |

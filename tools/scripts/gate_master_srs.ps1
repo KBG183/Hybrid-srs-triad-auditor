@@ -40,9 +40,13 @@ if ($TargetId) {
     $tCfgFile = [System.IO.Path]::Combine($RepoRoot, 'config', 'srs_targets.json')
     if ([System.IO.File]::Exists($tCfgFile)) {
         $tCfgObj = [System.IO.File]::ReadAllText($tCfgFile, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
-        $tMatch = $tCfgObj.targets | Where-Object { $_.id -eq $TargetId } | Select-Object -First 1
-        if ($tMatch) {
-            $TargetPath = @($tMatch.ja_path)
+        if ($TargetId -eq 'all' -or $TargetId -eq 'required') {
+            $TargetPath = @($tCfgObj.targets | Where-Object { $_.required -eq $true } | ForEach-Object { $_.ja_path })
+        } else {
+            $tMatch = $tCfgObj.targets | Where-Object { $_.id -eq $TargetId } | Select-Object -First 1
+            if ($tMatch) {
+                $TargetPath = @($tMatch.ja_path)
+            }
         }
     }
 }

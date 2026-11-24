@@ -109,13 +109,19 @@ if ($latestAuditReport -and (Test-Path $latestAuditReport)) {
 <# Step 3. Determine Verification Matrix for Each Requirement #>
 $matrixRows = @()
 
-# Dynamically run deterministic integrity linter
+# Dynamically run deterministic integrity linter via wrapper/binary
+$linterWrapper = Join-Path $scriptDir "verify_srs.ps1"
 $linterExe = Join-Path $scriptDir "VerifySRS.exe"
+if (-not (Test-Path $linterExe)) {
+    & powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $linterWrapper -Files @() 2>&1 | Out-Null
+}
 $ssotPath = Join-Path $projectRoot "config\srs_specification_ssot.md"
 $linterVerdict = "PASS"
 if (Test-Path $linterExe) {
     & $linterExe $ssotPath | Out-Null
     if ($LASTEXITCODE -ne 0) { $linterVerdict = "FAIL" }
+} else {
+    $linterVerdict = "FAIL"
 }
 
 foreach ($req in $reqList) {

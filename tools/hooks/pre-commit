@@ -50,6 +50,13 @@ if [ $? -ne 0 ]; then
 fi
 
 # 5. Master Deterministic Integrity Gate (Staged Assets & SSOT Verification)
+if [ ! -f "tools/scripts/VerifySRS.exe" ]; then
+    powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "tools/scripts/verify_srs.ps1" -Files @() > /dev/null 2>&1
+fi
+if [ ! -f "tools/scripts/VerifySRS.exe" ]; then
+    echo "[BLOCK] Failed to compile or find VerifySRS.exe. Aborting commit."
+    exit 1
+fi
 tools/scripts/VerifySRS.exe "config/srs_specification_ssot.md"
 if [ $? -ne 0 ]; then
     echo "[BLOCK] Deterministic Integrity verification failed on SSOT. Aborting commit."

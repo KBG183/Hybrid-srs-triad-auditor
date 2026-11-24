@@ -125,26 +125,34 @@ Move-Item -Path $tmpDraftPath -Destination $finalDraftPath -Force
 Write-Host "[PIPELINE] Draft successfully authored and verified: $finalDraftPath ($($draftContent.Length) chars, $($codexSw.Elapsed.TotalSeconds.ToString('F1'))s)"
 
 # 5. Execute Deterministic Linter Gate (Fail-Closed)
+$linterWrapper = Join-Path $projectRoot "tools\scripts\verify_srs.ps1"
 $linterBin = Join-Path $projectRoot "tools\scripts\VerifySRS.exe"
-if (Test-Path $linterBin) {
-    Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
-    $lintOutput = & $linterBin $finalDraftPath
-    $lintOutput | Out-File -FilePath $lintReportPath -Encoding UTF8
-    $lintOutput | Select-Object -First 15 | ForEach-Object { Write-Host $_ }
 
-    $fatalMatches = @($lintOutput | Select-String -Pattern '\[FATAL\]')
-    if ($fatalMatches.Count -gt 0) {
-        Write-Error "[PIPELINE FAIL-CLOSED] Deterministic Linter detected $($fatalMatches.Count) FATAL errors in draft! Aborting pipeline."
-        exit 1
-    }
-    Write-Host "[PIPELINE PASS] Deterministic Linter passed with 0 FATAL errors."
-    if ($OutputTargetFile) {
-        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-        [System.IO.File]::WriteAllText($OutputTargetFile, $draftContent, $utf8NoBom)
-        Write-Host "[PIPELINE INTEGRATED] Automatically integrated verified draft to target: $OutputTargetFile" -ForegroundColor Green
-    }
-} else {
-    Write-Host "[PIPELINE WARN] VerifySRS.exe not found at standard path."
+if (-not (Test-Path $linterBin)) {
+    Write-Host "[PIPELINE] Compiling VerifySRS.exe via verify_srs.ps1..."
+    & powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $linterWrapper -Files @() 2>&1 | Out-Null
+}
+
+if (-not (Test-Path $linterBin)) {
+    Write-Error "[PIPELINE FAIL-CLOSED] VerifySRS.exe could not be compiled or located. Failing Closed."
+    exit 4
+}
+
+Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
+$lintOutput = & $linterBin $finalDraftPath
+$lintOutput | Out-File -FilePath $lintReportPath -Encoding UTF8
+$lintOutput | Select-Object -First 15 | ForEach-Object { Write-Host $_ }
+
+$fatalMatches = @($lintOutput | Select-String -Pattern '\[FATAL\]')
+if ($fatalMatches.Count -gt 0) {
+    Write-Error "[PIPELINE FAIL-CLOSED] Deterministic Linter detected $($fatalMatches.Count) FATAL errors in draft! Aborting pipeline."
+    exit 1
+}
+Write-Host "[PIPELINE PASS] Deterministic Linter passed with 0 FATAL errors."
+if ($OutputTargetFile) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($OutputTargetFile, $draftContent, $utf8NoBom)
+    Write-Host "[PIPELINE INTEGRATED] Automatically integrated verified draft to target: $OutputTargetFile" -ForegroundColor Green
 }
 
 Write-Host "=== Pipeline Execution Completed for Run: $runId ==="

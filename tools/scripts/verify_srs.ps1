@@ -8,9 +8,9 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments = $true)]
-    [Alias("TargetFiles", "Path")]
-    [string[]]$TargetFile
+    [Parameter(Mandatory = $false, Position = 0, ValueFromRemainingArguments = $true)]
+    [Alias("TargetFiles", "Path", "Files")]
+    [string[]]$TargetFile = @()
 )
 
 $ErrorActionPreference = 'Stop'

@@ -32,7 +32,7 @@
       "name": "Track 2 As-Built Reverse-Engineered Slice 2 (Shift & Concurrency)",
       "ja_path": "config/srs_track2_asbuilt_slice2.md",
       "ko_path": "config/srs_track2_asbuilt_slice2_KO.md",
-      "required": false
+      "required": true
     },
     {
       "id": "track2_slice3",
