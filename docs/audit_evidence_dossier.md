@@ -487,3 +487,7 @@ Total Lines: 587 | Total Bytes: 66,586
 | **DDL静的抽出器 Codex執筆** | `gpt-6.2-astra` | `call_codex.ps1` (`extract_ddl_spec.ps1`) | **61.40秒** | 350行 DDL字句解析・物理14列抽出 | - | **PASS (shift_schedule 14列合致)** |
 | **トークン最適化 設計 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` | **58.20秒** | 4本柱トークン削減アーキテクチャ策定 | - | **PASS (RFC反映)** |
 | **トークン最適化 敵対監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **67.59秒** | Input: 1,590 tok / Output: 3,351 tok | **50.1 tok/s** | **3件境界反映済** (労基法37条エスカレーション・フォールバック) |
+| **Phase 2 決定論的ゲート拡張 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **49.52秒** | Input: 1,497 tok / Output: 2,439 tok | **49.7 tok/s** | **PASS** (`RULE-FSM-01` & `RULE-LOCK-01` 拡張検証) |
+| **本日開発資産 全数統合監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **89.77秒** | Input: 2,287 tok / Output: 4,418 tok | **49.8 tok/s** | **PASS** (18資産 敵対的文脈監査全数合格) |
+| **5大DX改善案 交差監査 (Codex)** | `gpt-6.2-sol` | `call_codex.ps1` (`call_ai.ps1`) | **42.14秒** | 5大DX改善案（.gitattributes等）工学検証 | - | **WARN** (バイナリ破壊回避・Atomic Replace勧告反映) |
+| **5大DX改善案 敵対監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **69.54秒** | Input: 1,871 tok / Output: 3,437 tok | **50.1 tok/s** | **WARN** (バイナリ除外・Gitフック構文テスト反映) |

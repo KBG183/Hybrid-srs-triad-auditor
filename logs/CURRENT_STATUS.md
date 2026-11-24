@@ -1,20 +1,20 @@
 # 📍 KINTAI 品質検証パイプライン 統括ステータス台帳
 
-最終更新: 2026-11-23 16:35（Track 1 企画書正本の保全、Track 2 Slice 1 逆工学仕様書・共通契約の独立新設、および単一進入点マスターゲート承認完了）
+最終更新: 2026-11-24 16:00（Track 2 Slice 2 勤怠申請・確定逆工学仕様完走、CI動的巡回・LF正規化・マルチAIランタイム堅牢化完了）
 
 ---
 
 ## 1. 現在のマイルストーン
 
 - **プロジェクト位置づけ**: 本リポジトリは、アルバイト勤怠・給与SaaS「KINTAI」の労働基準法計算・並行性制御を担保するための独立品質検証パイプラインです。
-- **現行フェーズ**: Track 2（ゼロリファレンスによる実装逆工学SRS作成および設計対比検証）Slice 1 [店舗・会員管理および権限統制] 完走および共通契約（`srs_track2_common_contract.md`）確立。
+- **現行フェーズ**: Track 2（ゼロリファレンスによる実装逆工学SRS作成および設計対比検証）Slice 2 [勤怠申請・承認フローおよび排他制御] 完走、および CI/DX 自動化ツールチェーン配備完了。
 - **進捗状況**:
   - OpenAI Codex (`gpt-6.2-astra`) によるゼロベース初案起草および5大境界エッジケース（4階層ロック・429評価順序・退職日遡及422・翌日12:00退勤猶予）の統合。
-  - Antigravity、Claude Sonnet 5.5、Local Qwen 27B、C# Roslyn リンターによる4層独立交差監査の完走（指摘21件全数摘発）。
-  - `queue/srs_pending_findings.json` への全件キューイングおよび1-Shot統合是正完了（全21件 VERIFIED 遷移）。
-  - 単一進入点マスターゲート（`gate_master_srs.ps1`）Stage 1〜3 完全突破、`approval_manifest.json` 公式発行。
-  - Track 1 企画書正本（`config/srs_specification_ssot.md` 全17要件）を完全保全し、Track 2 Slice 1 逆工学仕様書（`config/srs_track2_asbuilt_slice1.md` 全276行）および共通契約（`config/srs_track2_common_contract.md`）を独立分離配置。
-- **最新ヘルスチェック判定**: `PRODUCTION_PASS` (enterprise_audit_ledger.csv BATCH-14: 3者合同全数構造監査に基づくGEMINI.md v1.07統一・srs_targets.json新設・VerifySRS.exe単一化・Track1/2全スライスJA/KO完全同期)
+  - Antigravity、Claude Sonnet 5.5、Local Qwen 27B、C# Roslyn リンターによる4層独立交差監査の完走。
+  - `queue/srs_pending_findings.json` への全件キューイングおよび1-Shot統合是正完了（全件 VERIFIED 遷移）。
+  - Track 2 Slice 2 逆工学仕様書（`config/srs_track2_asbuilt_slice2.md`）の策定完了および `config/srs_targets.json` への正式登録。
+  - CI targets動的巡回エンジン（`ci.yml`）、LF改行正規化（`.gitattributes`）、フック事前検証（`test_git_hooks.ps1`）、およびマルチAIランタイムG1/G3ガード（`call_ai.ps1`）の完全配備。
+- **最新ヘルスチェック判定**: `PRODUCTION_PASS` (enterprise_audit_ledger.csv BATCH-15: Track2 Slice2逆工学仕様完走・CI targets動的巡回・.gitattributes LF正規化・call_ai G1/G3ガード配備・VerifySRS.exe 11/11全数合格)
 
 ---
 
@@ -24,7 +24,7 @@
 2. **第0条SRS絶対憲法およびハッシュロック**: `governance/ARTICLE_0_SRS.md` + `.sha256` (2.1KB高密度不可変ルール・改ざん時Exit 4即時遮断)
 3. **外部指摘事項追跡キュー**: `queue/srs_pending_findings.json` (未解消欠陥残存時の承認物理遮断・2-Tier是正プロセス)
 4. **統括オーケストレーター**: Antigravity (Google Gemini Engine — ワークスペース調整・SSOT管理)
-5. **統合AIストリーミング基盤**: `call_ai.ps1` (OpenAI Codex, Anthropic Claude, Local Qwen 27B — 非同期デッドロック防止・Unicode正規表現保護・P0/P1 Fail-Closed契約)
+5. **統合AIストリーミング基盤**: `call_ai.ps1` (OpenAI Codex, Anthropic Claude, Local Qwen 27B — G1 Truncation Guard・G3 Named Mutex・P0/P1 Fail-Closed契約)
 6. **単一C#マスターリンター**: `VerifySRS.exe v1.2` (`VerifySRS.cs` — 構文・DoD・カルチャ非依存日付・テーブル構造の統合検証)
 7. **原子的SSOT反映基盤**: `patch_ssot.ps1` (ジャンクション走査防止・PID生存確認排他ロック・SHA-256完全一致ロールバック)
 8. **確定論的ハードゲート**: `verify_repo_total_integrity.ps1` (11/11 総合無欠陥検証PASS)

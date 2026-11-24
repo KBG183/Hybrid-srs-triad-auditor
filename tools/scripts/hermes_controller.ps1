@@ -21,7 +21,10 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("Independent", "CrossExam")]
-    [string]$AuditMode = "Independent"
+    [string]$AuditMode = "Independent",
+
+    [Parameter(Mandatory = $false)]
+    [switch]$DiffOnly = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,6 +46,18 @@ $timestampStr = (Get-Date).ToString("yyyyMMdd_HHmmss")
 
 if (-not $OutputFile) {
     $OutputFile = Join-Path $projectRoot "audit\HERMES_Audit_${targetFileName}_${timestampStr}.md"
+}
+
+if ($DiffOnly) {
+    $diffBundler = Join-Path $scriptDir "bundle_diff_context.ps1"
+    if (Test-Path $diffBundler) {
+        Write-Host "  -> [DIFF BUNDLER] Extracting minimal differential context..." -ForegroundColor Cyan
+        $diffBundleFile = & powershell -ExecutionPolicy Bypass -File $diffBundler -TargetFile $resolvedTarget -Quiet
+        if ($diffBundleFile -and (Test-Path -LiteralPath $diffBundleFile)) {
+            $resolvedTarget = $diffBundleFile
+            Write-Host "  -> [DIFF BUNDLER] Switched audit context to minimal bundle: $resolvedTarget" -ForegroundColor Green
+        }
+    }
 }
 
 $targetFileHash = (Get-FileHash -Path $resolvedTarget -Algorithm SHA256).Hash
@@ -185,12 +200,23 @@ if ($UseCache -and (Test-Path $codexCacheFile)) {
     $codexStatus = "COMPLETED (CACHE HIT)"
     Write-Host "  -> [CACHE HIT] Target hash matches. Reusing verified Codex audit result (0 tokens consumed)." -ForegroundColor Cyan
 } else {
-    $codexScript = Join-Path $scriptDir "call_codex.ps1"
-    $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
-    if (Test-Path $codexLastMsgFile) { Remove-Item $codexLastMsgFile -Force -ErrorAction SilentlyContinue }
-    
-    if ($AuditMode -eq "CrossExam") {
-        $codexPrompt = @"
+    $isCriticalDomain = $false
+    $targetContent = if (Test-Path $resolvedTarget) { [System.IO.File]::ReadAllText($resolvedTarget, [System.Text.Encoding]::UTF8) } else { "" }
+    if ($targetContent -match '(?i)(?:労働基準法第37条|割増賃金|25%|35%|50%|端数処理|1分単位|15分単位|30分単位|SELECT\s+.*?\s+FOR\s+UPDATE|FOR\s+UPDATE|悲観的ロック|排他制御|デッドロック|schema\.sql|FOREIGN\s+KEY|CHECK\s+制約|14列)') {
+        $isCriticalDomain = $true
+    }
+
+    if ($AuditMode -ne "CrossExam" -and -not $isCriticalDomain -and $qwenStatus -eq "COMPLETED" -and ($hermesOutputText -match '(?i)"verdict"\s*:\s*"PASS"' -or $hermesOutputText -match '(?i)\bVerdict:\s*PASS\b')) {
+        $codexStatus = "SKIPPED (Smart Router: Qwen PASS on non-critical domain)"
+        $codexOutputText = "Codex cross-audit skipped by Smart Router: Local Qwen 27B verified PASS on non-critical domain ($0 spent)."
+        Write-Host "  -> [SMART ROUTER] Non-critical domain and Qwen PASS. Skipping external Codex invocation ($0 spent, 100% tokens saved)." -ForegroundColor Green
+    } else {
+        $codexScript = Join-Path $scriptDir "call_codex.ps1"
+        $codexLastMsgFile = Join-Path $projectRoot "scratch\test_runs\codex_last_msg.txt"
+        if (Test-Path $codexLastMsgFile) { Remove-Item $codexLastMsgFile -Force -ErrorAction SilentlyContinue }
+        
+        if ($AuditMode -eq "CrossExam") {
+            $codexPrompt = @"
 You are the OpenAI Codex Principal Security Auditor in Cross-Examination Mode.
 Analyze the target defense system alongside the preliminary vulnerability findings reported by Local Qwen 27B below.
 Attempt to discover implementation loopholes, bypass techniques, and race conditions that could defeat the defense gates.
@@ -198,29 +224,30 @@ Attempt to discover implementation loopholes, bypass techniques, and race condit
 [Preliminary Qwen 27B Findings]:
 $hermesOutputText
 "@
-    } else {
-        $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
-    }
-    
-    $codexPromptFile = Join-Path $projectRoot "scratch\test_runs\crossexam_codex_prompt.txt"
-    [System.IO.File]::WriteAllText($codexPromptFile, $codexPrompt, [System.Text.Encoding]::UTF8)
-    $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -PromptFile $codexPromptFile -ContextFile $resolvedTarget
-    $codexExitCode = $LASTEXITCODE
-
-    if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
-        $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
-        if ($codexContent.Length -gt 0) {
-            $codexOutputText = $codexContent
-            $codexStatus = "COMPLETED"
-            [System.IO.File]::WriteAllText($codexCacheFile, $codexOutputText, [System.Text.Encoding]::UTF8)
-            Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
         } else {
-            $codexStatus = "FAIL (Empty Output)"
-            Write-Warning "  -> Codex Cross-Audit produced empty output"
+            $codexPrompt = "You are the OpenAI Codex Principal Auditor. Audit the specification for technical implementation, DDL constraints, DTO contracts, and pessimistic lock boundaries. Output findings in standard markdown table format."
         }
-    } else {
-        $codexStatus = "FAIL (Execution Error, ExitCode: $codexExitCode)"
-        Write-Warning "  -> Codex Cross-Audit Failed ($codexStatus)"
+        
+        $codexPromptFile = Join-Path $projectRoot "scratch\test_runs\crossexam_codex_prompt.txt"
+        [System.IO.File]::WriteAllText($codexPromptFile, $codexPrompt, [System.Text.Encoding]::UTF8)
+        $codexSummaryOutput = & powershell -ExecutionPolicy Bypass -File $codexScript -PromptFile $codexPromptFile -ContextFile $resolvedTarget
+        $codexExitCode = $LASTEXITCODE
+
+        if ($codexExitCode -eq 0 -and (Test-Path $codexLastMsgFile)) {
+            $codexContent = [System.IO.File]::ReadAllText($codexLastMsgFile, [System.Text.Encoding]::UTF8).Trim()
+            if ($codexContent.Length -gt 0) {
+                $codexOutputText = $codexContent
+                $codexStatus = "COMPLETED"
+                [System.IO.File]::WriteAllText($codexCacheFile, $codexOutputText, [System.Text.Encoding]::UTF8)
+                Write-Host "  -> Codex Cross-Audit Completed ($codexStatus)" -ForegroundColor Green
+            } else {
+                $codexStatus = "FAIL (Empty Output)"
+                Write-Warning "  -> Codex Cross-Audit produced empty output"
+            }
+        } else {
+            $codexStatus = "FAIL (Execution Error, ExitCode: $codexExitCode)"
+            Write-Warning "  -> Codex Cross-Audit Failed ($codexStatus)"
+        }
     }
 }
 

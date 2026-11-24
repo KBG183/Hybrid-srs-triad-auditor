@@ -1,21 +1,21 @@
 # 📊 多層パイプライン検証メトリクス ＆ 監査ダッシュボード
 
-最終更新: 2026-11-23 | システムバージョン: v1.02
+最終更新: 2026-11-24 | システムバージョン: v1.03
 
 ---
 
 ## 🚦 1. パイプライン総合稼働状態 (Summary)
-* **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md`）全17要件
-* **最新統合監査判定**: `PRODUCTION_PASS`（`enterprise_audit_ledger.csv` BATCH-14 準拠: 3者合同全数構造監査に基づくGEMINI.md v1.07統一・srs_targets.json新設・VerifySRS.exe単一化・Track1/2全スライスJA/KO完全同期）
-* **C# 決定論的リンター**: `ONLINE`（`VerifySRS_Deterministic.cs` ＋ `VerifySRS_Integrity.cs` Fail-Closed 確定論的構文・無欠性検証）
-* **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-6.2 Astra自動ルーティング対応）
-* **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化）
-* **Claude 深層法規監査**: `ONLINE`（Anthropic Claude Sonnet 5.5 労基法第37条・不変性深層検証）
+* **確定要件定義**: 単一真実原書（`config/srs_specification_ssot.md` 全17要件）および Track 2 逆工学仕様書（`slice1.md`, `slice2.md`）
+* **最新統合監査判定**: `PRODUCTION_PASS`（`enterprise_audit_ledger.csv` BATCH-15 準拠: Track2 Slice2逆工学仕様完走・CI targets動的巡回・.gitattributes LF正規化・call_ai G1/G3ガード配備・VerifySRS.exe 11/11全数合格）
+* **C# 決定論的リンター**: `ONLINE`（`VerifySRS.cs` Fail-Closed 確定論的構文・DoD・契約検証）
+* **Codex 独立交差監査**: `ONLINE`（無損失UTF-8バイトストリーム・GPT-6.2 Astra/Sol自動ルーティング対応）
+* **ローカル Qwen 27B**: `ONLINE`（Ollama REST API・自社GPU RTX 5070 Ti P2P高速化・32Kコンテキスト拡張 50.1 tok/s）
+* **Claude 深層法規監査**: `ONLINE`（Anthropic Claude Sonnet 5.5 労基法第37条・G1 Truncation Guard配備）
 * **最終検証ゲート**: `ACTIVE`（C#決定論的回帰テストスイート連動）
 
 ---
 
-## 2. 要件完全性検証スコア (SSOT 全17要件 - BATCH-14 4層交差監査連動)
+## 2. 要件完全性検証スコア (SSOT 全17要件 - BATCH-15 4層交差監査連動)
 | ID | 要件項目 | C# リンター | Qwen 27B | Codex 監査 | Claude 5.5 | 最終判定 |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | REQ-STORE-001 | 店舗マスター登録および招待コード・QRトークン管理 | PASS | PASS | PASS | PASS | **PASS** |

@@ -33,6 +33,32 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-24 — INCIDENT-79 — 外部LLM連携におけるClaude要約途絶(max_tokens)時のFail-Openリスクおよび多重プロセスログ書込競合の防御 (G1/G3ガード)
+
+- **問題**: 4核AI交差検証において、Claudeレスポンスが `max_tokens` (8192) に達して途中切断（Truncated）された場合、不完全な監査出力であるにもかかわらずJSON構造の正当性のみでゲートを通過するFail-Openリスクが顕在化した。また、並行検証時に `local_token_ledger.csv` への同時書込によるファイルロック競合が発生した。
+- **原因**: `call_ai.ps1` において `stop_reason` の網羅的検証が欠落しており、かつマルチプロセス環境におけるOSレベル排他制御が未配備であったこと。
+- **恒久対策**:
+  1. `tools/scripts/call_ai.ps1` に G1 Truncation Guard を配備し、`stop_reason == "max_tokens"` 検知時に直ちに `CLAUDE_RESPONSE_TRUNCATED` 例外を送出して不完全出力をFail-Closed遮断。
+  2. Windows OSレベルの名前付きミューテックス（`Global\KintaiQwenLedgerMutex`, G3）を実装し、多重プロセス環境下でのログ・中間ファイルへの安全な原子的書込（Atomic Write）を確立。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
+### 2026-11-24 — INCIDENT-78 — CIパイプラインにおける検証ターゲット固定化に伴う新規Slice検証漏れの解消 (RFC-SYS-01)
+
+- **問題**: GitHub Actions CI（`.github/workflows/ci.yml`）において検証対象が3ファイルにハードコードされていたため、新規作成された `srs_track2_asbuilt_slice2.md` および今後の Slice 3/4 が自動検収から脱落する構造的脆弱性が露呈した。
+- **原因**: CI定義が初期フェーズの固定ファイルを直接参照しており、動的ターゲットレジストリ（`config/srs_targets.json`）と疎通していなかったこと。
+- **恒久対策**:
+  1. `.github/workflows/ci.yml` を刷新し、`config/srs_targets.json` をPowerShellで動的走査して `"required": true` な全ターゲットを自動抽出・ループ検証する構造へ改修。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
+### 2026-11-24 — INCIDENT-77 — チェックアウト環境差異による改行コード(CRLF/LF)不一致およびバイナリ破損リスクの防止 (DX-01 / DX-05)
+
+- **問題**: Windows環境におけるGitのデフォルト `core.autocrlf` 動作により、テキストファイルに `\r\n` が混入してSHA-256不一致およびTEXT-005警告が多発し、また一括LF化時に `VerifySRS.exe` 等のバイナリが破損するリスクおよびGitフック構文エラーの懸念が存在した。
+- **原因**: リポジトリルートに `.gitattributes` が未配備であり、Gitフックの事前構文検証メカニズムが欠落していたこと。
+- **恒久対策**:
+  1. `.gitattributes` を新設し、バイナリ（`*.exe`, `*.png`）を厳格に `binary` 指定で保護しつつ、テキスト（`*.md`, `*.ps1`, `*.json`）に限定して `eol=lf` を自動強制。
+  2. Gitフック構文の事前検証スクリプト（`tools/scripts/test_git_hooks.ps1`）を配備し、構文不正を0秒で事前検知する体制を確立。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
 ### 2026-11-23 — INCIDENT-76 — 憲法・ターゲットレジストリ・リンターバイナリの多世代断片化解消およびマルチスライスJA/KOパリティ強制化
 
 - **問題**: 3者合同全数構造監査（Antigravity + OpenAI Codex + Local Qwen 27B）の結果、① `GEMINI.md`（旧 `scratch/pending_findings.json` / `RESOLVED`）と `governance/ARTICLE_0_SRS.md`（`queue/srs_pending_findings.json` / `VERIFIED`）のパス・終端状態衝突、② 全スクリプトにおける Track 1 ファイル名（`srs_specification_ssot.md`）のハードコード固着および `srs_specification_ssot_KO.md` の Slice 3（5要件）同期漏れ、③ 旧リンターバイナリ名（`VerifySRS_Deterministic.exe`, `VerifySRS_Integrity.exe`）の残存参照が摘発された。

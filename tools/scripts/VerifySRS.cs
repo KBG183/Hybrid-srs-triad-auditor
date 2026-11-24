@@ -1036,6 +1036,49 @@ namespace SrsIntegrity.Engine
                         }
                     }
                 }
+
+                // 10-5. [RULE-FSM-01] Finite State Machine (FSM) Transition Inversion Gate (RFC-FUNC-04)
+                var fsmInversionMatches = Regex.Matches(fullDocText, @"(?i)\b(CONFIRMED\s*(?:➔|->|→)\s*SUBMITTED|REJECTED\s*(?:➔|->|→)\s*CONFIRMED|CONFIRMED\s*(?:➔|->|→)\s*(?:取消|削除)|REJECTED\s*(?:➔|->|→)\s*(?:取消|削除))\b");
+                foreach (Match m in fsmInversionMatches)
+                {
+                    string before = fullDocText.Substring(0, m.Index);
+                    int lineIdx = before.Split('\n').Length;
+                    string[] splitLines = fullDocText.Substring(0, m.Index + m.Length).Split('\n');
+                    string lineText = splitLines.Length > 0 ? splitLines[splitLines.Length - 1] : "";
+                    if (!lineText.Contains("禁止") && !lineText.Contains("不可") && !lineText.Contains("不成立"))
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "RULE-FSM-01",
+                            Severity = "FATAL",
+                            LineNumber = lineIdx,
+                            ColumnNumber = 1,
+                            Message = string.Format("Invalid FSM State Transition detected: '{0}'. Transitions must adhere to lifecycle rules (CONFIRMED/REJECTED are terminal).", m.Value),
+                            ContextSnippet = m.Value
+                        });
+                    }
+                }
+
+                // 10-6. [RULE-LOCK-01] Pessimistic Lock Ordering Hierarchy Gate (CC-LOCK-01 & RFC-FUNC-04)
+                // Enforces Tier 1 (member) ➔ Tier 2 (store) ➔ Tier 3 (store_staff) ➔ Tier 4 (contract_history/shift/attendance)
+                var lockInversionMatches = Regex.Matches(fullDocText, @"(?i)(?:ロック|FOR\s+(?:UPDATE|SHARE))[^.\n\r]*?\b(store\s*(?:➔|->|→)\s*member|store_staff\s*(?:➔|->|→)\s*store|contract_history\s*(?:➔|->|→)\s*store_staff|shift\s*(?:➔|->|→)\s*store_staff)\b");
+                foreach (Match m in lockInversionMatches)
+                {
+                    int lineIdx = fullDocText.Substring(0, m.Index).Split('\n').Length;
+                    string snippet = m.Value.Trim();
+                    if (!snippet.Contains("禁止") && !snippet.Contains("避ける") && !snippet.Contains("逆転"))
+                    {
+                        result.Findings.Add(new Finding
+                        {
+                            RuleId = "RULE-LOCK-01",
+                            Severity = "FATAL",
+                            LineNumber = lineIdx,
+                            ColumnNumber = 1,
+                            Message = string.Format("Pessimistic lock order inversion detected: '{0}'. Lock hierarchy must strictly follow: member ➔ store ➔ store_staff ➔ contract_history/shift/attendance.", snippet),
+                            ContextSnippet = snippet
+                        });
+                    }
+                }
             }
 
             // =========================================================================

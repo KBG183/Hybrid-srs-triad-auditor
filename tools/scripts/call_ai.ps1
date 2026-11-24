@@ -228,7 +228,7 @@ try {
             # Stop Reason Validation: Strictly require confirmed termination
             $stopReason = $response.stop_reason
             if ($stopReason -eq "max_tokens") {
-                if (-not $Quiet) { Write-Warning "[AI-RUNNER] Claude response reached max_tokens (8192). Analyzing partial output." }
+                throw "CLAUDE_RESPONSE_TRUNCATED: Anthropic Claude response reached max_tokens (8192) and was truncated. Incomplete audit output is rejected (Fail-Closed, G1 Guard)."
             } elseif (-not $stopReason -or ($stopReason -ne "end_turn" -and $stopReason -ne "stop_sequence")) {
                 throw "CLAUDE_ABNORMAL_STOP: Response stopped abnormally or incomplete with reason: '$stopReason'"
             }
@@ -289,10 +289,27 @@ try {
             Move-Item $tmpLegacy $legacyFile -Force
         }
         "Qwen" {
-            $legacyFile = Join-Path $legacyDir "qwen_live.log"
-            $tmpLegacy = "$legacyFile.tmp.$PID"
-            [System.IO.File]::WriteAllText($tmpLegacy, $outputText, [System.Text.Encoding]::UTF8)
-            Move-Item $tmpLegacy $legacyFile -Force
+            $mutexName = "Global\KintaiQwenLedgerMutex"
+            $mutex = $null
+            $hasMutex = $false
+            try {
+                $mutex = New-Object System.Threading.Mutex($false, $mutexName)
+                $hasMutex = $mutex.WaitOne(3000)
+                $legacyFile = Join-Path $legacyDir "qwen_live.log"
+                $tmpLegacy = "$legacyFile.tmp.$PID"
+                [System.IO.File]::WriteAllText($tmpLegacy, $outputText, [System.Text.Encoding]::UTF8)
+                Move-Item $tmpLegacy $legacyFile -Force
+            } catch {
+                $legacyFile = Join-Path $legacyDir "qwen_live.log"
+                $tmpLegacy = "$legacyFile.tmp.$PID"
+                [System.IO.File]::WriteAllText($tmpLegacy, $outputText, [System.Text.Encoding]::UTF8)
+                Move-Item $tmpLegacy $legacyFile -Force
+            } finally {
+                if ($hasMutex -and $mutex -ne $null) {
+                    $mutex.ReleaseMutex()
+                    $mutex.Dispose()
+                }
+            }
         }
     }
 

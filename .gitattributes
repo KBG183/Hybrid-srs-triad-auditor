@@ -1,0 +1,22 @@
+# Git Attributes & Line Ending Governance
+# Binary files must NEVER undergo line ending normalization
+*.exe binary
+*.dll binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.zip binary
+
+# Text files normalized to LF (prevent CRLF / CR warning churn on Windows/Linux CI)
+*.md text eol=lf
+*.ps1 text eol=lf
+*.cs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.txt text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf

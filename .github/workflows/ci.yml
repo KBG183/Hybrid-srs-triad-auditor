@@ -142,3 +142,12 @@ jobs:
             throw "Static repository gate failed with $failures violation(s)."
           }
           Write-Host "PASS: Zero-Korean, Zero-BOM, and PowerShell syntax checks succeeded across $($tracked.Count) files."
+
+      - name: Run Master Repository Total Integrity Gate (11/11 Full Gates)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tools\scripts\verify_repo_total_integrity.ps1 -NoLog
+          if ($LASTEXITCODE -ne 0) {
+            throw "Repository Total Integrity Verification failed (ExitCode: $LASTEXITCODE)."
+          }
