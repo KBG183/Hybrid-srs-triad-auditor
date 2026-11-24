@@ -34,7 +34,7 @@ $hasFailure = $false
 # -------------------------------------------------------------------------
 # Test 1: Tracked Files Sensitive Data & Zero-Korean Scan
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 1/11] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 1/12] Scanning Git Tracked Files for Leaks & Korean..." -ForegroundColor Yellow
 $trackedFiles = git ls-files
 if (-not $trackedFiles -or $trackedFiles.Count -eq 0) {
     Write-Host "  [FATAL ERROR] git ls-files returned 0 files! Repository unreadable." -ForegroundColor Red
@@ -91,7 +91,7 @@ if ($sensitiveHits -eq 0 -and $koreanHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 2: CSV Column Cardinality & RFC 4180 Integrity
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 2/11] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 2/12] Validating CSV Column Cardinality & Format..." -ForegroundColor Yellow
 # Ensure VerifySRS.exe is compiled via verify_srs.ps1 wrapper
 $verifyScript = Join-Path $scriptDir "verify_srs.ps1"
 $integrityExe = Join-Path $scriptDir "VerifySRS.exe"
@@ -124,7 +124,7 @@ if (-not $csvFail) {
 # -------------------------------------------------------------------------
 # Test 3: Dashboard Matrix Mathematical & Logical Consistency
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 3/11] Verifying Dashboard Matrix Logical Coherence & SSOT Cardinality..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 3/12] Verifying Dashboard Matrix Logical Coherence & SSOT Cardinality..." -ForegroundColor Yellow
 $metricsPath = Join-Path $projectRoot "logs\pipeline_metrics.md"
 $metricsContent = [System.IO.File]::ReadAllText($metricsPath, [System.Text.Encoding]::UTF8)
 
@@ -318,7 +318,7 @@ if (Test-Path $targetsConfigPath) {
 # -------------------------------------------------------------------------
 # Test 4: Dual-Linter Pipeline Hard-Gate Wiring
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 4/11] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 4/12] Verifying Dual-Linter Wiring in hermes_controller.ps1..." -ForegroundColor Yellow
 $controllerPath = Join-Path $scriptDir "hermes_controller.ps1"
 $controllerText = [System.IO.File]::ReadAllText($controllerPath, [System.Text.Encoding]::UTF8)
 
@@ -335,7 +335,7 @@ if ($hasIntegrity -and $hasDeterministic) {
 # -------------------------------------------------------------------------
 # Test 5: C# Deterministic Regression Testbed (11/11)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 5/11] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 5/12] Running Deterministic Regression Testbed (11/11)..." -ForegroundColor Yellow
 $regExe = Join-Path $scriptDir "TestV52Suite_Regression.exe"
 $regCs = Join-Path $scriptDir "TestV52Suite_Regression.cs"
 if (-not (Test-Path $regExe)) {
@@ -365,7 +365,7 @@ if (-not (Test-Path $regExe)) {
 # -------------------------------------------------------------------------
 # Test 6: UTF-8 BOM Zero Tolerance Hard-Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 6/11] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 6/12] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
 $bomHits = 0
 foreach ($f in $trackedFiles) {
     $fullPath = Join-Path $projectRoot $f
@@ -394,7 +394,7 @@ if ($bomHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 7: PowerShell Scripts Syntax & Fail-Fast Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 7/11] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 7/12] Verifying PowerShell Scripts Syntax & Fail-Fast..." -ForegroundColor Yellow
 $ps1Files = Get-ChildItem -Path (Join-Path $projectRoot "tools\scripts") -Filter "*.ps1"
 $ps1Fail = 0
 foreach ($ps in $ps1Files) {
@@ -426,7 +426,7 @@ if ($ps1Fail -eq 0) {
 # -------------------------------------------------------------------------
 # Test 8: Status Ledger Duplicate Bullet & Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 8/11] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 8/12] Verifying CURRENT_STATUS.md Bullet Line Integrity..." -ForegroundColor Yellow
 $csPath = Join-Path $projectRoot "logs\CURRENT_STATUS.md"
 if (-not (Test-Path $csPath)) {
     Write-Host "  [INTEGRITY ERROR] CURRENT_STATUS.md does not exist at: $csPath" -ForegroundColor Red
@@ -479,7 +479,7 @@ if (Test-Path $koDossierPath) {
 # -------------------------------------------------------------------------
 # Test 9: Invisible Control Characters Gate (BEL/BS/FF/ESC etc.)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 9/11] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 9/12] Scanning Tracked Source & Markdown Files for Control Characters..." -ForegroundColor Yellow
 $ctrlScanFiles = $trackedFiles | Where-Object { $_ -match '\.(md|java|json|ps1|csv)$' }
 $ctrlHits = 0
 foreach ($f in $ctrlScanFiles) {
@@ -538,7 +538,7 @@ if ($ctrlHits -eq 0) {
 # -------------------------------------------------------------------------
 # Test 10: Markdown Relative Link Physical Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 10/11] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 10/12] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
 $allMdFiles = Get-ChildItem -Path $projectRoot -Filter "*.md" -Recurse | Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.FullName -notmatch '\\scratch\\' }
 $brokenCount = 0
 $checkedLinkCount = 0
@@ -571,7 +571,7 @@ if ($brokenCount -eq 0) {
 # -------------------------------------------------------------------------
 # Test 11: External Audit Verdict & Sidecar Fail-Closed Gate (Worst Verdict Wins)
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 11/11] Verifying External Audit Verdicts & Sidecars (Worst Verdict Wins)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 11/12] Verifying External Audit Verdicts & Sidecars (Worst Verdict Wins)..." -ForegroundColor Yellow
 $auditRunsDirs = @(
     (Join-Path $projectRoot "audit\runs"),
     (Join-Path $projectRoot "docs\audit_runs")
@@ -872,6 +872,57 @@ if ($sidecarFails -gt 0 -or $hasAdverseVerdict) {
     Write-Host "  -> PASS: All active external audit sidecars ($($recentVerdicts.Count) found) satisfy Fail-Closed clean integrity." -ForegroundColor Green
 }
 
+# -------------------------------------------------------------------------
+# Test 12: README Directory Tree Architecture Alignment Gate (Drift Guard)
+# -------------------------------------------------------------------------
+Write-Host "`n>>> [Check 12/12] Verifying README.md Architecture Tree vs Physical Git Directories..." -ForegroundColor Yellow
+$readmePath = Join-Path $projectRoot "README.md"
+if (-not (Test-Path $readmePath)) {
+    Write-Host "  [MISSING README] README.md does not exist at project root!" -ForegroundColor Red
+    $hasFailure = $true
+} else {
+    $readmeText = [System.IO.File]::ReadAllText($readmePath, [System.Text.Encoding]::UTF8)
+    
+    # Extract top-level directories declared in README.md directory tree (Pure ASCII regex using Unicode escapes)
+    $treeMatch = [regex]::Match($readmeText, '(?s)```text\s*\.\s*(\r?\n[\u251C\u2514]\u2500\u2500\s+.*?)```')
+    if (-not $treeMatch.Success) {
+        Write-Host "  [INVALID README FORMAT] Could not locate directory tree text code block in README.md" -ForegroundColor Red
+        $hasFailure = $true
+    } else {
+        $treeContent = $treeMatch.Groups[1].Value
+        $declaredDirMatches = [regex]::Matches($treeContent, '(?m)^[\u251C\u2514]\u2500\u2500\s+([a-zA-Z0-9_\-\.]+)/')
+        $declaredDirs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($dm in $declaredDirMatches) {
+            [void]$declaredDirs.Add($dm.Groups[1].Value)
+        }
+
+        # Query actual Git tracked top-level directories
+        $actualDirs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        $gitTracked = git ls-files
+        foreach ($gt in $gitTracked) {
+            $parts = $gt.Split('/')
+            if ($parts.Length -gt 1) {
+                [void]$actualDirs.Add($parts[0])
+            }
+        }
+
+        $missingInReadme = @($actualDirs | Where-Object { -not $declaredDirs.Contains($_) })
+        $extraInReadme = @($declaredDirs | Where-Object { -not $actualDirs.Contains($_) })
+
+        if ($missingInReadme.Count -gt 0 -or $extraInReadme.Count -gt 0) {
+            if ($missingInReadme.Count -gt 0) {
+                Write-Host "  [DRIFT: MISSING IN README] Physical Git directories not in README: $($missingInReadme -join ', ')" -ForegroundColor Red
+            }
+            if ($extraInReadme.Count -gt 0) {
+                Write-Host "  [DRIFT: EXTRA IN README] README declares non-existent Git directories: $($extraInReadme -join ', ')" -ForegroundColor Red
+            }
+            $hasFailure = $true
+        } else {
+            Write-Host "  -> PASS: All $($actualDirs.Count) physical Git top-level directories strictly align with README.md ($($declaredDirs -join ', '))." -ForegroundColor Green
+        }
+    }
+}
+
 Write-Host "`n=================================================================" -ForegroundColor Cyan
 $traceLogPath = Join-Path $projectRoot "logs\incident_execution_trace.log"
 $timestampUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -885,7 +936,7 @@ if ($hasFailure) {
     exit 1
 } else {
     if (-not $NoLog -and (Test-Path $traceLogPath)) {
-        $logLine = "[$timestampUtc] [VERIFY_REPO] [STATUS: PASS] [CODE: OK] [MSG: All 10 repository total integrity checks passed cleanly]"
+        $logLine = "[$timestampUtc] [VERIFY_REPO] [STATUS: PASS] [CODE: OK] [MSG: All 12 repository total integrity checks passed cleanly]"
         [System.IO.File]::AppendAllText($traceLogPath, "$logLine`n", [System.Text.Encoding]::UTF8)
     }
     Write-Host " [VERDICT: ALL PASS] Repository is 100% Clean, Consistent & Verified." -ForegroundColor Green

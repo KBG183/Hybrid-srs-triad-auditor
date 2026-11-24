@@ -131,48 +131,67 @@ flowchart TD
 
 ```text
 .
-├── GEMINI.md                          # 最上位運営憲法 v1.02（多言語ガバナンス・Fail-Closed規定）
+├── GEMINI.md                          # 最上位運営憲法 v1.07（多層AI検証・Fail-Closedゲート・トークン平準化）
 ├── README.md                          # 【公式正本】プロジェクト総合技術仕様書（日本語）
-├── config/
-│   └── srs_specification_ssot.md     # 単一真実原書（SRS SSOT）
+├── .github/
+│   └── workflows/ci.yml               # GitHub Actions CI基盤（11大完全性ゲート自動検証）
+├── approved/
+│   └── approval_manifest.json         # 承認済みマニフェスト（SSOT整合性保証・暗号署名）
 ├── audit/
+│   ├── runs/                          # 外部AI監査実機ログ・マニフェスト（過去24時間検証対象）
 │   ├── kintai_l2_integrity_audit_report.md     # L2技術無欠性交差監査レポート
-│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（労働基準法第37条・端数処理等の深層推論エビデンス）
+│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（労働基準法第37条・端数処理）
 │   ├── srs_integrated_audit_report_20261115.md # SRS統合多層検証レポート正本
-│   ├── F001_F003_human_review_errata.md        # 人によるレビュー正誤表（労基法37条F-001却下・F-003保留）
-│   ├── srs_integrated_audit_template.md        # 監査レポート標準フォーマット
-│   └── runs/                                   # 実行別マニフェスト・エビデンス束
+│   └── F001_F003_human_review_errata.md        # 人によるレビュー正誤表
+├── config/
+│   ├── srs_targets.json               # マルチトラック登録台帳（Track 1/2 スライス対象定義）
+│   ├── srs_specification_ssot.md     # Track 1 単一真実原書（SRS SSOT 正本）
+│   ├── srs_track2_asbuilt_slice1.md   # Track 2 実装反映スライス 1（認証・認可）
+│   ├── srs_track2_asbuilt_slice2.md   # Track 2 実装反映スライス 2（打刻・シフト）
+│   ├── srs_track2_asbuilt_slice3.md   # Track 2 実装反映スライス 3（労基法37条給与計算）
+│   └── srs_track2_asbuilt_slice4.md   # Track 2 実装反映スライス 4（外部連携・監査）
+├── docs/
+│   ├── adr/                           # アーキテクチャ決定記録（ADR-004等）
+│   ├── rfc_folder_structure_optimization.md # RFC-008 ディレクトリ構成最適化標準仕様
+│   ├── rfc_pipeline_integrity_guard.md      # パイプライン完全性ガード仕様
+│   ├── labor37_e2e_traceability.md          # 労働基準法第37条 E2E追跡表
+│   └── audit_evidence_dossier.md            # 日次監査エビデンス集約書
+├── domain_target/                     # 実証ドメインフィクスチャ（KINTAI勤怠・給与システム）
+│   ├── 01_specifications_and_rtm/    # kintai_master_srs 分割スライス 1〜3
+│   ├── 02_database_schema_ddl/       # MySQL 8.4 DDL（schema.sql, data.sql）
+│   └── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
+├── governance/
+│   └── ARTICLE_0_SRS.md               # 第0条 SRS絶対憲法（不変のコア要件・DoD基準）
 ├── logs/
 │   ├── CURRENT_STATUS.md             # プロジェクト統括ステータス台帳
-│   ├── incident_history_ledger.md    # 31件実障害インシデント・耐障害性解決台帳 (実物)
-│   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス
-│   ├── cloud_api_token_ledger.csv    # クラウドAPI消費トークン・コスト実測原帳
-│   ├── local_token_ledger.csv        # ローカルGPU推論速度・トークン実測原帳
+│   ├── incident_history_ledger.md    # 79件実障害インシデント・耐障害性解決台帳
+│   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス台帳
+│   ├── cloud_api_token_ledger.csv    # クラウドAPI（Claude）消費トークン・コスト実測原帳
+│   ├── local_token_ledger.csv        # ローカルGPU（Qwen 27B）推論速度・トークン実測原帳
+│   ├── codex_token_ledger.csv        # OpenAI Codex 消費トークン実測原帳
 │   ├── enterprise_audit_ledger.csv   # エンタープライズ全数監査実測原帳
 │   ├── pipeline_metrics.csv          # CI/CD統合レイテンシ計測データ
-│   └── evidence_benchmark.csv        # 決定論的検証ベンチマークデータ
-├── tools/
-│   ├── scripts/                      # 実行スクリプトおよび決定論的エンジン
-│   │   ├── hermes_controller.ps1     # 4核統合コントローラー（Linter -> Qwen -> Codex -> Claude、-UseCache増分対応）
-│   │   ├── call_ai.ps1               # 統一マルチAIストリーミングランナー（Codex / Claude / Qwen統合）
-│   │   ├── patch_ssot.ps1            # 統一SSOTアトミックパッチツール（エディトリアル・リテラル統合）
-│   │   ├── VerifySRS.cs              # C#統合マスター静的解析リンター（テキスト整合性・DoD・IDOR遮断統合）
-│   │   ├── TestV52Suite_Regression.cs# 11/11決定論的回帰テストスイート
-│   │   ├── verify_srs.ps1            # リンター検証スクリプト
-│   │   ├── verify_integrity.ps1      # テキスト無欠性検証スクリプト
-│   │   └── demo_offline_replay.ps1   # APIキー不要・3秒オフライン再生デモ
-│   ├── rules/                        # ガバナンス運用規律
-│   │   ├── sandbox_execution_policy.md         # 読み取り専用サンドボックス運用ポリシー
-│   │   └── srs_authoring_multi_audit_protocol.md # SRS作成および多層検証プロトコル
-│   ├── fixtures/                     # 大規模ベンチマーク・テストフィクスチャ（5種）
-│   └── cross_audit/                  # 交差監査契約
-│       └── audit_contract_srs.md     # 監査契約定義書
-└── domain_target/                     # 実証ドメインフィクスチャ（KINTAI勤怠・給与システム）
-    ├── 01_specifications_and_rtm/    # kintai_master_srs 分割スライス 1〜3
-    ├── 02_database_schema_ssot/      # MySQL 8.4 DDL (schema.sql, data.sql)
-    ├── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
-    ├── 04_api_contracts_and_dtos/    # API契約およびDTO
-    └── 05_core_domain_tests_fixtures/# 単体・統合テストフィクスチャ
+│   └── incident_execution_trace.log  # パイプライン実行トレースログ
+├── metrics/
+│   ├── srs_pipeline_metrics.csv      # パイプライン自動実行テレメトリ原帳
+│   └── srs_pipeline.lock             # パイプライン並行実行制御ロック
+├── queue/
+│   └── srs_pending_findings.json     # 外部指摘フェイルクローズド・キュー（未解決検知ゲート）
+└── tools/
+    ├── scripts/                      # 実行スクリプトおよび決定論的エンジン
+    │   ├── VerifySRS.cs / .exe       # C#統合マスター静的解析リンター（単一チョークポイント）
+    │   ├── verify_repo_total_integrity.ps1 # 11大完全性ゲート統括エンジン
+    │   ├── run_quad_audit.ps1        # 4重交差監査オーケストレーター（Codex/Claude/Qwen/Linter）
+    │   ├── call_ai.ps1               # 統一マルチAIストリーミングランナー
+    │   ├── finalize_daily_ledgers.ps1# 6大台帳整合性検証・スプリントマスタースクリプト
+    │   ├── pipeline_draft_and_integrate.ps1 # Heavy Track 自動起草・統合パイプライン
+    │   ├── patch_ssot.ps1            # 統一SSOTアトミックパッチツール
+    │   └── demo_offline_replay.ps1   # APIキー不要・3秒オフライン再生デモ
+    ├── hooks/                        # Git事前検証フック（pre-commit, check_pre_commit.ps1）
+    ├── rules/                        # ガバナンス運用規律（dual_hardgates_specification.md等）
+    ├── fixtures/                     # 大規模ベンチマーク・テストフィクスチャ（5種）
+    ├── cross_audit/                  # 外部AI交差監査契約定義書
+    └── templates/                    # パイプライン台帳・メトリクステンプレート
 ```
 
 ---
