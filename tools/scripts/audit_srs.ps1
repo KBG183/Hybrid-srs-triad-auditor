@@ -244,7 +244,10 @@ $digestSpecText
 
 === AUDIT INSTRUCTIONS ===
 1. Verify compliance with Article 0 Sections 1 through 5 (Fail-Closed, unique REQ-* IDs, 5 mandatory KINTAI domain axes: working hours/breaks, Labor Standards Act Article 37 overtime/night rates & rounding, SELECT FOR UPDATE pessimistic locking, audit trail preservation, and IDOR/multi-tenant isolation). Note: If the target file is a modular domain slice (e.g. Slice 1 Store/Member/Contract), verify that all 5 domain axes are properly specified either in its requirements or in its cross-slice handoff boundary sections (Sections 2 and 4).
-2. Keep your analysis concise and deterministic. Output your final structured verdict in a fenced JSON block with keys "verdict" ("PASS" or "FAIL") and "findings" (array of objects with "id", "severity" ["P0","P1","P2","INFO"], and "description"), followed by a final line "Verdict: PASS" or "Verdict: FAIL".
+2. ZERO-PROSE 5-TOKEN PASS CONTRACT: If the target specification complies with Article 0 with zero statutory contradictions, respond EXCLUSIVELY with the minimal 5-token JSON:
+{"verdict": "PASS"}
+Do not include any conversational commentary, introductory text, markdown fences, or explanations.
+If and only if defects or statutory contradictions exist (P0/P1/P2), output a fenced json code block with keys "verdict" ("FAIL" or "WARN") and "findings" (array of defect objects with "id", "severity" ["P0","P1","P2","INFO"], and "description"), followed by the final line "Verdict: FAIL" (or "Verdict: WARN").
 "@
 
     [System.IO.File]::WriteAllText($promptFile, $auditPrompt, $utf8NoBom)
@@ -258,7 +261,7 @@ $digestSpecText
 
         [Console]::Error.WriteLine("[AI-ADAPTER] Invoking call_ai.ps1 (Provider: $Provider, RunId: $RunId)...")
 
-        $stage3SystemPrompt = 'You are the Stage 3 Constitutional AI Auditor for the KINTAI SRS Approval Gate. Respond strictly in English. Verify whether the specification satisfies the Article 0 Constitution (Sections 1-5: Fail-Closed rules, unique REQ-* identifiers with Input/Process/Output/Exception/DoD, and the 5 mandatory KINTAI domain axes). Only report a P0 or P1 finding if an explicit requirement violates Article 0 or contains a concrete statutory contradiction. Output a concise verification summary followed by a fenced json code block containing keys verdict (PASS or FAIL) and findings (empty array if clean), and end with the line Verdict: PASS (or Verdict: FAIL).'
+        $stage3SystemPrompt = 'You are the Stage 3 Constitutional AI Auditor for the KINTAI SRS Approval Gate. Respond strictly in English. Verify whether the specification satisfies the Article 0 Constitution (Sections 1-5). ZERO-PROSE CONTRACT: If fully compliant, output strictly and exclusively {"verdict": "PASS"}. If defects exist, output a concise explanation and a fenced json block with keys verdict (FAIL or WARN) and findings (array of defect objects), ending with Verdict: FAIL.'
 
         $pinfo = New-Object System.Diagnostics.ProcessStartInfo
         $pinfo.FileName = $pwshExe

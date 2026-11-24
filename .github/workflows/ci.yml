@@ -41,21 +41,65 @@ jobs:
           & .\tools\scripts\TestV52Suite_Regression.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Run VerifySRS Linter on SSOT Targets
+      - name: Run VerifySRS Linter and Bidirectional Parity Gate
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $targets = @(
-            'config\srs_specification_ssot.md',
-            'config\srs_track2_common_contract.md',
-            'config\srs_track2_asbuilt_slice1.md'
-          )
+          $config = Get-Content -LiteralPath 'config/srs_targets.json' -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+          $entries = if ($config -and $config.PSObject.Properties['targets']) { $config.targets } else { $config }
+          $targets = @($entries | Where-Object { $_.required -is [bool] -and $_.required })
+          if ($targets.Count -eq 0) {
+            throw 'No required SRS targets found in config/srs_targets.json.'
+          }
+
+          # 1. Physical existence validation
           foreach ($t in $targets) {
-            Write-Host "Verifying $t ..."
-            & .\tools\scripts\VerifySRS.exe $t
-            if ($LASTEXITCODE -ne 0) {
-              throw "VerifySRS failed on $t with exit code $LASTEXITCODE"
+            if ([string]::IsNullOrWhiteSpace($t.ja_path)) {
+              throw 'A required target in config/srs_targets.json has no ja_path.'
             }
+            if (-not (Test-Path -LiteralPath $t.ja_path -PathType Leaf)) {
+              throw "Required SRS target file is missing: $($t.ja_path)"
+            }
+          }
+
+          # 2. Bidirectional Parity Gate (Set(Disk) == Set(JSON))
+          $diskSlices = @(Get-ChildItem -Path 'config' -Filter 'srs_track2_asbuilt_slice*.md' | Where-Object { $_.Name -notmatch '_KO\.md$' } | ForEach-Object {
+            (Resolve-Path $_.FullName).Path.Replace('\', '/').ToLowerInvariant()
+          })
+          $jsonSlices = @($targets | Where-Object { $_.ja_path -match 'srs_track2_asbuilt_slice' } | ForEach-Object {
+            (Resolve-Path $_.ja_path).Path.Replace('\', '/').ToLowerInvariant()
+          })
+
+          $orphans = @($diskSlices | Where-Object { $_ -notin $jsonSlices })
+          if ($orphans.Count -gt 0) {
+            throw "[FAIL-CLOSED] [KINTAI-E-SLICE-001] Orphan slice file(s) on disk not registered in srs_targets.json: $($orphans -join ', ')"
+          }
+          $dangling = @($jsonSlices | Where-Object { $_ -notin $diskSlices })
+          if ($dangling.Count -gt 0) {
+            throw "[FAIL-CLOSED] [KINTAI-E-SLICE-002] Dangling slice target(s) registered in srs_targets.json missing from disk: $($dangling -join ', ')"
+          }
+
+          # 3. Unauthorized Deletion Check (git diff --diff-filter=D)
+          $deletedSpecs = @(git log -1 --diff-filter=D --name-only --pretty="" -- 'config/srs_*.md')
+          if ($deletedSpecs.Count -gt 0) {
+            $lastCommitMsg = (git log -1 --pretty="%B")
+            if ($lastCommitMsg -notmatch '(?i)\[ALLOW_RETIRE\]') {
+              throw "[FAIL-CLOSED] [KINTAI-E-SLICE-005] Unauthorized deletion of specification file without [ALLOW_RETIRE]: $($deletedSpecs -join ', ')"
+            }
+          }
+
+          # 4. VerifySRS Linter execution
+          $firstFailure = 0
+          foreach ($t in $targets) {
+            Write-Host "Verifying $($t.ja_path) ..."
+            & .\tools\scripts\VerifySRS.exe $t.ja_path
+            $lintExit = $LASTEXITCODE
+            if ($lintExit -ne 0 -and $firstFailure -eq 0) {
+              $firstFailure = $lintExit
+            }
+          }
+          if ($firstFailure -ne 0) {
+            exit $firstFailure
           }
 
       - name: Run Zero-Korean, UTF-8 BOM, and PowerShell Syntax Gate

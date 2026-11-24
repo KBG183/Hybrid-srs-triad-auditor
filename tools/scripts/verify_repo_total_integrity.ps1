@@ -12,7 +12,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [switch]$Fix
+    [switch]$Fix,
+    [Parameter(Mandatory = $false)]
+    [switch]$NoLog
 )
 
 $ErrorActionPreference = 'Stop'
@@ -875,14 +877,14 @@ $traceLogPath = Join-Path $projectRoot "logs\incident_execution_trace.log"
 $timestampUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 if ($hasFailure) {
-    if (Test-Path $traceLogPath) {
+    if (-not $NoLog -and (Test-Path $traceLogPath)) {
         $logLine = "[$timestampUtc] [VERIFY_REPO] [STATUS: FAIL] [CODE: ERR-INTEGRITY-FAILED] [MSG: Repository total integrity verification detected violations]"
         [System.IO.File]::AppendAllText($traceLogPath, "$logLine`n", [System.Text.Encoding]::UTF8)
     }
     Write-Host " [VERDICT: FAIL] Repository has integrity violations! Abort release." -ForegroundColor Red
     exit 1
 } else {
-    if (Test-Path $traceLogPath) {
+    if (-not $NoLog -and (Test-Path $traceLogPath)) {
         $logLine = "[$timestampUtc] [VERIFY_REPO] [STATUS: PASS] [CODE: OK] [MSG: All 10 repository total integrity checks passed cleanly]"
         [System.IO.File]::AppendAllText($traceLogPath, "$logLine`n", [System.Text.Encoding]::UTF8)
     }

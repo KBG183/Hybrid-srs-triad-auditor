@@ -481,3 +481,9 @@ Total Lines: 587 | Total Bytes: 66,586
 | **Slice 2 Codex 逆工学執筆** | `gpt-6.2-astra` | `pipeline_draft_and_integrate.ps1` | **92.20秒** | 6,434文字・As-Built観測仕様合成 | - | **PASS (VerifySRS.exe 適合)** |
 | **Slice 2 Codex 交差監査** | `gpt-6.2-astra` | `call_codex.ps1` (Quad-Audit) | **98.17秒** | 14列定義・第34条通算ギャップ検証 | - | **指摘反映済** (14列整合・日次通算注記追記) |
 | **Slice 2 Qwen 文脈監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **4.16秒** | Input: 935 tok / Output: 160 tok | **51.2 tok/s** | **PASS (文脈整合確認)** |
+| **RFC 5大改善 Codex監査** | `gpt-6.2-astra` | `call_codex.ps1` (RFC-SYS/FUNC) | **46.99秒** | Fail-Closed厳格化・Failover注記 | - | **指摘反映済** (SYS-01/02, FUNC-03/04反映) |
+| **RFC 5大改善 Claude監査** | `claude-sonnet-5-5` | `call_claude.ps1` (RFC-SYS/FUNC) | **64.38秒** | Contract-as-Dataおよび両方向ゲート提言 | - | **指摘反映済** (RULE-DDL-01連携・FSM分離) |
+| **RFC 5大改善 Qwen敵対監査** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **80.32秒** | Input: 2,063 tok / Output: 3,760 tok | **49.9 tok/s** | **5件摘発反映済** (ADV-001〜005 境界反映) |
+| **DDL静的抽出器 Codex執筆** | `gpt-6.2-astra` | `call_codex.ps1` (`extract_ddl_spec.ps1`) | **61.40秒** | 350行 DDL字句解析・物理14列抽出 | - | **PASS (shift_schedule 14列合致)** |
+| **トークン最適化 設計 (Codex)** | `gpt-6.2-astra` | `call_codex.ps1` | **58.20秒** | 4本柱トークン削減アーキテクチャ策定 | - | **PASS (RFC反映)** |
+| **トークン最適化 敵対監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **67.59秒** | Input: 1,590 tok / Output: 3,351 tok | **50.1 tok/s** | **3件境界反映済** (労基法37条エスカレーション・フォールバック) |

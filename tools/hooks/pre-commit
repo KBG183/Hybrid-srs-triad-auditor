@@ -51,7 +51,7 @@ fi
 
 # 5. Master Deterministic Integrity Gate (Staged Assets & SSOT Verification)
 if [ ! -f "tools/scripts/VerifySRS.exe" ]; then
-    powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "tools/scripts/verify_srs.ps1" -Files @() > /dev/null 2>&1
+    powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "tools/scripts/verify_srs.ps1" > /dev/null 2>&1
 fi
 if [ ! -f "tools/scripts/VerifySRS.exe" ]; then
     echo "[BLOCK] Failed to compile or find VerifySRS.exe. Aborting commit."
@@ -81,7 +81,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 6. Master Repository Total Integrity Verification (8 Checks)
-powershell.exe -ExecutionPolicy Bypass -File "tools/scripts/verify_repo_total_integrity.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "tools/scripts/verify_repo_total_integrity.ps1" -NoLog
 if [ $? -ne 0 ]; then
     echo "[BLOCK] Repository Total Integrity verification failed. Aborting commit."
     exit 1

@@ -153,6 +153,30 @@ if ($OutputTargetFile) {
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($OutputTargetFile, $draftContent, $utf8NoBom)
     Write-Host "[PIPELINE INTEGRATED] Automatically integrated verified draft to target: $OutputTargetFile" -ForegroundColor Green
+
+    # Auto-Staging Safe-Guard & Tree ID Attestation (RFC-SYS-02 & TOCTOU Guard)
+    if (Test-Path -LiteralPath $OutputTargetFile -PathType Leaf) {
+        & git --literal-pathspecs add -- "$OutputTargetFile"
+        $addExit = $LASTEXITCODE
+        if ($addExit -eq 0) {
+            Write-Host "[PIPELINE AUTO-STAGED] Safely locked verified asset into Git index: $OutputTargetFile" -ForegroundColor Green
+            try {
+                $treeId = (git write-tree).Trim()
+                $receiptPath = Join-Path $runDir "tree_attestation.json"
+                $attestation = [ordered]@{
+                    schema      = "tree-attestation/v1"
+                    tree_id     = $treeId
+                    target_file = $OutputTargetFile
+                    file_sha256 = (Get-FileHash -LiteralPath $OutputTargetFile -Algorithm SHA256).Hash
+                    staged_utc  = [DateTime]::UtcNow.ToString("o")
+                }
+                [System.IO.File]::WriteAllText($receiptPath, ($attestation | ConvertTo-Json -Depth 3), [System.Text.Encoding]::UTF8)
+                Write-Host "[PIPELINE TREE-ATTESTED] Immutable Git Tree ID: $treeId" -ForegroundColor Cyan
+            } catch {}
+        } else {
+            Write-Host "[PIPELINE AUTO-STAGE WARN] git add exited with code ${addExit}: $OutputTargetFile" -ForegroundColor Yellow
+        }
+    }
 }
 
 Write-Host "=== Pipeline Execution Completed for Run: $runId ==="

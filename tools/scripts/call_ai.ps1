@@ -301,14 +301,21 @@ try {
     $extractedFindings = @()
     $structuredVerdictFound = $false
 
-    # Priority 1: Structured JSON Block
-    if ($outputText -match '(?s)```json\s*(\{.*?"findings".*?\})\s*```') {
+    # Priority 1: Structured JSON Block (Minimal 5-Token {"verdict": "PASS"} Contract or Full Findings Schema)
+    $jsonCandidate = $null
+    if ($outputText -match '(?s)```json\s*(\{[\s\S]*?\})\s*```') {
+        $jsonCandidate = $matches[1]
+    } elseif ($outputText -match '(?s)(?:^|\n)\s*(\{[\s\r\n]*"(?:verdict|findings)"[\s\S]*?\})\s*(?:$|\n)') {
+        $jsonCandidate = $matches[1]
+    }
+
+    if ($jsonCandidate) {
         try {
-            $parsedJson = $matches[1] | ConvertFrom-Json
+            $parsedJson = $jsonCandidate | ConvertFrom-Json
             if ($null -ne $parsedJson.PSObject.Properties['findings']) {
                 $extractedFindings = @($parsedJson.findings)
-                $detectedVerdict = if ($extractedFindings.Count -gt 0) { "WARN" } else { "PASS" }
-                $structuredVerdictFound = $true
+            } else {
+                $extractedFindings = @()
             }
             if ($parsedJson.verdict) {
                 $vStr = $parsedJson.verdict.ToString().ToUpperInvariant()
@@ -316,6 +323,12 @@ try {
                     $detectedVerdict = $vStr
                     $structuredVerdictFound = $true
                 }
+            } elseif ($extractedFindings.Count -eq 0) {
+                $detectedVerdict = "PASS"
+                $structuredVerdictFound = $true
+            } else {
+                $detectedVerdict = "WARN"
+                $structuredVerdictFound = $true
             }
         } catch {}
     }
@@ -384,6 +397,31 @@ try {
             -Verdict $detectedVerdict `
             -Findings $extractedFindings | Out-Null
     }
+
+    # Atomic Manifest Marker (Guarantees Write Completion)
+    $manifest = [ordered]@{
+        schema         = "audit-manifest/v1"
+        run_id         = "${runTimestamp}_${PID}_$($Provider.ToLowerInvariant())"
+        auditor        = $Provider.ToLowerInvariant()
+        model          = $effectiveModel
+        verdict        = $detectedVerdict
+        findings_count = $extractedFindings.Count
+        created_utc    = [DateTime]::UtcNow.ToString("o")
+        report_sha256  = (Get-FileHash -LiteralPath $permReport -Algorithm SHA256).Hash
+    }
+    $manifestPath = Join-Path $permanentRunDir "manifest.json"
+    [System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 3), [System.Text.Encoding]::UTF8)
+
+    # Automatic Garbage Collection of Stale Scratch Runs (>7 days)
+    try {
+        $scratchRunsDir = Join-Path $projectRoot "scratch\runs"
+        if (Test-Path $scratchRunsDir) {
+            $cutoff = (Get-Date).AddDays(-7)
+            Get-ChildItem -Path $scratchRunsDir -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.CreationTime -lt $cutoff } |
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
 
     $dailyAuditLogDir = Join-Path $projectRoot "docs"
     if (Test-Path $dailyAuditLogDir) {
