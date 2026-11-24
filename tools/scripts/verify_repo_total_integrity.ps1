@@ -836,8 +836,20 @@ if (Test-Path $manifestPath) {
                         $fBytes = [System.IO.File]::ReadAllBytes($fPath)
                         $sha = [System.Security.Cryptography.SHA256]::Create()
                         $calcSha = ([BitConverter]::ToString($sha.ComputeHash($fBytes)) -replace '-', '').ToLowerInvariant()
+
+                        # Neutralize line-ending checkout differences (LF vs CRLF)
+                        $fText = [System.Text.Encoding]::UTF8.GetString($fBytes)
+                        $lfText = $fText.Replace("`r`n", "`n")
+                        $lfBytes = [System.Text.Encoding]::UTF8.GetBytes($lfText)
+                        $calcShaLf = ([BitConverter]::ToString($sha.ComputeHash($lfBytes)) -replace '-', '').ToLowerInvariant()
+
+                        $crlfText = $lfText.Replace("`n", "`r`n")
+                        $crlfBytes = [System.Text.Encoding]::UTF8.GetBytes($crlfText)
+                        $calcShaCrlf = ([BitConverter]::ToString($sha.ComputeHash($crlfBytes)) -replace '-', '').ToLowerInvariant()
                         $sha.Dispose()
-                        if ($calcSha -ne $f.Sha256.ToLowerInvariant()) {
+
+                        $expectedSha = $f.Sha256.ToLowerInvariant()
+                        if ($calcSha -ne $expectedSha -and $calcShaLf -ne $expectedSha -and $calcShaCrlf -ne $expectedSha) {
                             Write-Host "  [MANIFEST HASH MISMATCH] $($f.Path) hash mismatch against approved manifest!" -ForegroundColor Red
                             $hasFailure = $true
                         }
