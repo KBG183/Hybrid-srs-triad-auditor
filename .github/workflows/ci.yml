@@ -86,7 +86,7 @@ jobs:
             if ($f -match '\.ps1$') {
               $tokens = $null
               $parseErrors = $null
-              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path, [ref]$tokens, [ref]$parseErrors)
+              [void][System.Management.Automation.Language.Parser]::ParseInput($text, (Resolve-Path $f).Path, [ref]$tokens, [ref]$parseErrors)
               if ($parseErrors -and $parseErrors.Count -gt 0) {
                 Write-Host "[PS SYNTAX ERROR] $f : $($parseErrors[0].Message)"
                 $failures++

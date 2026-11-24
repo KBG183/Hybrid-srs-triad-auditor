@@ -366,7 +366,8 @@ foreach ($ps in $ps1Files) {
     # 1. AST Syntax Parse
     $parseErrors = $null
     $parseTokens = $null
-    $null = [System.Management.Automation.Language.Parser]::ParseFile($ps.FullName, [ref]$parseTokens, [ref]$parseErrors)
+    $psContent = [System.IO.File]::ReadAllText($ps.FullName, [System.Text.Encoding]::UTF8)
+    $null = [System.Management.Automation.Language.Parser]::ParseInput($psContent, $ps.FullName, [ref]$parseTokens, [ref]$parseErrors)
     if ($parseErrors.Count -gt 0) {
         Write-Host "  [SYNTAX ERROR] $($ps.Name): $($parseErrors[0].Message)" -ForegroundColor Red
         $ps1Fail++
