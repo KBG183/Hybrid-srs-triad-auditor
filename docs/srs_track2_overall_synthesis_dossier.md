@@ -16,10 +16,10 @@
 
 | スライス | 対象機能およびドメイン | As-Built 仕様書 | 乖離分析書 (Diff) | 主な検出欠陥および改善実績 |
 |:---|:---|:---|:---|:---|
-| **Slice 1** | 店舗・会員・契約・RBAC認可 | `srs_track2_asbuilt_slice1.md` | `srs_diff_analysis_slice1_KO.md` | 多重店舗所属時の権限分離、契約時給履歴管理 |
-| **Slice 2** | 希望シフト・店長確定・定員制御 | `srs_track2_asbuilt_slice2.md` | `srs_diff_analysis_slice2_KO.md` | 確定APIでの状態改ざん防止（ADV-ALL-004）、定員上限ガード |
-| **Slice 3** | 打刻状態遷移・悲観的ロック | `srs_track2_asbuilt_slice3.md` | `srs_diff_analysis_slice3_KO.md` | 未退勤ゴースト打刻デッドロック解消API（ADV-001）、マルチテナント境界ガード（ADV-ALL-006） |
-| **Slice 4** | 給与集計・労基法第37条割増 | `srs_track2_asbuilt_slice4.md` | `srs_diff_analysis_slice4_KO.md` | 確定給与不変性ガード（F-01）、6段階法定割増エンジン（F-02）、最低賃金動的化（ADV-ALL-005） |
+| **Slice 1** | 店舗・会員・契約・RBAC認可 | `srs_track2_asbuilt_slice1.md` | `srs_diff_analysis_total_master.md` (#Slice 1) | 多重店舗所属時の権限分離、契約時給履歴管理 |
+| **Slice 2** | 希望シフト・店長確定・定員制御 | `srs_track2_asbuilt_slice2.md` | `srs_diff_analysis_total_master.md` (#Slice 2) | 確定APIでの状態改ざん防止（ADV-ALL-004）、定員上限ガード |
+| **Slice 3** | 打刻状態遷移・悲観的ロック | `srs_track2_asbuilt_slice3.md` | `srs_diff_analysis_total_master.md` (#Slice 3) | 未退勤ゴースト打刻デッドロック解消API（ADV-001）、マルチテナント境界ガード（ADV-ALL-006） |
+| **Slice 4** | 給与集計・労基法第37条割増 | `srs_track2_asbuilt_slice4.md` | `srs_diff_analysis_total_master.md` (#Slice 4) | 確定給与不変性ガード（F-01）、6段階法定割増エンジン（F-02）、最低賃金動的化（ADV-ALL-005） |
 
 ---
 

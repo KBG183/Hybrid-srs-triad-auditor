@@ -581,7 +581,7 @@ foreach ($mf in $allMdFiles) {
         }
     }
 
-    # 2. Check declared deliverables/specs in markdown tables (e.g. `srs_diff_analysis_slice4_KO.md`)
+    # 2. Check declared deliverables/specs in markdown tables (e.g. `srs_track2_asbuilt_slice4.md`, `srs_diff_analysis_total_master.md`)
     # Target only core index/synthesis/spec documents to prevent false positives on historical narrative notes
     $isCoreIndexDoc = ($mf.Name -match '^(srs_|CURRENT_STATUS|audit_evidence|README|GEMINI)')
     if ($isCoreIndexDoc) {
@@ -590,6 +590,11 @@ foreach ($mf in $allMdFiles) {
             $colMatches = [regex]::Matches($tl, '`([a-zA-Z0-9_\-\.]+\.md)`')
             foreach ($cm in $colMatches) {
                 $rawFile = $cm.Groups[1].Value.Trim()
+                # Skip local development mirrors (*_KO.md) which are intentionally gitignored in clean checkout/CI
+                if ($rawFile -match '_KO\.md$') {
+                    continue
+                }
+
                 $checkedTableDeclCount++
                 $found = (Test-Path (Join-Path $dir $rawFile)) -or (Test-Path (Join-Path $projectRoot $rawFile)) -or (Test-Path (Join-Path $projectRoot "docs\$rawFile")) -or (Test-Path (Join-Path $projectRoot "config\$rawFile"))
                 if (-not $found) {
