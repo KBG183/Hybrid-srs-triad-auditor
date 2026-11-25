@@ -140,12 +140,13 @@ if (-not (Test-Path $linterBin)) {
 
 Write-Host "[PIPELINE] Executing Deterministic Linter Gate on $finalDraftPath..."
 $lintOutput = & $linterBin $finalDraftPath
+$linterExit = $LASTEXITCODE
 $lintOutput | Out-File -FilePath $lintReportPath -Encoding UTF8
 $lintOutput | Select-Object -First 15 | ForEach-Object { Write-Host $_ }
 
 $fatalMatches = @($lintOutput | Select-String -Pattern '\[FATAL\]')
-if ($fatalMatches.Count -gt 0) {
-    Write-Error "[PIPELINE FAIL-CLOSED] Deterministic Linter detected $($fatalMatches.Count) FATAL errors in draft! Aborting pipeline."
+if ($linterExit -ne 0 -or $fatalMatches.Count -gt 0) {
+    Write-Error "[PIPELINE FAIL-CLOSED] Deterministic Linter failed (ExitCode: $linterExit, FATAL count: $($fatalMatches.Count))! Aborting pipeline."
     exit 1
 }
 Write-Host "[PIPELINE PASS] Deterministic Linter passed with 0 FATAL errors."

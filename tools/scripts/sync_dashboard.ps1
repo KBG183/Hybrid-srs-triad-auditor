@@ -116,10 +116,14 @@ if (-not (Test-Path $linterExe)) {
     & powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $linterWrapper -Files @() 2>&1 | Out-Null
 }
 $ssotPath = Join-Path $projectRoot "config\srs_specification_ssot.md"
-$linterVerdict = "PASS"
+$linterVerdict = "UNKNOWN"
 if (Test-Path $linterExe) {
     & $linterExe $ssotPath | Out-Null
-    if ($LASTEXITCODE -ne 0) { $linterVerdict = "FAIL" }
+    if ($LASTEXITCODE -ne 0) { 
+        $linterVerdict = "FAIL" 
+    } else {
+        $linterVerdict = "PASS"
+    }
 } else {
     $linterVerdict = "FAIL"
 }
@@ -223,6 +227,11 @@ if (Test-Path $koStatusPath) {
     }
     [System.IO.File]::WriteAllText($koStatusPath, $koStatusUpdated, $utf8NoBom)
     Write-Host "  -> Successfully synchronized Korean mirror: logs\CURRENT_STATUS_KO.md" -ForegroundColor Cyan
+}
+
+if ($linterVerdict -eq "FAIL") {
+    Write-Host "[SYNC FATAL] Linter verification failed during dashboard sync. Aborting Fail-Closed." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host ">>> [SYNC COMPLETE] All dashboards & Korean mirrors 100% aligned with SSOT ($totalReqCount requirements)." -ForegroundColor Green

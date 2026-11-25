@@ -324,18 +324,18 @@ If and only if defects or statutory contradictions exist (P0/P1/P2), output a fe
 
         [Console]::Error.WriteLine("[AI-ADAPTER] AI Sidecar verified: $($latestSidecar.FullName) (Verdict: $aiVerdict, P0/P1: $p0p1Count, ResponseSHA256: $($sidecarObj.response_sha256))")
 
-        if ($aiVerdict -eq "FAIL" -or $p0p1Count -gt 0) {
+        if ($aiVerdict -ne "PASS" -or $p0p1Count -gt 0) {
             $rejectOut = ([ordered]@{
                 RunId        = $RunId
                 BundleSha256 = $bundleHash
-                Verdict      = "REJECT"
+                Verdict      = if ($aiVerdict -eq "WARN") { "WARN" } else { "REJECT" }
             }) | ConvertTo-Json -Compress
             [Console]::WriteLine($rejectOut)
             exit 3
         }
 
-        if ($aiExitCode -ne 0 -or ($aiVerdict -ne "PASS" -and $aiVerdict -ne "WARN")) {
-            [Console]::Error.WriteLine("[AI-ADAPTER ERROR] AI audit did not reach a determinable PASS verdict (Verdict: $aiVerdict, ExitCode: $aiExitCode).")
+        if ($aiExitCode -ne 0) {
+            [Console]::Error.WriteLine("[AI-ADAPTER ERROR] AI audit process exited with non-zero code ($aiExitCode).")
             exit 4
         }
 

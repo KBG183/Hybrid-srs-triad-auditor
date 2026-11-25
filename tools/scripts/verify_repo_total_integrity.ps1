@@ -363,10 +363,12 @@ if (-not (Test-Path $regExe)) {
 }
 
 # -------------------------------------------------------------------------
-# Test 6: UTF-8 BOM Zero Tolerance Hard-Gate
+# Test 6: UTF-8 BOM & Encoding Integrity Hard-Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 6/12] Scanning Tracked Text Files for UTF-8 BOM (0xEF, 0xBB, 0xBF)..." -ForegroundColor Yellow
+Write-Host "`n>>> [Check 6/12] Scanning Tracked Text Files for UTF-8 BOM & Mojibake..." -ForegroundColor Yellow
 $bomHits = 0
+$mojibakeHits = 0
+$mojibakeRegex = [regex]'(?:\u00E3|\u00E7|\u00E9|\u00E8|\u00E5)[\u0080-\u00BF\u201A-\u203A]|\uFFFD'
 foreach ($f in $trackedFiles) {
     $fullPath = Join-Path $projectRoot $f
     if (-not (Test-Path $fullPath)) { continue }
@@ -383,11 +385,19 @@ foreach ($f in $trackedFiles) {
             $bomHits++
         }
     }
+    # Mojibake pattern scan for text files
+    if ($f -match '\.(md|txt|json|csv|ps1|cs)$') {
+        $content = [System.IO.File]::ReadAllText($fullPath, [System.Text.Encoding]::UTF8)
+        if ($content -match $mojibakeRegex) {
+            Write-Host "  [MOJIBAKE VIOLATION] $f contains UTF-8 double-encoding mojibake patterns!" -ForegroundColor Red
+            $mojibakeHits++
+        }
+    }
 }
-if ($bomHits -eq 0) {
-    Write-Host "  -> PASS: 0 UTF-8 BOM bytes detected across all tracked text files." -ForegroundColor Green
+if ($bomHits -eq 0 -and $mojibakeHits -eq 0) {
+    Write-Host "  -> PASS: 0 UTF-8 BOM and 0 mojibake patterns detected across all tracked text files." -ForegroundColor Green
 } else {
-    Write-Host "  -> FAIL: Found $bomHits files with UTF-8 BOM." -ForegroundColor Red
+    Write-Host "  -> FAIL: Found $bomHits BOM violations and $mojibakeHits mojibake violations." -ForegroundColor Red
     $hasFailure = $true
 }
 
@@ -685,6 +695,16 @@ foreach ($ard in $auditRunsDirs) {
                         Write-Host "  [TAMPERED ARTIFACT] $($vf.FullName) response_sha256 does not match any raw artifact in $runDir! Fail-Closed." -ForegroundColor Red
                         $sidecarFails++
                         continue
+                    }
+                }
+
+                # Check 11.1: Raw Artifact Text Encoding & Mojibake Integrity Gate (Fail-Closed)
+                $mojibakePattern = [regex]'(?:\u00E3|\u00E7|\u00E9|\u00E8|\u00E5)[\u0080-\u00BF\u201A-\u203A]|\uFFFD'
+                foreach ($rf in $possibleRaws) {
+                    $rawContent = [System.IO.File]::ReadAllText($rf.FullName, [System.Text.Encoding]::UTF8)
+                    if ($rawContent -match $mojibakePattern) {
+                        Write-Host "  [MOJIBAKE DETECTED] $($rf.Name) in $runDir contains UTF-8 double-encoding mojibake patterns! Fail-Closed." -ForegroundColor Red
+                        $sidecarFails++
                     }
                 }
 

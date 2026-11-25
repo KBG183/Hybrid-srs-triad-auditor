@@ -1,194 +1,257 @@
 {
-  "declared_count": 21,
-  "findings": [
-    {
-      "id": "ADV-001",
-      "auditor": "qwen",
-      "severity": "P1",
-      "category": "LEGAL",
-      "title": "法廷休憩時間（45分/60分）の無給控除アルゴリズムおよび0円請求防止基準の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第4節: 実労働6時間超で45分、8時間超で60分以上の無給休憩控除および0円以下請求防止規定を追加"
-    },
-    {
-      "id": "ADV-002",
-      "auditor": "qwen",
-      "severity": "P1",
-      "category": "ARCH",
-      "title": "監査証跡・改ざん検知用メタデータ（created_by, updated_by）のDDLフィールド定義欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md [DDL-001]〜[DDL-004]: created_at, updated_at, created_by, updated_by の物理列および監査証跡定義を補強"
-    },
-    {
-      "id": "ADV-003",
-      "auditor": "qwen",
-      "severity": "P2",
-      "category": "SECURITY",
-      "title": "退職スタッフ（RESIGNED）による過去契約・勤怠実績の読み取り専用閲覧認可の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-003]: 退職（RESIGNED）後も在籍期間中の過去契約・労働条件通知書の電磁的記録をGET閲覧許可する規定を追加"
-    },
-    {
-      "id": "ADV-004",
-      "auditor": "qwen",
-      "severity": "P2",
-      "category": "LEGAL",
-      "title": "深夜労働（22:00〜翌05:00）の25%割増判定における秒単位丸め精度の明示欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第4節: 22:00:00〜翌05:00:00の深夜労働判定を秒単位で行い、切り捨て不利益を禁止する境界仕様を明記"
-    },
-    {
-      "id": "ADV-005",
-      "auditor": "qwen",
-      "severity": "P2",
-      "category": "VERIFICATION",
-      "title": "後続Slice（勤怠・給与計算）連携時の引受検証基準（DoD）の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第4節および第5節: 後続勤怠・給与計算スライスへの引渡し境界条件とDoD受入れ基準を具体化"
-    },
-    {
-      "id": "ANTI-001",
-      "auditor": "antigravity",
-      "severity": "P2",
-      "category": "CONCURRENCY",
-      "title": "招待承諾の多重実行時における冪等性（Idempotency 200 OK）処理の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-002]: ACTIVE遷移済みの再受諾時に409エラーとせず200 OKで既存所属を返却する冪等性仕様を追加"
-    },
-    {
-      "id": "ANTI-002",
-      "auditor": "antigravity",
-      "severity": "P1",
-      "category": "DATA_MODEL",
-      "title": "store_staff初期時給とcontract_history適用時給の二重ソース競合防止規約の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md [DDL-003]および[REQ-STORE-003]: store_staffの金額列を招待初期メモに限定し、賃金計算での参照禁止と履歴SSOT化を明記"
-    },
-    {
-      "id": "ANTI-003",
-      "auditor": "antigravity",
-      "severity": "P2",
-      "category": "CONCURRENCY",
-      "title": "店舗開設・更新トランザクションにおけるFOR UPDATE NOWAITデッドロック防御の欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第2節および[REQ-STORE-001]: FOR UPDATE NOWAITおよび最大3秒タイムアウトによる即時503ロールバック規約を明記"
-    },
-    {
-      "id": "CLD-001",
-      "auditor": "claude",
-      "severity": "P1",
-      "category": "SECURITY",
-      "title": "招待コード総当たり攻撃防御・失効・再発行APIおよび有効期限の規定欠落",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-001]および[REQ-STORE-002]: 7日間有効期限、5回/分レートリミット、所有者ローテーションAPIを追加"
-    },
-    {
-      "id": "CLD-002",
-      "auditor": "claude",
-      "severity": "P1",
-      "category": "DATA_MODEL",
-      "title": "PENDING行のjoined_date/resigned_date NULL許容性およびstore_staff金額の給与計算直接参照禁止",
-      "status": "VERIFIED",
-      "evidence": "draft.md [DDL-003]: joined_date/resigned_date のNULL許容定義と給与計算直接参照禁止を明文化"
-    },
-    {
-      "id": "CLD-003",
-      "auditor": "claude",
-      "severity": "P1",
-      "category": "LEGAL",
-      "title": "通達（基発150号）準拠の端数処理区分および月60時間超割増時の法定休日労働除外明記",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第4節: 基発150号準拠の割増総額・支払総額50銭端数処理区分と月60時間超算定時の法定休日除外を明記"
-    },
-    {
-      "id": "CLD-004",
-      "auditor": "claude",
-      "severity": "P1",
-      "category": "CONCURRENCY",
-      "title": "ロック取得順序の一貫性（会員・店舗・所属・履歴）および複数会員ロック時のPK昇順整列",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第2節および[REQ-STORE-004]: 会員(PK昇順)→店舗→所属→履歴の階層順序とデッドロック完全排除を規定"
-    },
-    {
-      "id": "CLD-005",
-      "auditor": "claude",
-      "severity": "P1",
-      "category": "DATA_MODEL",
-      "title": "契約履歴の未来日連続登録时における期間重複防止および未来予約契約の訂正・取消手段",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-003]: 未来予約契約（未適用行）のDELETE取消APIおよび直前行effective_to=NULL復元仕様を追加"
-    },
-    {
-      "id": "CLD-006",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "SECURITY",
-      "title": "QRトークン・招待コードのハッシュ化保管および所有者専用の再取得・ローテーション手段",
-      "status": "VERIFIED",
-      "evidence": "draft.md [DDL-002]および[REQ-STORE-001]: SHA-256ハッシュ保管、所有者トークン再照会・ローテーションAPIを追加"
-    },
-    {
-      "id": "CLD-007",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "SECURITY",
-      "title": "招待登録時の会員ID指定による会員列挙攻撃の遮断（統一404応答）",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-002]: 不存在・無効会員ID指定時も一律404 RESOURCE_NOT_FOUNDで応答し探索を遮断"
-    },
-    {
-      "id": "CLD-008",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "LEGAL",
-      "title": "24時間営業店舗（00:00〜00:00）の許容および営業時間と勤務可能時間の関係規定",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-001]: is24Hoursフラグまたは00:00〜00:00による24時間営業許容仕様を明文化"
-    },
-    {
-      "id": "CLD-009",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "SPEC_CONSISTENCY",
-      "title": "退職処理APIおよび退職後再雇用処理の仕様明文化",
-      "status": "VERIFIED",
-      "evidence": "draft.md [REQ-STORE-003]: POST /resign APIによる退職日設定と未来予約契約の自動無効化を規定"
-    },
-    {
-      "id": "CLD-010",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "SPEC_CONSISTENCY",
-      "title": "DDL物理制約（NULL許容・外部キー・複合インデックス）の整合明示",
-      "status": "VERIFIED",
-      "evidence": "draft.md [DDL-001]〜[DDL-004]: MySQL 8.4 schema.sqlの全カラム型、NOT NULL、インデックスを完全整合"
-    },
-    {
-      "id": "CLD-011",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "SPEC_CONSISTENCY",
-      "title": "認可後エラー評価順序の統一（認証→ロール→スコープ解決→入力検証→状態検証）",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第2節: 401→403→404→400/422→409の5段階Fail-Closed評価順序を明文化"
-    },
-    {
-      "id": "CLD-012",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "LEGAL",
-      "title": "金額・日付・タイムゾーン精度規定（Asia/Tokyo固定、小数・上限）",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第2節および第4節: DECIMAL(10,0)円建て整数、Asia/Tokyo完全固定、ISO-8601オフセット付きを規定"
-    },
-    {
-      "id": "CLD-013",
-      "auditor": "claude",
-      "severity": "P2",
-      "category": "PROCESS",
-      "title": "証跡書（audit_evidence_dossier.md）への実測メトリクス蓄積と改ざん防止",
-      "status": "VERIFIED",
-      "evidence": "draft.md 第5節: 4層AI交差検証の合格証明および実機メトリクス蓄積を明文化"
-    }
-  ]
+    "declared_count":  28,
+    "findings":  [
+                     {
+                         "id":  "ADV-001",
+                         "auditor":  "qwen",
+                         "severity":  "P1",
+                         "category":  "LEGAL",
+                         "title":  "法廷休憩時間（45分/60分）の無給控除アルゴリズムおよび0円請求防止基準の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第4節: 実労働6時間超で45分、8時間超で60分以上の無給休憩控除および0円以下請求防止規定を追加"
+                     },
+                     {
+                         "id":  "ADV-002",
+                         "auditor":  "qwen",
+                         "severity":  "P1",
+                         "category":  "ARCH",
+                         "title":  "監査証跡・改ざん検知用メタデータ（created_by, updated_by）のDDLフィールド定義欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [DDL-001]〜[DDL-004]: created_at, updated_at, created_by, updated_by の物理列および監査証跡定義を補強"
+                     },
+                     {
+                         "id":  "ADV-003",
+                         "auditor":  "qwen",
+                         "severity":  "P2",
+                         "category":  "SECURITY",
+                         "title":  "退職スタッフ（RESIGNED）による過去契約・勤怠実績の読み取り専用閲覧認可の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-003]: 退職（RESIGNED）後も在籍期間中の過去契約・労働条件通知書の電磁的記録をGET閲覧許可する規定を追加"
+                     },
+                     {
+                         "id":  "ADV-004",
+                         "auditor":  "qwen",
+                         "severity":  "P2",
+                         "category":  "LEGAL",
+                         "title":  "深夜労働（22:00〜翌05:00）の25%割増判定における秒単位丸め精度の明示欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第4節: 22:00:00〜翌05:00:00の深夜労働判定を秒単位で行い、切り捨て不利益を禁止する境界仕様を明記"
+                     },
+                     {
+                         "id":  "ADV-005",
+                         "auditor":  "qwen",
+                         "severity":  "P2",
+                         "category":  "VERIFICATION",
+                         "title":  "後続Slice（勤怠・給与計算）連携時の引受検証基準（DoD）の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第4節および第5節: 後続勤怠・給与計算スライスへの引渡し境界条件とDoD受入れ基準を具体化"
+                     },
+                     {
+                         "id":  "ANTI-001",
+                         "auditor":  "antigravity",
+                         "severity":  "P2",
+                         "category":  "CONCURRENCY",
+                         "title":  "招待承諾の多重実行時における冪等性（Idempotency 200 OK）処理の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-002]: ACTIVE遷移済みの再受諾時に409エラーとせず200 OKで既存所属を返却する冪等性仕様を追加"
+                     },
+                     {
+                         "id":  "ANTI-002",
+                         "auditor":  "antigravity",
+                         "severity":  "P1",
+                         "category":  "DATA_MODEL",
+                         "title":  "store_staff初期時給とcontract_history適用時給の二重ソース競合防止規約の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [DDL-003]および[REQ-STORE-003]: store_staffの金額列を招待初期メモに限定し、賃金計算での参照禁止と履歴SSOT化を明記"
+                     },
+                     {
+                         "id":  "ANTI-003",
+                         "auditor":  "antigravity",
+                         "severity":  "P2",
+                         "category":  "CONCURRENCY",
+                         "title":  "店舗開設・更新トランザクションにおけるFOR UPDATE NOWAITデッドロック防御の欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第2節および[REQ-STORE-001]: FOR UPDATE NOWAITおよび最大3秒タイムアウトによる即時503ロールバック規約を明記"
+                     },
+                     {
+                         "id":  "CLD-001",
+                         "auditor":  "claude",
+                         "severity":  "P1",
+                         "category":  "SECURITY",
+                         "title":  "招待コード総当たり攻撃防御・失効・再発行APIおよび有効期限の規定欠落",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-001]および[REQ-STORE-002]: 7日間有効期限、5回/分レートリミット、所有者ローテーションAPIを追加"
+                     },
+                     {
+                         "id":  "CLD-002",
+                         "auditor":  "claude",
+                         "severity":  "P1",
+                         "category":  "DATA_MODEL",
+                         "title":  "PENDING行のjoined_date/resigned_date NULL許容性およびstore_staff金額の給与計算直接参照禁止",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [DDL-003]: joined_date/resigned_date のNULL許容定義と給与計算直接参照禁止を明文化"
+                     },
+                     {
+                         "id":  "CLD-003",
+                         "auditor":  "claude",
+                         "severity":  "P1",
+                         "category":  "LEGAL",
+                         "title":  "通達（基発150号）準拠の端数処理区分および月60時間超割増時の法定休日労働除外明記",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第4節: 基発150号準拠の割増総額・支払総額50銭端数処理区分と月60時間超算定時の法定休日除外を明記"
+                     },
+                     {
+                         "id":  "CLD-004",
+                         "auditor":  "claude",
+                         "severity":  "P1",
+                         "category":  "CONCURRENCY",
+                         "title":  "ロック取得順序の一貫性（会員・店舗・所属・履歴）および複数会員ロック時のPK昇順整列",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第2節および[REQ-STORE-004]: 会員(PK昇順)→店舗→所属→履歴の階層順序とデッドロック完全排除を規定"
+                     },
+                     {
+                         "id":  "CLD-005",
+                         "auditor":  "claude",
+                         "severity":  "P1",
+                         "category":  "DATA_MODEL",
+                         "title":  "契約履歴の未来日連続登録时における期間重複防止および未来予約契約の訂正・取消手段",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-003]: 未来予約契約（未適用行）のDELETE取消APIおよび直前行effective_to=NULL復元仕様を追加"
+                     },
+                     {
+                         "id":  "CLD-006",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "SECURITY",
+                         "title":  "QRトークン・招待コードのハッシュ化保管および所有者専用の再取得・ローテーション手段",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [DDL-002]および[REQ-STORE-001]: SHA-256ハッシュ保管、所有者トークン再照会・ローテーションAPIを追加"
+                     },
+                     {
+                         "id":  "CLD-007",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "SECURITY",
+                         "title":  "招待登録時の会員ID指定による会員列挙攻撃の遮断（統一404応答）",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-002]: 不存在・無効会員ID指定時も一律404 RESOURCE_NOT_FOUNDで応答し探索を遮断"
+                     },
+                     {
+                         "id":  "CLD-008",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "LEGAL",
+                         "title":  "24時間営業店舗（00:00〜00:00）の許容および営業時間と勤務可能時間の関係規定",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-001]: is24Hoursフラグまたは00:00〜00:00による24時間営業許容仕様を明文化"
+                     },
+                     {
+                         "id":  "CLD-009",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "SPEC_CONSISTENCY",
+                         "title":  "退職処理APIおよび退職後再雇用処理の仕様明文化",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [REQ-STORE-003]: POST /resign APIによる退職日設定と未来予約契約の自動無効化を規定"
+                     },
+                     {
+                         "id":  "CLD-010",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "SPEC_CONSISTENCY",
+                         "title":  "DDL物理制約（NULL許容・外部キー・複合インデックス）の整合明示",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md [DDL-001]〜[DDL-004]: MySQL 8.4 schema.sqlの全カラム型、NOT NULL、インデックスを完全整合"
+                     },
+                     {
+                         "id":  "CLD-011",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "SPEC_CONSISTENCY",
+                         "title":  "認可後エラー評価順序の統一（認証→ロール→スコープ解決→入力検証→状態検証）",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第2節: 401→403→404→400/422→409の5段階Fail-Closed評価順序を明文化"
+                     },
+                     {
+                         "id":  "CLD-012",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "LEGAL",
+                         "title":  "金額・日付・タイムゾーン精度規定（Asia/Tokyo固定、小数・上限）",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第2節および第4節: DECIMAL(10,0)円建て整数、Asia/Tokyo完全固定、ISO-8601オフセット付きを規定"
+                     },
+                     {
+                         "id":  "CLD-013",
+                         "auditor":  "claude",
+                         "severity":  "P2",
+                         "category":  "PROCESS",
+                         "title":  "証跡書（audit_evidence_dossier.md）への実測メトリクス蓄積と改ざん防止",
+                         "status":  "VERIFIED",
+                         "evidence":  "draft.md 第5節: 4層AI交差検証の合格証明および実機メトリクス蓄積を明文化"
+                     },
+                     {
+                         "id":  "FINDING-RFC-001",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "tools/scripts/verify_repo_total_integrity.ps1 (Check 12): カノニカルエントリポイント5系統および相対パス参照の回帰遮断を機械的検証",
+                         "severity":  "P1",
+                         "category":  "COMPATIBILITY",
+                         "title":  "起動パス互換性およびCI/フック/リンター参照先の一貫性保証"
+                     },
+                     {
+                         "id":  "FINDING-RFC-002",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "audit/runs/20261124_rfc_optimization_run/verdict.json: response_sha256（79ac9feb...）とreport.txtの厳格バインドおよびCheck 11検証",
+                         "severity":  "P1",
+                         "category":  "AUDIT_INTEGRITY",
+                         "title":  "監査証跡の鮮度要件および対象入力ハッシュ（response_sha256）結合"
+                     },
+                     {
+                         "id":  "FINDING-RFC-003",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "docs/rfc_folder_structure_optimization.md §5: VerifySRSおよび12大ゲートの検査項目・役割分担マトリクスを明文化",
+                         "severity":  "P1",
+                         "category":  "GOVERNANCE",
+                         "title":  "多層AI監査成立条件および決定論的リンター/12大ゲート対応付け"
+                     },
+                     {
+                         "id":  "FINDING-RFC-004",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "docs/rfc_folder_structure_optimization.md §2: ルート直下資産のガバナンス境界定義およびdocs/audit_runs/のアーカイブ規約を明記",
+                         "severity":  "P2",
+                         "category":  "ARCH",
+                         "title":  "ルート直下資産（README/GEMINI/.gitignore）の責務定義および旧ログ除外"
+                     },
+                     {
+                         "id":  "FINDING-RFC-005",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "docs/powershell_scripts_manifest.csv (32種全数) および tools/scripts/finalize_daily_ledgers.ps1: 台帳追跡ファイルの完全同期",
+                         "severity":  "P2",
+                         "category":  "MAINTENANCE",
+                         "title":  "logs/台帳対応表の整備およびスクリプト一覧マニフェストとの同期"
+                     },
+                     {
+                         "id":  "FINDING-RFC-006",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "GEMINI.md 第3条および docs/rfc_folder_structure_optimization.md §2: SSOT原則および正本優先順位の明文化",
+                         "severity":  "P1",
+                         "category":  "ARCH",
+                         "title":  "11領域の責務境界・正本優先順位（憲法 \u003e SSOT \u003e 運用台帳）の厳格定義"
+                     },
+                     {
+                         "id":  "FINDING-RFC-007",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "tools/scripts/verify_repo_total_integrity.ps1 [Check 12/12]: リポジトリ実ツリーとRFC定義の乖離をFail-Closed検出する自動ゲート実装完了",
+                         "severity":  "P1",
+                         "category":  "VERIFICATION",
+                         "title":  "READMEと実ファイルツリーの乖離を防ぐ自動ドリフト防止ゲートの新設"
+                     }
+                 ]
 }

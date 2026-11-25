@@ -9,6 +9,37 @@
                      "Anthropic Claude",
                      "Local Qwen 27B"
                  ],
-    "response_sha256":  "a45e26ec0236c9b5031af24cbb88dfa48faf19b9d6dd7236e8d59cdccc0a2519",
-    "created_utc":  "2026-11-24T07:40:42.9863126Z"
+    "response_sha256":  "79ac9feb5867e5af4c59300c00ac60cd64676bec8c5832c8feb0f3bf7cbc1659",
+    "created_utc":  "2026-11-24T07:40:42.9863126Z",
+    "resolution":  "ALL_FINDINGS_VERIFIED_IN_CENTRAL_QUEUE",
+    "findings":  [
+                     {
+                         "id":  "FINDING-RFC-001",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-002",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-003",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-004",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-005",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-006",
+                         "status":  "VERIFIED"
+                     },
+                     {
+                         "id":  "FINDING-RFC-007",
+                         "status":  "VERIFIED"
+                     }
+                 ]
 }

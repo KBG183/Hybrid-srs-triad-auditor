@@ -18,9 +18,9 @@
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
 本システムは、突如としてゼロから作られたものではありません。  
-数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#統合マスターリンター（VerifySRS.cs v1.2）、11/11回帰テストスイート、30件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
+数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#統合マスターリンター（VerifySRS.cs v1.2）、11/11回帰テストスイート、79件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
 
-- **33件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **79件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
   *(ハルシネーション、無限ループ、チェックリスト安住症、オーケストレーター自律逸脱をC#ハードゲート（PROC-005~007）および2-Tier敵対的監査で迎撃した全記録)*
 - **単一進入点直列マスターゲート**: [`tools/scripts/gate_master_srs.ps1`](tools/scripts/gate_master_srs.ps1)
   *(事前点検 ➔ 規格検証 ➔ 最終承認のFail-Closed直列パイプライン・終了コード0〜4厳格契約・SkipAi承認遮断)*
@@ -134,7 +134,7 @@ flowchart TD
 ├── GEMINI.md                          # 最上位運営憲法 v1.07（多層AI検証・Fail-Closedゲート・トークン平準化）
 ├── README.md                          # 【公式正本】プロジェクト総合技術仕様書（日本語）
 ├── .github/
-│   └── workflows/ci.yml               # GitHub Actions CI基盤（11大完全性ゲート自動検証）
+│   └── workflows/ci.yml               # GitHub Actions CI基盤（12大完全性ゲート自動検証）
 ├── approved/
 │   └── approval_manifest.json         # 承認済みマニフェスト（SSOT整合性保証・暗号署名）
 ├── audit/
@@ -146,10 +146,10 @@ flowchart TD
 ├── config/
 │   ├── srs_targets.json               # マルチトラック登録台帳（Track 1/2 スライス対象定義）
 │   ├── srs_specification_ssot.md     # Track 1 単一真実原書（SRS SSOT 正本）
-│   ├── srs_track2_asbuilt_slice1.md   # Track 2 実装反映スライス 1（認証・認可）
-│   ├── srs_track2_asbuilt_slice2.md   # Track 2 実装反映スライス 2（打刻・シフト）
-│   ├── srs_track2_asbuilt_slice3.md   # Track 2 実装反映スライス 3（労基法37条給与計算）
-│   └── srs_track2_asbuilt_slice4.md   # Track 2 実装反映スライス 4（外部連携・監査）
+│   ├── srs_track2_asbuilt_slice1.md   # Track 2 実装反映スライス 1（所属・店舗・契約）
+│   ├── srs_track2_asbuilt_slice2.md   # Track 2 実装反映スライス 2（シフト管理・並行性）
+│   ├── srs_track2_asbuilt_slice3.md   # Track 2 実装反映スライス 3（打刻・勤怠 / WIP）
+│   └── srs_track2_asbuilt_slice4.md   # Track 2 実装反映スライス 4（労基法37条給与 / WIP）
 ├── docs/
 │   ├── adr/                           # アーキテクチャ決定記録（ADR-004等）
 │   ├── rfc_folder_structure_optimization.md # RFC-008 ディレクトリ構成最適化標準仕様
@@ -158,8 +158,10 @@ flowchart TD
 │   └── audit_evidence_dossier.md            # 日次監査エビデンス集約書
 ├── domain_target/                     # 実証ドメインフィクスチャ（KINTAI勤怠・給与システム）
 │   ├── 01_specifications_and_rtm/    # kintai_master_srs 分割スライス 1〜3
-│   ├── 02_database_schema_ddl/       # MySQL 8.4 DDL（schema.sql, data.sql）
-│   └── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
+│   ├── 02_database_schema_ssot/      # MySQL 8.4 DDL SSOT（schema.sql, data.sql）
+│   ├── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
+│   ├── 04_api_contracts_and_dtos/    # REST API コントラクトおよびDTO定義
+│   └── 05_core_domain_tests_fixtures/# 単体テストおよび境界値検証フィクスチャ
 ├── governance/
 │   └── ARTICLE_0_SRS.md               # 第0条 SRS絶対憲法（不変のコア要件・DoD基準）
 ├── logs/
@@ -180,7 +182,7 @@ flowchart TD
 └── tools/
     ├── scripts/                      # 実行スクリプトおよび決定論的エンジン
     │   ├── VerifySRS.cs / .exe       # C#統合マスター静的解析リンター（単一チョークポイント）
-    │   ├── verify_repo_total_integrity.ps1 # 11大完全性ゲート統括エンジン
+    │   ├── verify_repo_total_integrity.ps1 # 12大完全性ゲート統括エンジン
     │   ├── run_quad_audit.ps1        # 4重交差監査オーケストレーター（Codex/Claude/Qwen/Linter）
     │   ├── call_ai.ps1               # 統一マルチAIストリーミングランナー
     │   ├── finalize_daily_ledgers.ps1# 6大台帳整合性検証・スプリントマスタースクリプト

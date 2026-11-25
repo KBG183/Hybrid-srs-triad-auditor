@@ -77,4 +77,20 @@
 
 - **Phase A**: 本RFCの策定および4重交差監査（Codex、Claude、Qwen、VerifySRS）による無欠性レビュー。
 - **Phase B**: `README.md` および関連ドキュメントの構成図の最新化。
-- **Phase C**: `verify_repo_total_integrity.ps1`（11大ゲート）による全件パスの機械的検証。
+- **Phase C**: `verify_repo_total_integrity.ps1`（12大ゲート）による全件パスの機械的検証。
+
+---
+
+## 6. 4重交差監査指摘の反映および解決検証（Resolution Table）
+
+4重交差監査陣（Codex、Claude、Qwen 27B）より提示された指摘事項はすべて中央キュー（`queue/srs_pending_findings.json`）へ登録され、以下の物理的証跡に基づき全件解決（`VERIFIED`）を確認しました。
+
+| 指摘ID | 監査官 | 対象・論点 | 適用された是正措置 | 検証状態 |
+|---|---|---|---|:---:|
+| `FINDING-RFC-001` | Codex | 起動パス互換性 | カノニカルエントリポイント5系統および相対パス参照の回帰遮断をCheck 12で機械的検証 | **VERIFIED** |
+| `FINDING-RFC-002` | Codex | 監査証跡・ハッシュ結合 | `verdict.json`の`response_sha256`と生レポートの厳格バインドおよびCheck 11検証 | **VERIFIED** |
+| `FINDING-RFC-003` | Codex | 多層AI監査成立条件 | 本RFC §5およびREADMEにVerifySRSおよび12大ゲートの検査項目・役割分担を明記 | **VERIFIED** |
+| `FINDING-RFC-004` | Codex | ルート直下資産の境界 | 本RFC §2にルート資産のガバナンス境界定義および旧ログ隔離規約を追加 | **VERIFIED** |
+| `FINDING-RFC-005` | Codex | logs/台帳対応表 | `docs/powershell_scripts_manifest.csv`（32種）新設および`finalize_daily_ledgers.ps1`の同期 | **VERIFIED** |
+| `FINDING-RFC-006` | Claude | 正本優先順位の厳格化 | `GEMINI.md` 第3条および本RFC §2にSSOT原則と優先順位（憲法 > SSOT > 運用）を明文化 | **VERIFIED** |
+| `FINDING-RFC-007` | Claude | 自動ドリフト防止ゲート | `verify_repo_total_integrity.ps1` にCheck 12（ツリー構造整合性ゲート）を実装完了 | **VERIFIED** |

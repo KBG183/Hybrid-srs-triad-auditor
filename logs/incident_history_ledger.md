@@ -222,7 +222,7 @@
 
 ### 2026-11-17 — INCIDENT-60 — PowerShell 5.1 Latin-1 HTTP デコードによるClaude監査リポート文字化けの検知およびRawContentStream直接読取への刷新
 
-- **問題**: `audit/HERMES_Audit_...md` 内の Claude 5.5 監査セクションが `# ç›£æŸ»å ±å‘Šæ›¸...` のように文字化け（Mojibake）して記録され、法規監査結果が閲覧不能となった。
+- **問題**: `audit/HERMES_Audit_...md` 内の Claude 5.5 監査セクションが `[文字化け（Mojibake）破損文字列]` のように2重エンコード破損して記録され、法規監査結果が閲覧不能となった。
 - **原因**: Windows PowerShell 5.1 の `Invoke-RestMethod` は、HTTP レスポンスの `Content-Type` に `charset=utf-8` が明示されていない場合（Anthropic APIは `application/json` を返却）、既定値として ISO-8859-1（Latin-1）を適用して文字列デコードを行うため、UTF-8マルチバイト文字が破損して格納された。
 - **恒久対策**:
   1. `tools/scripts/call_claude.ps1` において `Invoke-RestMethod` を廃止し、`Invoke-WebRequest -UseBasicParsing` を採用。

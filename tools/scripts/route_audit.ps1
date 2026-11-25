@@ -132,6 +132,9 @@ try {
             }
             $routingResult.tier0_linter = "PASS"
             if (-not $Quiet) { Write-Host "  -> Tier 0 Linter PASS (0 tokens spent)." -ForegroundColor Green }
+        } else {
+            Write-Host "[ROUTER FATAL] Tier 0 Deterministic Linter (VerifySRS.exe) not found and could not be built. Fail-Closed abort." -ForegroundColor Red
+            exit 1
         }
     }
 
