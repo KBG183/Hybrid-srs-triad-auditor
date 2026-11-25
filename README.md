@@ -12,22 +12,22 @@
 
 ---
 
-## 🧭 プロジェクト全体ロードマップ (3-Stage Engineering Journey)
+## 🧭 3段階エンジニアリング連携 (3-Phase Engineering Journey)
 
-本プロジェクトは、机上の要件定義に留まらず、実稼働バックエンドコードとの相互検証およびリファクタリングまでを貫通する3段階エンジニアリングアプローチを採用しています。
+本リポジトリは、実務システム開発から多層AI交差検証、欠陥是正リファクタリングに至る**「3段階エンジニアリング連携（3-Phase Engineering Journey）」の第2段階（Phase 2: Hybrid SRS Triad Auditor）**として位置づけられています。
 
 ```mermaid
 flowchart LR
-    P1["【Part 1: Track 1 As-Designed】<br/>・初期設計SRS策定<br/>・決定論的C#リンター検証<br/>・順方向SSOT確定"] 
-    --> P2["【Part 2: Track 2 As-Built】<br/>・実コード逆工学（全4スライス）<br/>・4核AI多層独立交差監査<br/>・17要件全域Diff乖離分析<br/>★現在地（完了）"]
-    --> P3["【Part 3: 欠陥是正＆収束】<br/>・労基法37条計算エンジン修正<br/>・悲観的ロック順序の是正<br/>・エンタープライズリファクタリング"]
+    P1["【Phase 1: KINTAI Core】<br/>・Spring Boot 4 / MyBatis<br/>・店舗・シフト・勤怠・給与SaaS実装<br/>・98件のJUnit結合テスト回帰検証<br/>（As-Built Baseline）"] 
+    -->|"ソースコード & DDL提供<br/>（監査対象ベースライン）"| P2["【Phase 2: Hybrid SRS Triad Auditor】<br/>・多層AI逆工学（Codex / Claude / Qwen）<br/>・確定給与不変性・労基法37条境界監査<br/>・17要件のマスターDiff乖離分析<br/>★現在地（本リポジトリ）"]
+    -->|"検出欠陥 & 是正パッチのフィードバック"| P3["【Phase 3: 欠陥是正＆リファクタリング】<br/>・労基法37条割増計算エンジンの完全準拠<br/>・悲観的ロック階層順序統一によるデッドロック防止<br/>・マルチテナント境界ガードの徹底"]
 ```
 
-| フェーズ | プロジェクト対象 | 主な成果物・マイルストーン | 状態 |
+| フェーズ | プロジェクト対象 | 本フレームワークでの役割・成果物 | 状態 |
 |---|---|---|:---:|
-| **Part 1** (Track 1) | 要件定義書（SRS） | [`config/srs_specification_ssot.md`](config/srs_specification_ssot.md)（設計仕様SSOT）、C#決定論的リンター | **完了** |
-| **Part 2** (Track 2) | 逆工学・多層監査 | [`docs/srs_diff_analysis_total_master.md`](docs/srs_diff_analysis_total_master.md)（17要件Diff分析）、[`docs/srs_track2_overall_synthesis_dossier.md`](docs/srs_track2_overall_synthesis_dossier.md)（総括証跡書） | **完了** |
-| **Part 3** (Convergence) | バックエンド実装 | 逆工学で特定された重要欠陥（給与計算・並行性ロック等）の実コードリファクタリング | **準備完了** |
+| **Phase 1** (Core Baseline) | KINTAI バックエンド | 監査対象ソースコード（店舗・シフト・勤怠・給与全4スライス）およびDDL | **連携完了** |
+| **Phase 2** (Multi-AI Audit) | **本リポジトリ** | [`docs/srs_diff_analysis_total_master.md`](docs/srs_diff_analysis_total_master.md)（17要件Diff分析）、C#決定論的リンター、総括証跡書 | **完了（現在地）** |
+| **Phase 3** (Convergence) | バックエンド実装 | 逆工学で特定された重要欠陥（給与計算・並行性ロック等）の実コード是正パッチ適用 | **準備完了** |
 
 ---
 
