@@ -57,17 +57,22 @@ if [ ! -f "tools/scripts/VerifySRS.exe" ]; then
     echo "[BLOCK] Failed to compile or find VerifySRS.exe. Aborting commit."
     exit 1
 fi
-tools/scripts/VerifySRS.exe "config/srs_specification_ssot.md"
+
+SSOT_LINT_OUT=$(tools/scripts/VerifySRS.exe "config/srs_specification_ssot.md" 2>&1)
 if [ $? -ne 0 ]; then
+    echo "$SSOT_LINT_OUT"
     echo "[BLOCK] Deterministic Integrity verification failed on SSOT. Aborting commit."
     exit 1
 fi
+echo "  -> PASS: SSOT Master Linter verified."
 
+STAGED_FAILED=0
 git diff --cached --name-only -z --diff-filter=ACM | while IFS= read -r -d '' FILE; do
     if echo "$FILE" | grep -qE '^(domain_target/.*|tools/scripts/VerifySRS.*\.cs|config/.*\.md)$'; then
         if [ -f "$FILE" ] && [ "$FILE" != "config/srs_specification_ssot.md" ]; then
-            tools/scripts/VerifySRS.exe "$FILE"
+            FILE_LINT_OUT=$(tools/scripts/VerifySRS.exe "$FILE" 2>&1)
             if [ $? -ne 0 ]; then
+                echo "$FILE_LINT_OUT"
                 echo "[BLOCK] Deterministic Integrity verification failed on staged file: $FILE"
                 exit 1
             fi
@@ -80,11 +85,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 6. Master Repository Total Integrity Verification (8 Checks)
-powershell.exe -ExecutionPolicy Bypass -File "tools/scripts/verify_repo_total_integrity.ps1" -NoLog
+# 6. Master Repository Total Integrity Verification (12 Checks)
+TOTAL_INTEGRITY_OUT=$(powershell.exe -ExecutionPolicy Bypass -File "tools/scripts/verify_repo_total_integrity.ps1" -NoLog 2>&1)
 if [ $? -ne 0 ]; then
+    echo "$TOTAL_INTEGRITY_OUT"
     echo "[BLOCK] Repository Total Integrity verification failed. Aborting commit."
     exit 1
 fi
+echo "  -> PASS: 12-Gate Total Integrity verified."
 
 exit 0

@@ -131,7 +131,7 @@ flowchart TD
 
 ```text
 .
-├── GEMINI.md                          # 最上位運営憲法 v1.07（多層AI検証・Fail-Closedゲート・トークン平準化）
+├── GEMINI.md                          # 最上位運営憲法 v2.00（Core Constitution・動的ルール注入・トークン最適化）
 ├── README.md                          # 【公式正本】プロジェクト総合技術仕様書（日本語）
 ├── .github/
 │   └── workflows/ci.yml               # GitHub Actions CI基盤（12大完全性ゲート自動検証）
@@ -154,6 +154,7 @@ flowchart TD
 │   ├── adr/                           # アーキテクチャ決定記録（ADR-004等）
 │   ├── rfc_folder_structure_optimization.md # RFC-008 ディレクトリ構成最適化標準仕様
 │   ├── rfc_pipeline_integrity_guard.md      # パイプライン完全性ガード仕様
+│   ├── rfc_next_workflow_optimizations.md   # RFC-OPT-001 ワークフロー・ストレージ最適化標準仕様
 │   ├── labor37_e2e_traceability.md          # 労働基準法第37条 E2E追跡表
 │   └── audit_evidence_dossier.md            # 日次監査エビデンス集約書
 ├── domain_target/                     # 実証ドメインフィクスチャ（KINTAI勤怠・給与システム）

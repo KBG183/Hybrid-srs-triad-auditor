@@ -1,5 +1,5 @@
 {
-    "declared_count":  28,
+    "declared_count":  32,
     "findings":  [
                      {
                          "id":  "ADV-001",
@@ -252,6 +252,42 @@
                          "severity":  "P1",
                          "category":  "VERIFICATION",
                          "title":  "READMEと実ファイルツリーの乖離を防ぐ自動ドリフト防止ゲートの新設"
+                     },
+                     {
+                         "id":  "FINDING-TOKEN-001",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "scratch/token_optimization_proposal.md §2 Pillar 1, tools/scripts/bundle_diff_context.ps1 および docs/rfc_folder_structure_optimization.md アーカイブ規定",
+                         "severity":  "P2",
+                         "category":  "OPTIMIZATION",
+                         "title":  "差分コンテキストおよび過去3回実行ウィンドウ境界の定義・アーカイブパス整合性の確保"
+                     },
+                     {
+                         "id":  "FINDING-TOKEN-002",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "scratch/handoff.md §1〜§3, GEMINI.md 第2条/第3条: ハンドオフ必須参照先およびルールロードリストの照合確認規定",
+                         "severity":  "P1",
+                         "category":  "GOVERNANCE",
+                         "title":  "ハンドオフ再開時の候補・キュー・未解決指摘・レビューア証跡の照合検証の強制"
+                     },
+                     {
+                         "id":  "FINDING-TOKEN-003",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "GEMINI.md 第3条（動的ルール注入トリガー）および tools/rules/commit_pipeline.md, external_finding_queue.md, dual_hardgates_specification.md の整備",
+                         "severity":  "P1",
+                         "category":  "GOVERNANCE",
+                         "title":  "施行細則のオンデマンド読込におけるルール注入トリガー（Rule Injection Triggers）の憲法明記"
+                     },
+                     {
+                         "id":  "FINDING-TOKEN-004",
+                         "status":  "VERIFIED",
+                         "auditor":  "codex",
+                         "evidence":  "GEMINI.md 第9条および tools/rules/conditional_reporting_policy.md §2: Core憲法とロード細則全数適合をPASS必須条件化",
+                         "severity":  "P1",
+                         "category":  "VERIFICATION",
+                         "title":  "簡略PASS報告判定における全必須ゲート検証合格および証跡完全性の判定条件厳格化"
                      }
                  ]
 }

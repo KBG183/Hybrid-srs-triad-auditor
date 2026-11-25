@@ -509,3 +509,5 @@ Total Lines: 587 | Total Bytes: 66,586
 | **RFC多層交差監査 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` | **68.40秒** | Input: 29,019 tok / Output: 8,192 tok | - | **指摘反映済** (FINDING-RFC-006〜007 是正完了) |
 | **RFC文脈監査 (Qwen)** | `qwen3.8:27b (IQ3_M)` | 自社 RTX 5070 Ti (Tailscale P2P) | **42.03秒** | Input: 11,311 tok / Output: 1,614 tok | **48.8 tok/s** | **PASS** (整合性確認完了) |
 | **12大リポジトリ完全性ゲート** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.85秒** | 12大検証ゲート / 229追跡ファイル全数走査 | - | **100% ALL PASS (12/12 PASS 完全合格)** |
+| **ローカル監査 (AUDIT-SPLIT-01)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **72.92s** | In: 2231 tokens / Out: 3580 tokens | **49.9 tokens/s** | **0 P0, 2 P1(WARN), 3 P2(WARN)** |
+| **ローカル監査 (AUDIT-NEXT-OPT)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **78.35s** | In: 2076 tokens / Out: 3854 tokens | **49.9 tokens/s** | **3 P1(FAIL), 1 P2(WARN)** |
