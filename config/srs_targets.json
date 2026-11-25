@@ -48,7 +48,7 @@
       "name": "Track 2 As-Built Reverse-Engineered Slice 4 (Payroll Engine & Closing Lock)",
       "ja_path": "config/srs_track2_asbuilt_slice4.md",
       "ko_path": "config/srs_track2_asbuilt_slice4_KO.md",
-      "required": false
+      "required": true
     }
   ]
 }

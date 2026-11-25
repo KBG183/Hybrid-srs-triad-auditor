@@ -40,6 +40,7 @@ $runnerParams = @{
 if ($Prompt) { $runnerParams["Prompt"] = $Prompt }
 if ($PromptFile) { $runnerParams["PromptFile"] = $PromptFile }
 if ($ContextFile) { $runnerParams["ContextFile"] = $ContextFile }
+if ($System) { $runnerParams["SystemPrompt"] = $System }
 if ($Quiet) { $runnerParams["Quiet"] = $true }
 
 & powershell -ExecutionPolicy Bypass -File $unifiedRunner @runnerParams

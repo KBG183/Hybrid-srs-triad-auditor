@@ -1,5 +1,5 @@
 {
-    "declared_count":  34,
+    "declared_count":  51,
     "findings":  [
                      {
                          "id":  "ADV-001",
@@ -306,6 +306,159 @@
                          "severity":  "P1",
                          "category":  "SECURITY",
                          "title":  "勤怠打刻および修正申請における店舗ID・テナント分離バインドの徹底"
+                     },
+                     {
+                         "id":  "F-01",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_track2_asbuilt_slice4.md REQ-OBS-PAYROLL-002: Upsert payroll_status=\u0027DRAFT\u0027 guard and parent delete/insert protection formalized in Section 2.1 \u0026 5.2",
+                         "severity":  "P0",
+                         "category":  "DATA_INTEGRITY",
+                         "title":  "DB-level Upsert immutability guard missing in payroll table"
+                     },
+                     {
+                         "id":  "F-02",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: 6-category expansion and Week 3 backend calculation engine convergence roadmap established",
+                         "severity":  "P0",
+                         "category":  "LEGAL",
+                         "title":  "Statutory holiday 135% and over-60h monthly overtime 150% calculation omitted"
+                     },
+                     {
+                         "id":  "F-03",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 2.1 \u0026 5.2: Statutory overtime definition aligned with daily \u003e8h and weekly \u003e40h",
+                         "severity":  "P1",
+                         "category":  "LEGAL",
+                         "title":  "Overtime classified only against 8h without statutory 40h definition"
+                     },
+                     {
+                         "id":  "F-04",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_track2_asbuilt_slice4.md REQ-OBS-PAYROLL-001: Monthly rounding adjustment reconciliation invariant formalized",
+                         "severity":  "P1",
+                         "category":  "ACCOUNTING",
+                         "title":  "Daily detail vs monthly rounded allowance reconciliation invariant gap"
+                     },
+                     {
+                         "id":  "F-05",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_track2_asbuilt_slice4.md Table: Statutory rounding sequence mapped to Kihatsu No. 150 standards",
+                         "severity":  "P1",
+                         "category":  "LEGAL",
+                         "title":  "Kihatsu No. 150 circular paragraph mapping and rounding sequence"
+                     },
+                     {
+                         "id":  "F-06",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: Minimum wage fallback replaced with fail-closed HTTP 422 contract validation roadmap",
+                         "severity":  "P1",
+                         "category":  "COMPLIANCE",
+                         "title":  "minHourlyWage 1280 silent fallback hiding missing contract data"
+                     },
+                     {
+                         "id":  "F-07",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_track2_asbuilt_slice4.md REQ-OBS-PAYROLL-004: store_staff Level 1 lock prior to payroll Level 2 lock strictly enforced",
+                         "severity":  "P1",
+                         "category":  "CONCURRENCY",
+                         "title":  "payPayroll lock hierarchy omitting store_staff level 1 lock"
+                     },
+                     {
+                         "id":  "F-08",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: Non-locking snapshot read under store_staff lock specified for recalculation",
+                         "severity":  "P1",
+                         "category":  "CONCURRENCY",
+                         "title":  "Lock inversion risk during confirmPayroll recalculation"
+                     },
+                     {
+                         "id":  "F-09",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: Typed domain exceptions mapped to deterministic HTTP status codes",
+                         "severity":  "P1",
+                         "category":  "API",
+                         "title":  "Ambiguous exception-to-HTTP status mapping"
+                     },
+                     {
+                         "id":  "F-10",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: payroll_adjustment DDL table designated for Week 3 convergence",
+                         "severity":  "P1",
+                         "category":  "DATA_MODEL",
+                         "title":  "Post-confirmation correction adjustment slip entity missing"
+                     },
+                     {
+                         "id":  "F-11",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: night_overtime_minutes column designated for DDL snapshot fidelity",
+                         "severity":  "P1",
+                         "category":  "DATA_MODEL",
+                         "title":  "payroll_daily_detail snapshot missing night overtime 150% column"
+                     },
+                     {
+                         "id":  "F-12",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: DDL-001 audit metadata and status CHECK constraint formalized",
+                         "severity":  "P2",
+                         "category":  "DATA_INTEGRITY",
+                         "title":  "payroll state integrity CHECK and audit columns missing"
+                     },
+                     {
+                         "id":  "F-13",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_diff_analysis_slice4_KO.md Section 5.2: Fixed Asia/Tokyo Clock injection specified for date cutoff boundaries",
+                         "severity":  "P2",
+                         "category":  "RUNTIME",
+                         "title":  "LocalDate.now() server timezone ambiguity"
+                     },
+                     {
+                         "id":  "F-14",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "srs_track2_asbuilt_slice4.md DoD: Cross-store tenant isolation authorization tests added to DoD",
+                         "severity":  "P2",
+                         "category":  "SECURITY",
+                         "title":  "Lack of cross-store authorization test in DoD"
+                     },
+                     {
+                         "id":  "F-CLAUDE-001",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "PayrollCalculator.java / PayrollService.java: 累計60時間超の法定時間外割増50%および深夜重複75%加算を実装",
+                         "severity":  "P0",
+                         "category":  "LEGAL",
+                         "title":  "労働基準法第37条 月60時間超法定時間外割増50%および深夜重複175%算定"
+                     },
+                     {
+                         "id":  "F-CLAUDE-002",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "PayrollService.java: 日別丸め累積誤差を排除し、月次割増総額に対してHALF_UP丸めを単一適用",
+                         "severity":  "P1",
+                         "category":  "ACCOUNTING",
+                         "title":  "通達基発第150号に基づく50銭端数処理の月次総額適用"
+                     },
+                     {
+                         "id":  "F-CLAUDE-003",
+                         "status":  "VERIFIED",
+                         "auditor":  "claude",
+                         "evidence":  "AttendanceService.java: forceCloseAttendanceにおいてstore_staffを最優先ロックしデッドロックを排除",
+                         "severity":  "P1",
+                         "category":  "CONCURRENCY",
+                         "title":  "AttendanceServiceにおけるStaffからAttendanceへの階層型ロック統一"
                      }
                  ]
 }

@@ -198,6 +198,7 @@ $allowedStandaloneKo = @(
     'docs/srs_diff_analysis_slice1_KO.md',
     'docs/srs_diff_analysis_slice2_KO.md',
     'docs/srs_diff_analysis_slice3_KO.md',
+    'docs/srs_diff_analysis_slice4_KO.md',
     'docs/srs_governance_upgrade_analysis_report_KO.md',
     'logs/project_evolution_ledger_KO.md'
 )

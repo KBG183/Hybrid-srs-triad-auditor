@@ -191,9 +191,13 @@ try {
             if (-not $apiKey) { $apiKey = [System.Environment]::GetEnvironmentVariable("ANTHROPIC_API_KEY", "Machine") }
             if (-not $apiKey) { throw "AUTH_ERROR: ANTHROPIC_API_KEY not configured." }
 
+            $defaultSystemPrompt = "You are a concise regulatory and statutory code auditor. Output strictly structured Markdown tables of findings (| Finding ID | Severity | Item | Flaw Analysis | Concrete Code/Rule Fix |) followed by a final line: 'VERDICT: PASS' or 'VERDICT: FAIL'. Keep entire output compact and strictly under 2500 tokens. Never output conversational filler or long discursive essays."
+            $effectiveSystem = if ($SystemPrompt) { $SystemPrompt } else { $defaultSystemPrompt }
+
             $reqObj = @{
                 model = $effectiveModel
                 max_tokens = 8192
+                system = $effectiveSystem
                 messages = @(@{ role = "user"; content = $finalPrompt })
             }
             $requestBody = $reqObj | ConvertTo-Json -Depth 5
@@ -232,6 +236,10 @@ try {
             }
             $allLogs = $response | ConvertTo-Json -Depth 5
 
+            # Immediately preserve raw output to avoid loss on any parsing or truncation failure
+            if ($outputText) { [System.IO.File]::WriteAllText((Join-Path $runDir "output_raw.txt"), $outputText, [System.Text.Encoding]::UTF8) }
+            if ($allLogs) { [System.IO.File]::WriteAllText((Join-Path $runDir "raw_response.json"), $allLogs, [System.Text.Encoding]::UTF8) }
+
             # Stop Reason Validation: Strictly require confirmed termination
             $stopReason = $response.stop_reason
             if ($stopReason -eq "max_tokens") {
@@ -243,9 +251,6 @@ try {
             if ([string]::IsNullOrWhiteSpace($outputText)) {
                 throw "EMPTY_OUTPUT: Anthropic Claude returned an empty response body."
             }
-            # Immediately preserve raw output to avoid loss on verdict parsing failure
-            [System.IO.File]::WriteAllText((Join-Path $runDir "output_raw.txt"), $outputText, [System.Text.Encoding]::UTF8)
-            if ($allLogs) { [System.IO.File]::WriteAllText((Join-Path $runDir "raw_response.json"), $allLogs, [System.Text.Encoding]::UTF8) }
         }
         "Qwen" {
             if (-not $effectiveModel) { $effectiveModel = "qwen3.8:27b" }

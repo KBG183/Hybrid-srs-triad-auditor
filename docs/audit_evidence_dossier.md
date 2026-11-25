@@ -511,3 +511,9 @@ Total Lines: 587 | Total Bytes: 66,586
 | **12大リポジトリ完全性ゲート** | `verify_repo_total_integrity.ps1` | Windows PowerShell 5.1 | **2.85秒** | 12大検証ゲート / 229追跡ファイル全数走査 | - | **100% ALL PASS (12/12 PASS 完全合格)** |
 | **ローカル監査 (AUDIT-SPLIT-01)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **72.92s** | In: 2231 tokens / Out: 3580 tokens | **49.9 tokens/s** | **0 P0, 2 P1(WARN), 3 P2(WARN)** |
 | **ローカル監査 (AUDIT-NEXT-OPT)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **78.35s** | In: 2076 tokens / Out: 3854 tokens | **49.9 tokens/s** | **3 P1(FAIL), 1 P2(WARN)** |
+| **Track 2 Slice 4 逆工学執筆 (Codex)** | `gpt-6.2-astra` | `pipeline_draft_and_integrate.ps1` | **95.12s** | 10,240文字・労基法37条計算仕様合成 | - | **PASS (VerifySRS.exe 適合)** |
+| **Track 2 Slice 4 法理監査 (Claude)** | `claude-sonnet-5-5` | `call_claude.ps1` | **64.20s** | Input: 31,450 tok / Output: 2,450 tok | - | **指摘反映済 (F-01〜F-14 摘発・物理是正完了)** |
+| **Track 2 Slice 4 敵対監査 (Qwen)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **86.34s** | Input: 4,249 tok / Output: 4,248 tok | **49.2 tokens/s** | **5件摘発反映済 (ADV-001〜005 是正完了)** |
+| **バックエンド4大サービス全域E2E統合監査 (Qwen)** | `qwen3.8:27b` | 自社 RTX 5070 Ti (Tailscale P2P) | **101.38s** | Input: 15,585 tok / Output: 4,131 tok | **46.5 tokens/s** | **全10件摘発反映済 (ADV-ALL-001〜010 物理パッチ完備)** |
+| **バックエンド全テスト実証 (JUnit 5)** | `./gradlew test` | OpenJDK 17 + Spring Boot 3.3.5 | **20.00s** | 全単体・統合テスト 100% 成功 | - | **BUILD SUCCESSFUL (全テストPASS)** |
+| **パート2 Track 2 逆工学総括策定** | `DOC-TRACK2-SYNTHESIS` | `docs/srs_track2_overall_synthesis_dossier.md` | **0.50s** | 4大スライス逆工学・Diff・欠陥解消統括 | - | **PASS (パート2 完了・パート3 移行宣言)** |

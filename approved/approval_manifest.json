@@ -22,6 +22,10 @@
                   {
                       "Path":  "config/srs_track2_asbuilt_slice3.md",
                       "Sha256":  "2a2e221a8bdc9bd437d94773d08e7de84bfffd62d87ac97e99911d6652064dc5"
+                  },
+                  {
+                      "Path":  "config/srs_track2_asbuilt_slice4.md",
+                      "Sha256":  "c1019829a6e5712b5ba162a6cf0ff9d1c1927433d7f514abb6e6b17f29da3bf9"
                   }
               ],
     "Timestamp":  "2026-11-24T04:52:17.1538425+00:00",
