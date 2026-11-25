@@ -33,6 +33,16 @@
 
 ## 2. 運用障害および再発防止台帳 (Incident History)
 
+### 2026-11-25 — INCIDENT-80 — 多層検証におけるオーケストレーター（Antigravity）自律監査の認知脱落および5重パイプライン定義の乖離
+
+- **問題**: Day 3計画策定時、オーケストレーターが外部CLIスクリプト（Codex, Claude, Qwen, VerifySRS.exe）のみを道具と認知し、自身が果たすべき「Heavy Track第1監査官」の役割を脱落させ、「4重検証」と誤認・虚偽報告した。
+- **原因**: 外部CLI実行中心の認知バイアス（Tool-Centric Bias）、および `srs_authoring_multi_audit_protocol.md` 等の補足文書におけるAntigravity役割未定義。
+- **恒久対策**:
+  1. `GEMINI.md` 第1条および `tools/rules/srs_authoring_multi_audit_protocol.md` に「執筆1者 ＋ 独立監査4者 ＝ 計5重パイプライン体制」を明文化。
+  2. Heavy Track時におけるAntigravity第1監査官の役割およびRole-Swapマトリクスを厳格固定。
+  3. ローカルQwen 27Bによる憲法改定条項衝突監査を実施し整合性を確認。
+- **状態**: `RESOLVED_PERMANENT_RULE_ENFORCED`
+
 ### 2026-11-24 — INCIDENT-79 — 外部LLM連携におけるClaude要約途絶(max_tokens)時のFail-Openリスクおよび多重プロセスログ書込競合の防御 (G1/G3ガード)
 
 - **問題**: 4核AI交差検証において、Claudeレスポンスが `max_tokens` (8192) に達して途中切断（Truncated）された場合、不完全な監査出力であるにもかかわらずJSON構造の正当性のみでゲートを通過するFail-Openリスクが顕在化した。また、並行検証時に `local_token_ledger.csv` への同時書込によるファイルロック競合が発生した。

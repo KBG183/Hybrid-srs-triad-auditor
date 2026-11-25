@@ -199,23 +199,30 @@ try {
             $requestBody = $reqObj | ConvertTo-Json -Depth 5
             $utf8Body = [System.Text.Encoding]::UTF8.GetBytes($requestBody)
 
-            $headers = @{
-                "x-api-key" = $apiKey
-                "anthropic-version" = "2023-06-01"
-                "content-type" = "application/json; charset=utf-8"
-            }
+            Add-Type -AssemblyName System.Net.Http
+            $client = New-Object System.Net.Http.HttpClient
+            $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
+            
+            $reqMsg = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Post, "https://api.anthropic.com/v1/messages")
+            $reqMsg.Headers.Add("x-api-key", $apiKey)
+            $reqMsg.Headers.Add("anthropic-version", "2023-06-01")
+            $stringContent = New-Object System.Net.Http.StringContent($requestBody, [System.Text.Encoding]::UTF8, "application/json")
+            $reqMsg.Content = $stringContent
 
             try {
-                $response = Invoke-RestMethod -Uri "https://api.anthropic.com/v1/messages" -Method Post -Headers $headers -Body $utf8Body -TimeoutSec $TimeoutSeconds
-            } catch {
-                $errDetail = $_.Exception.Message
-                if ($_.Exception.Response) {
-                    try {
-                        $sReader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream(), [System.Text.Encoding]::UTF8)
-                        $errDetail = $sReader.ReadToEnd()
-                    } catch {}
+                $httpTask = $client.SendAsync($reqMsg)
+                $httpResponse = $httpTask.GetAwaiter().GetResult()
+                $respBytes = $httpResponse.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+                $rawJson = [System.Text.Encoding]::UTF8.GetString($respBytes)
+                
+                if (-not $httpResponse.IsSuccessStatusCode) {
+                    throw "CLAUDE_HTTP_ERROR: StatusCode: $($httpResponse.StatusCode). Details: $rawJson"
                 }
-                throw "CLAUDE_API_ERROR: $errDetail"
+                $response = $rawJson | ConvertFrom-Json
+            } catch {
+                throw "CLAUDE_API_ERROR: $($_.Exception.Message)"
+            } finally {
+                $client.Dispose()
             }
             $textBlocks = @($response.content | Where-Object { $_.type -eq "text" } | Select-Object -ExpandProperty text -ErrorAction SilentlyContinue)
             if ($textBlocks.Count -gt 0) {

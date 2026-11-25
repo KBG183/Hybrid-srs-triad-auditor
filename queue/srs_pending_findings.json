@@ -1,5 +1,5 @@
 {
-    "declared_count":  32,
+    "declared_count":  34,
     "findings":  [
                      {
                          "id":  "ADV-001",
@@ -288,6 +288,24 @@
                          "severity":  "P1",
                          "category":  "VERIFICATION",
                          "title":  "簡略PASS報告判定における全必須ゲート検証合格および証跡完全性の判定条件厳格化"
+                     },
+                     {
+                         "id":  "ART0-SEC2-1",
+                         "status":  "VERIFIED",
+                         "auditor":  "qwen",
+                         "evidence":  "srs_track2_asbuilt_slice3.md: REQ-OBS-ATTEND-001〜004およびDDL-001〜002のTrack 2 As-Built仕様準拠",
+                         "severity":  "P0",
+                         "category":  "ARCH",
+                         "title":  "Track 2 As-Built における DDL-001/002 識別子体系の標準適合"
+                     },
+                     {
+                         "id":  "ART0-SEC3-5",
+                         "status":  "VERIFIED",
+                         "auditor":  "qwen",
+                         "evidence":  "srs_track2_asbuilt_slice3.md: store_id および storeStaffId の SecurityContext 解決とテナント分離拘束を明記",
+                         "severity":  "P1",
+                         "category":  "SECURITY",
+                         "title":  "勤怠打刻および修正申請における店舗ID・テナント分離バインドの徹底"
                      }
                  ]
 }

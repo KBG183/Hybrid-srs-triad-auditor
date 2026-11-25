@@ -6,7 +6,10 @@
 ---
 
 ## 1. 目的および多層検証アーキテクチャ
-本規約は、プロジェクトにおける要件定義およびコード品質を担保するための最上位基準である。特定AIモデルへの依存や単一障害点を防ぐため、以下の多層検証＋決定論的リンター体制を維持する：
+本規約は、プロジェクトにおける要件定義およびコード品質を担保するための最上位基準である。特定AIモデルへの依存や単一障害点を防ぐため、以下の5重多層検証＋決定論的リンター体制を維持する：
+- **5重パイプライン体制の厳格定義**: 常時「執筆者1者 ＋ 独立交差監査4者」による計5重の検証ラインを維持し、自己監査を排除する。
+  - **Fast Track**: 執筆［Antigravity］ ＋ 独立4重監査［①Codex, ②Claude, ③Qwen 27B, ④VerifySRS.exe］
+  - **Heavy Track**: 執筆［Codex］ ＋ 独立4重監査［①Antigravity（第1監査官）, ②Claude, ③Qwen 27B, ④VerifySRS.exe］
 - **Antigravity (Gemini)**: 統括オーケストレーション、SSOT排他管理、Fast Track執筆、Heavy Track第1監査。
 - **OpenAI Codex CLI (`call_codex.ps1`)**: Heavy Track初案執筆、Fast Track交差監査。
 - **Anthropic Claude (`call_claude.ps1`)**: 労働基準法第37条・例外分岐の推論監査。

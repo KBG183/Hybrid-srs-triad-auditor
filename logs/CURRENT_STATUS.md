@@ -14,7 +14,7 @@
   - `queue/srs_pending_findings.json` への全件キューイングおよび1-Shot統合是正完了（全件 VERIFIED 遷移）。
   - Track 2 Slice 2 逆工学仕様書（`config/srs_track2_asbuilt_slice2.md`）の策定完了および `config/srs_targets.json` への正式登録。
   - CI targets動的巡回エンジン（`ci.yml`）、LF改行正規化（`.gitattributes`）、フック事前検証（`test_git_hooks.ps1`）、およびマルチAIランタイムG1/G3ガード（`call_ai.ps1`）の完全配備。
-- **最新ヘルスチェック判定**: `PRODUCTION_PASS` (enterprise_audit_ledger.csv BATCH-15: Track2 Slice2逆工学仕様完走・CI targets動的巡回・.gitattributes LF正規化・call_ai G1/G3ガード配備・VerifySRS.exe 11/11全数合格)
+- **最新ヘルスチェック判定**: `PRODUCTION_PASS` (enterprise_audit_ledger.csv BATCH-15: Track2 Slice2（勤怠申請・確定・排他ロック）逆工学仕様完走・CI targets動的巡回・.gitattributes LF正規化・test_git_hooks・call_ai G1/G3ガード配備およびVerifySRS.exe 11/11全数合格)
 
 ---
 
