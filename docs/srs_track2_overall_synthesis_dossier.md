@@ -35,22 +35,24 @@
 
 ---
 
-## 4. 解決済み主要欠陥および実装証跡 (Remediation Ledger)
+## 4. 解決済み主要欠陥および実装証跡 (Remediation & Patch Readiness Ledger)
+
+パート2の多層AI交差検証によって摘発された重大欠陥に対し、是正コードの作成およびJUnit 5単体テストによる物理検証を完了し、パート3リファクタリング用パッチ（`scratch/project3_ready_backend_remediation.patch`）として配備しました：
 
 1. **[F-01 / P0] 確定給与不変性保護**:
-   - `PayrollMapper.xml` の `upsertPayroll` に `IF(payroll_status = 'DRAFT', ...)` ガードを追加し、日別詳細削除に `WHERE payroll_status = 'DRAFT'` を強制。
+   - `PayrollMapper.xml` の `upsertPayroll` に `IF(payroll_status = 'DRAFT', ...)` ガードを追加し、日別詳細削除に `WHERE payroll_status = 'DRAFT'` を強制するパッチを検証。
 2. **[F-02 / P0] 労働基準法第37条 6段階割増エンジンの完全化**:
-   - `PayrollCalculator.java` を拡張し、通常(100%)、深夜(125%)、残業(125%)、深夜残業重複(150%)、法定休日(135%)、法定休日深夜(160%)の完全対応を実現。
+   - `PayrollCalculator.java` を拡張し、通常(100%)、深夜(125%)、残業(125%)、深夜残業重複(150%)、法定休日(135%)、法定休日深夜(160%)、および月60h超深夜重畳(175%)の完全対応ロジックを検証完了。
 3. **[F-07 / P1] 給与支払処理 API の新設**:
    - `PayrollService.payPayroll` を実装し、`store_staff` (Level 1) → `payroll` (Level 2) の厳格な階層型排他ロック順序を確立。
 4. **[ADV-001 / P0] 未退勤ゴースト打刻の管理者強制クローズ API**:
-   - `AttendanceService.forceCloseAttendance` を実装し、未退勤の存在により月次給与締めが永久停止するデッドロックを完全解消。
+   - `AttendanceService.forceCloseAttendance` を実装し、未退勤の存在により月次給与締めが永久停止するデッドロックを解消。
 5. **[ADV-ALL-005, 006 / P2] ハードコード定数の排除とマルチテナント保護**:
    - `PayrollService.java` の最低賃金1,280円ハードコードを撤廃し、`AttendanceService.java` の店舗ID 1L デフォルト代入を例外遮断に変更。
 
 ---
 
 ## 5. 結論およびパート3への移行宣言
-パート2におけるAs-Built逆工学および多層AI監査は、単なるドキュメント作成にとどまらず、**実機バックエンドコードに潜在していた致命的欠陥（P0/P1）をすべて特定し、物理コード修正およびJUnit 5単体テストによって完全に解消（RESOLVED）**した。
+パート2におけるAs-Built逆工学および多層AI監査は、単なるドキュメント作成にとどまらず、**実機バックエンドコードに潜在していた致命的欠陥（P0/P1）をすべて特定し、物理コード修正パッチの作成およびJUnit 5単体テストによって解決策を完全立証（RESOLVED IN SPEC & PATCH READY）**した。
 
-本実績をもってパート2を正式に完了とし、次工程である**パート3「双方向収束ゲート（Convergence Gate）および最終リリース」**へ移行する。
+本実績をもってパート2を正式に完了とし、実機バックエンドへのパッチ適用およびエンタープライズリファクタリングを遂行する次工程**パート3「双方向収束ゲート（Convergence Gate）および最終リリース」**へ移行する。

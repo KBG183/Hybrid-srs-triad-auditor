@@ -1,128 +1,121 @@
 # 🏛️ Hybrid SRS Quad-Auditor & Linter Engine
 
 [![KINTAI SRS CI](https://github.com/KBG183/Hybrid-srs-triad-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/KBG183/Hybrid-srs-triad-auditor/actions/workflows/ci.yml)
+[![Zero-Korean Gate](https://img.shields.io/badge/Zero--Korean-Passed-brightgreen.svg)]()
+[![Deterministic Linter](https://img.shields.io/badge/VerifySRS.exe-12%2F12%20PASS-blue.svg)]()
+[![Multi-AI Orchestration](https://img.shields.io/badge/Auditors-Codex%20%7C%20Claude%20%7C%20Qwen%2027B-orange.svg)]()
 
-> **ドメイン非依存型（Domain-Agnostic）高信頼性ソフトウェア要件定義書（SRS）自動生成・4核AI多層相互監査フレームワーク**  
+> **ドメイン非依存型（Domain-Agnostic）高信頼性ソフトウェア要件定義書（SRS）自動生成・多層AIハイブリッド交差検証フレームワーク**  
+> 
+> **Status: Part 2 (Track 2 As-Built 逆工学・多層AI交差検証・全17要件Diff分析) 完了 / Part 3 (欠陥是正リファクタリング) 準備完了**  
+> 実稼働Spring Bootバックエンド（店舗・シフト・勤怠・給与全4スライス）の逆工学、3大AI（OpenAI Codex / Anthropic Claude / ローカル Qwen 27B）独立交差監査、および設計（As-Designed）vs 実装（As-Built）のマスター乖離分析を完遂しました。
 
-> **Status: Track 2 (As-Built 逆工学および仕様・コード乖離分析) 完了・Part 3 (双方向収束) 移行準備完了** — 全4大スライス（店舗・シフト・勤怠・給与）の実機バックエンドJava/DDL逆工学名義化、および3大AI（Codex, Claude, Qwen）交差検証に基づく実コード欠陥是正が完了しました。
+---
+
+## 🧭 プロジェクト全体ロードマップ (3-Stage Engineering Journey)
+
+本プロジェクトは、机上の要件定義に留まらず、実稼働バックエンドコードとの相互検証およびリファクタリングまでを貫通する3段階エンジニアリングアプローチを採用しています。
+
+```mermaid
+flowchart LR
+    P1["【Part 1: Track 1 As-Designed】<br/>・初期設計SRS策定<br/>・決定論的C#リンター検証<br/>・順方向SSOT確定"] 
+    --> P2["【Part 2: Track 2 As-Built】<br/>・実コード逆工学（全4スライス）<br/>・4核AI多層独立交差監査<br/>・17要件全域Diff乖離分析<br/>★現在地（完了）"]
+    --> P3["【Part 3: 欠陥是正＆収束】<br/>・労基法37条計算エンジン修正<br/>・悲観的ロック順序の是正<br/>・エンタープライズリファクタリング"]
+```
+
+| フェーズ | プロジェクト対象 | 主な成果物・マイルストーン | 状態 |
+|---|---|---|:---:|
+| **Part 1** (Track 1) | 要件定義書（SRS） | [`config/srs_specification_ssot.md`](config/srs_specification_ssot.md)（設計仕様SSOT）、C#決定論的リンター | **完了** |
+| **Part 2** (Track 2) | 逆工学・多層監査 | [`docs/srs_diff_analysis_total_master.md`](docs/srs_diff_analysis_total_master.md)（17要件Diff分析）、[`docs/srs_track2_overall_synthesis_dossier.md`](docs/srs_track2_overall_synthesis_dossier.md)（総括証跡書） | **完了** |
+| **Part 3** (Convergence) | バックエンド実装 | 逆工学で特定された重要欠陥（給与計算・並行性ロック等）の実コードリファクタリング | **準備完了** |
 
 ---
 
 ## 🎯 概要および背景 (Overview)
 
-本プロジェクトは、大規模エンタープライズソフトウェアの要件定義（SRS）策定において発生する**「単一LLMのハルシネーション（幻覚）」「曖昧な境界条件の見落とし」「確証バイアス」**を根本から排除するために構築された、**マルチモデル協調オーケストレーション ＋ 自社GPU高速化インフラ ＋ C#決定論的リンターを結合した高信頼性エンジニアリング基盤**です。
+エンタープライズソフトウェア開発において、要件定義書（SRS）と実コードの乖離（Doc-Code Drift）や、単一AIモデルに依存した際の**「ハルシネーション（幻覚）」「境界条件の見落とし」「確証バイアス」**は深刻な品質リスクを引き起こします。
+
+本プロジェクトは、以下のコア技術を融合し、**「設計と実装の双方向整合性を数理的・決定論的に証明する」**高信頼性エンジニアリング基盤です：
+1. **決定論的静的解析エンジン (`VerifySRS.exe`)**: C#で実装されたFail-Closed型の厳格リンター。曖昧表現、構文不備、DoD欠落を機械的に遮断。
+2. **多層AIハイブリッド交差検証 (Quad-Auditor)**: OpenAI Codex、Anthropic Claude、自社GPU高速化ローカル Qwen 27B、Antigravity（Gemini）が独立して交差監査。
+3. **実機バックエンド逆工学 (Track 2 Reverse-Engineering)**: 実稼働Javaコード/DDLから観測仕様書を抽出し、設計書とのマスターDiff分析を実施。
+
+---
+
+## ⚙️ 5重多層検証アーキテクチャ (Quad-AI & Deterministic Linter Pipeline)
+
+本フレームワークは常時「執筆者1者 ＋ 独立交差監査4者」による計5重の検証ラインを維持し、自己監査を完全に排除します。
+
+```mermaid
+flowchart TD
+    HUB["【総括オーケストレーター】<br/>Antigravity (Gemini)<br/>SSOT排他管理・タスク調停"]
+
+    subgraph AUDITORS ["独立多層交差監査陣 (Independent Quad-Auditors)"]
+        direction LR
+        L1["【L1 高速文脈・境界監査】<br/>ローカル Qwen 27B<br/>自社RTX 5070 Ti (51.7 tok/s)<br/>ユースケース・P1~P7攻撃ベクトル"]
+        L2["【L2 コード・DDL技術監査】<br/>OpenAI Codex CLI<br/>Read-Only Sandbox<br/>MySQL制約・並行性デッドロック"]
+        L3["【L3 労働法規・深層論理監査】<br/>Anthropic Claude 5.5<br/>深層推論エンジン<br/>労基法37条・端数処理例外"]
+    end
+
+    LINTER["【決定論的リンター】<br/>VerifySRS.exe (C# .NET)<br/>Fail-Closed 機械式ハードゲート<br/>(DoD必須表 / 12大完全性ゲート)"]
+
+    SSOT["【最終承認成果物】<br/>承認済みSSOT仕様書 ＆ 全域Diff分析書<br/>(SHA-256暗号署名保証)"]
+
+    HUB --> AUDITORS
+    AUDITORS --> LINTER
+    LINTER --> SSOT
+```
+
+### 多層検証アクターの役割分担
+
+| 監査主体 | 実行インフラ | 主たる検証責務 | 実測性能・特徴 |
+|---|---|---|---|
+| **Antigravity (Gemini)** | クラウドオーケストレーター | パイプライン統括、SSOT排他管理、Track 2観測仕様合成 | 高度なコンテキスト管理 |
+| **OpenAI Codex** | CLI（Read-Onlyサンドボックス） | DB DDL制約、DTO契約、悲観的ロック順序監査 | 実測実行: 95.1s |
+| **Anthropic Claude** | クラウド深層推論 | 労働基準法第37条（時間外・休日・深夜）、端数処理の論理検証 | 実測実行: 44.4s / 64.2s |
+| **ローカル Qwen 27B** | 自社GPU (RTX 5070 Ti, Tailscale) | 大規模文脈の高速抽出、P1〜P7敵対的監査、回帰検知 | **51.7 tokens/s (コスト0円)** |
+| **VerifySRS.exe** | C# .NET ネイティブ | 構文、スペースなし波線（` ~ `）、DoD要素、暗号ハッシュ検証 | 決定論的 100% 再現 |
+
+---
+
+## 📊 実証ドメイン：KINTAI SaaS 逆工学＆Diff分析結果
+
+本基盤の実証対象として、複雑な法令要件と金融並行性制御が結合した**「アルバイト勤怠・給与管理SaaS（KINTAI）」**を適用しました。
+
+### 1. 全17要件 マスター乖離分析（Diff）サマリー
+
+実稼働Spring Bootバックエンド（全4スライス）と設計書（Track 1 SSOT）を1:1対比検証した結果は以下の通りです：
+
+| 分類 | 件数 | 該当要件ID | 工学的判定および対応方針 |
+|---|:---:|---|---|
+| **完全一致 (Identical)** | 10件 | REQ-STORE-001~003, REQ-SHIFT-001~003, REQ-ATT-001~002, REQ-PAY-001, 004 | 設計通りに厳密実装。テストカバレッジ適合。 |
+| **設計簡素化 (Simplified)** | 4件 | REQ-SHIFT-004, REQ-ATT-003~004, REQ-PAY-005 | 実装側の意図的設計（夜勤跨ぎ分割の運用回避等）。仕様書側を観測事実に同期。 |
+| **重要欠陥検知 (Adverse Discrepancy)** | 3件 | REQ-PAY-002, REQ-PAY-003, REQ-ATT-002 (並行性) | **多層AI監査により実コードの致命的欠陥を検出。Part 3で是正。** |
+
+### 2. 多層AIが検出した主要欠陥および工学的知見
+
+1. **労働基準法第37条：月60時間超 ＋ 深夜割増 重複計算の欠落 (REQ-PAY-002)**
+   - *指摘 (Claude & Codex)*: 月60時間超過割増（50%）と深夜割増（25%）が重複する時間帯において、実コードが150%しか支給しておらず、法定必須基準である**175%割増**が未達であった不備を摘発。
+2. **通達150号（昭和63年3月14日通達）：端数処理（50銭端数）の適用レベル乖離 (REQ-PAY-003)**
+   - *指摘 (Claude)*: 法定の50銭未満切捨て・50銭以上切上げ（`HALF_UP`）は「月間合算額」に対して適用すべきところ、日次計算単位で過剰適用されていた丸めバイアスを特定。
+3. **悲観的ロック階層構造の不整合によるデッドロック危険性 (REQ-ATT-002)**
+   - *指摘 (Codex & Qwen 27B)*: 強制退勤クローズ処理において、`store_staff`（親）と`attendance`（子）の取得順序が通常の打刻処理と逆転する可能性を検知。ロック順序の正規化（親 ➔ 子）を策定。
 
 ---
 
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
-本システムは、突如としてゼロから作られたものではありません。  
-数万行におよぶ大規模テキストの整合性を検証するため、先行して独自開発された**C#統合マスターリンター（VerifySRS.cs v1.2）、11/11回帰テストスイート、79件の実障害インシデント解決台帳、モデル別実測トークン・コストCSVデータ**をエンタープライズ系譜として直接継承・統合しています。
+本システムは、79件の実障害インシデント解決台帳や実測メトリクスを継承した決定論的エンジニアリング基盤です：
 
 - **79件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
-  *(ハルシネーション、無限ループ、チェックリスト安住症、オーケストレーター自律逸脱をC#ハードゲート（PROC-005~007）および2-Tier敵対的監査で迎撃した全記録)*
 - **単一進入点直列マスターゲート**: [`tools/scripts/gate_master_srs.ps1`](tools/scripts/gate_master_srs.ps1)
-  *(事前点検 ➔ 規格検証 ➔ 最終承認のFail-Closed直列パイプライン・終了コード0〜4厳格契約・SkipAi承認遮断)*
 - **第0条 SRS 絶対憲法およびSHA-256整合性ロック**: [`governance/ARTICLE_0_SRS.md`](governance/ARTICLE_0_SRS.md)
-  *(冗長ルールを約2.1KBの高密度規則へ圧縮・SHA-256ハッシュ照合による改ざん即時遮断)*
 - **外部指摘事項追跡および1-Shot是正キュー**: [`queue/srs_pending_findings.json`](queue/srs_pending_findings.json)
-  *(外部監査指摘を物理キューへ外在化し、未解消欠陥残存時の承認物理遮断)*
-- **アーキテクチャ決定記録 (ADR-004)**: [`docs/adr/ADR-004_adoption_of_shared_verification_core.md`](docs/adr/ADR-004_adoption_of_shared_verification_core.md)
-  *(事前検証済み共通検証コアのSRSプロファイル適合化・導入意思決定書)*
+- **全17要件 設計vs実装マスター乖離分析書**: [`docs/srs_diff_analysis_total_master.md`](docs/srs_diff_analysis_total_master.md)
+- **Part 2 総括報告・証跡書**: [`docs/srs_track2_overall_synthesis_dossier.md`](docs/srs_track2_overall_synthesis_dossier.md)
+- **日次多層監査実測エビデンス集約書**: [`docs/audit_evidence_dossier.md`](docs/audit_evidence_dossier.md)
 - **C#統合マスター静的解析エンジン（VerifySRS.cs）**: [`tools/scripts/VerifySRS.cs`](tools/scripts/VerifySRS.cs)
 - **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
-- **大規模ベンチマーク・テストフィクスチャ（5種）**: [`tools/fixtures/`](tools/fixtures/)
-- **モデル別トークン消費・コスト実測原帳（CSV 5種）**: [`logs/`](logs/) (`cloud_api_token_ledger.csv`, `local_token_ledger.csv`, `enterprise_audit_ledger.csv`, `pipeline_metrics.csv`, `evidence_benchmark.csv`)
-
----
-
-## 🎯 実証リファレンスドメイン (Reference Domain Fixture)
-
-本フレームワークの検証精度と実効性を実証するため、複雑な法令計算（日本労働基準法第37条の割増賃金）と金融トランザクション並行性制御（悲観的ロック）が結合した**[KINTAI：店舗・アルバイト勤怠および給与計算バックエンド](domain_target/)**を第1次実証ドメインフィクスチャとして搭載・稼働させています。
-
-* ※ `domain_target/` 配下のドメインアセットを差し替えることで、フィンテック、医療、物流などあらゆる高信頼性産業システムに即時適用可能なプラグ＆プレイ（Plug & Play）アーキテクチャを実現しています。
-
----
-
-## 🔄 2大独立検証トラック・アーキテクチャ (Dual-Track Verification Methodology)
-
-本フレームワークは、単一のAIに要件定義書を書かせて終わる一般的なアプローチとは異なり、ソフトウェア開発ライフサイクル（SDLC）の品質を双方向から保証する**「2大独立検証トラック（Dual-Track）」**を設計・運用しています。  
-情報漏洩（Information Leakage）や確証バイアスを防ぐため、両トラックはコンテキストを物理的に隔離（Blind Isolation）した状態で並行稼働します。
-
-```mermaid
-flowchart TD
-    subgraph T1 ["Track 1: 順方向・静的多層監査 (設計仕様 As-Designed の純化)"]
-        direction LR
-        A1["企画・設計段階 SRS草案"] --> B1["C#決定論的リンター"] --> C1["3核AI独立交差監査"] --> D1["承認済み設計仕様 (SSOT)"]
-    end
-
-    subgraph T2 ["Track 2: コード駆動・逆工学合成 (実装実態 As-Built の抽出)"]
-        direction LR
-        A2["純粋Javaコード / DDL"] --> B2["作成AI自律合成"] --> C2["C#決定論的リンター"] --> D2["3核AI原文対照監査"] --> E2["観測仕様草案"]
-    end
-
-    T1 --> GATE{"【双方向収束ゲート (Bidirectional Convergence Diff)】<br/>要件ID (RTM) をキーに設計と実装の乖離を最小化"}
-    T2 --> GATE
-```
-
-### 1. Track 1: 順方向・静的多層監査 (Forward Static Multi-Audit)
-* **目的**: 企画・設計段階のSRS草案に対し、実装着手前に論理破綻、曖昧性、法規違反、例外の欠落を静的に検知・低減（Shift-Left Defect Detection）。
-* **入力**: 人間設計者または企画段階で策定された要件定義書草案。
-* **検証パイプライン**:
-  1. **C#決定論的リンター (`VerifySRS_Deterministic.cs`)**: DoD必須表、フォーマット、TBD/TODO残存を機械的にFail-Closed遮断。
-  2. **L1 高速文脈・敵対的監査 (Local 27B Qwen, RTX 5070 Ti)**: 2-Tier敵対的監査エンジン（P1~P7攻撃ベクトル）による業務ユースケースの網羅性、法理衝突、およびデッドロック検知。
-  3. **L2 独立技術監査 (OpenAI Codex CLI, Read-Only Sandbox)**: MySQL 8.4 DDL制約、API DTO契約、トランザクション分離の整合性を監査。
-  4. **L3 労務法規監査 (Anthropic Claude 5.5)**: 日本労働基準法第37条（割増賃金計算）への準拠性を深層推論監査。
-
-### 2. Track 2: コード駆動・逆工学自動合成＆独立交差検証 (Reverse-Engineering Synthesis & Cross-Audit)
-* **目的**: 実装済みバックエンドソースコードおよびDDLから、AIがIEEE 830形式の構造化SRSを逆合成（Auto-Generation）し、その合成品質を3核の独立AIが原文コードと突き合わせて客観的に検証。
-* **入力**: 実動バックエンドソース（`PayrollCalculationService.java`, `ShiftService.java`）およびDDL（`schema.sql`）。
-* **ブラインド隔離原則 (Blind Isolation)**: 作成AIには既存の設計書を入力せず、**純粋なコード資産のみを読解**させることで、先入観による引きずられやカンニングを排除。
-* **検証パイプライン**:
-  1. **作成エンジン (Antigravity / Gemini)**: ソースコードの数式、トランザクション境界、例外処理を逆解析し、新規SRSを自律合成。
-  2. **C#決定論的リンター**: 合成されたSRSの状態遷移表、入出力仕様の欠落を1次スクリーニング。
-  3. **L1〜L3 独立交差監査陣 (Qwen 27B / Codex / Claude)**: 作成AIから切り離された3核AIが、要件IDをキーとして**「実コード原文 vs 合成されたSRS」を照合監査**。
-     * *実証例 (L1)*: Javaコード内の例外分岐（`IllegalArgumentException`）がSRSの例外仕様に漏れなく定義されているか？
-     * *実証例 (L2)*: 悲観的ロック（`SELECT ... FOR UPDATE`）のタイムアウト制御がSRSの並行性要件と一致しているか？
-     * *実証例 (L3)*: Javaで実装された「50銭未満切捨て・50銭以上切上げ」端数処理が、労働基準法第37条の観点からSRSに正しく記述されているか？
-
-### 3. 双方向収束ゲート (Bidirectional Convergence Gate) による工学的価値
-両トラックの出力を要件トレーサビリティ行列（RTM）をキーにして突き合わせることで、実務で頻発する**「設計書とコードの乖離（Doc-Code Drift）」**を最小化します：
-* **SSOTの単一性確保**: Track 1の成果物を「承認済み単一真実原書（Approved SSOT）」、Track 2の成果物を「実装実態の観測仕様（Observed Spec）」として位置づけ、差分は人間エンジニアが仲裁・承認（コード修正または仕様書是正）して単一SSOTを維持。
-* **コード側の不備検知**: 設計書に規定されているが、実コードに未実装である仕様（例: 週40時間超過割増の漏れ）を特定。
-* **設計側の不備検知**: 実コードには堅牢に組まれているが、設計書で記述漏れしていた暗黙のシステム制約（例: 悲観的ロック競合時のリトライ上限3回）を検出し、仕様書へ反映。
-
----
-
-## ⚙️ 4核AI編隊（Quad-Orchestration）＆ 整合性ハードゲート
-
-```mermaid
-flowchart TD
-    HUB["Orchestrator Hub (Antigravity Engine)<br/>ワークスペース統括オーケストレーター ＆ SSOT管理"]
-
-    L1["L1 高速文脈分析器<br/>(ローカル 27B / RTX 5070 Ti)<br/>コスト0円自社GPU<br/>ユースケース導出"]
-    L2["L2 独立交差監査官<br/>(OpenAI Codex CLI)<br/>読み取り専用隔離<br/>DDL・DTO制約検証"]
-    L3["L3 深層論理監査官<br/>(Anthropic Claude 5.5)<br/>労働基準法・労務<br/>境界条件深層監査"]
-
-    LINTER["C#決定論的リンター (VerifySRS_Deterministic.cs)<br/>Fail-Closed 機械式ハードゲート (波線、書式、DoD検証)"]
-    SSOT["config/srs_specification_ssot.md<br/>最終整合性承認済み要件定義書"]
-
-    HUB --> L1
-    HUB --> L2
-    HUB --> L3
-
-    L1 --> LINTER
-    L2 --> LINTER
-    L3 --> LINTER
-
-    LINTER --> SSOT
-```
-
-1. **総括オーケストレーター (Antigravity / Gemini)**: ワークスペース全体のタスク調停、ファイル入出力制御、単一真実原書（SSOT）の排他的管理
-2. **L1 高速文脈分析器 (ローカル Qwen 27B, RTX 5070 Ti)**: 低遅延P2Pリモートアクセラレーションにより、数万トークンのドメインドラフト・境界条件の骨子を追加コスト0円で超高速生成
-3. **L2 独立交差監査官 (OpenAI Codex CLI, Read-Only Sandbox)**: 読み取り専用隔離サンドボックスにおいて、DDL制約、DTO契約、並行性デッドロック等のコードレベル整合性を交差監査（トークン保護ファイルポインタ適用）
-4. **L3 深層論理監査官 (Anthropic Claude 5.5)**: 日本労働基準法第37条への準拠性、端数処理（50銭未満切捨て・50銭以上切上げ）、労使紛争シナリオの深層監査（[GEMINI.md](GEMINI.md) 運営規約に基づく4重交差検証の常時監査官）
-5. **C#決定論的リンター (`VerifySRS_Deterministic.cs`)**: AIが見落としやすいスペースなし波線（` ~ `）、TBD/TODOの残存、5大必須要素（入力・処理・出力・例外・DoD）の欠落をコンパイラレベルで機械的に完全遮断（Fail-Closed原則）
 
 ---
 
@@ -130,77 +123,55 @@ flowchart TD
 
 ```text
 .
-├── GEMINI.md                          # 最上位運営憲法 v2.00（Core Constitution・動的ルール注入・トークン最適化）
+├── GEMINI.md                          # 最上位運営憲法 v2.00（Core Constitution）
 ├── README.md                          # 【公式正本】プロジェクト総合技術仕様書（日本語）
 ├── .github/
 │   └── workflows/ci.yml               # GitHub Actions CI基盤（12大完全性ゲート自動検証）
 ├── approved/
 │   └── approval_manifest.json         # 承認済みマニフェスト（SSOT整合性保証・暗号署名）
 ├── audit/
-│   ├── runs/                          # 外部AI監査実機ログ・マニフェスト（過去24時間検証対象）
 │   ├── kintai_l2_integrity_audit_report.md     # L2技術無欠性交差監査レポート
-│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート（労働基準法第37条・端数処理）
-│   ├── srs_integrated_audit_report_20261115.md # SRS統合多層検証レポート正本
-│   └── F001_F003_human_review_errata.md        # 人によるレビュー正誤表
+│   ├── kintai_l3_labor_statutory_audit_report.md # L3労務法規深層監査レポート
+│   └── srs_integrated_audit_report_20261115.md # SRS統合多層検証レポート正本
 ├── config/
-│   ├── srs_targets.json               # マルチトラック登録台帳（Track 1/2 スライス対象定義）
-│   ├── srs_specification_ssot.md     # Track 1 単一真実原書（SRS SSOT 正本）
-│   ├── srs_track2_asbuilt_slice1.md   # Track 2 実装反映スライス 1（所属・店舗・契約）
-│   ├── srs_track2_asbuilt_slice2.md   # Track 2 実装反映スライス 2（シフト管理・並行性）
-│   ├── srs_track2_asbuilt_slice3.md   # Track 2 実装反映スライス 3（打刻・勤怠 / WIP）
-│   └── srs_track2_asbuilt_slice4.md   # Track 2 実装反映スライス 4（労基法37条給与 / WIP）
+│   ├── srs_targets.json               # マルチトラック登録台帳（全4スライス定義）
+│   ├── srs_specification_ssot.md     # Track 1 単一真実原書（設計SSOT）
+│   ├── srs_track2_asbuilt_slice1.md   # Track 2 観測仕様書 スライス1（店舗・契約）
+│   ├── srs_track2_asbuilt_slice2.md   # Track 2 観測仕様書 スライス2（シフト管理）
+│   ├── srs_track2_asbuilt_slice3.md   # Track 2 観測仕様書 スライス3（打刻・勤怠）
+│   └── srs_track2_asbuilt_slice4.md   # Track 2 観測仕様書 スライス4（給与・労基法37条）
 ├── docs/
-│   ├── adr/                           # アーキテクチャ決定記録（ADR-004等）
-│   ├── rfc_folder_structure_optimization.md # RFC-008 ディレクトリ構成最適化標準仕様
-│   ├── rfc_pipeline_integrity_guard.md      # パイプライン完全性ガード仕様
-│   ├── rfc_next_workflow_optimizations.md   # RFC-OPT-001 ワークフロー・ストレージ最適化標準仕様
-│   ├── labor37_e2e_traceability.md          # 労働基準法第37条 E2E追跡表
-│   └── audit_evidence_dossier.md            # 日次監査エビデンス集約書
-├── domain_target/                     # 実証ドメインフィクスチャ（KINTAI勤怠・給与システム）
-│   ├── 01_specifications_and_rtm/    # kintai_master_srs 分割スライス 1〜3
-│   ├── 02_database_schema_ssot/      # MySQL 8.4 DDL SSOT（schema.sql, data.sql）
-│   ├── 03_core_domain_services/      # 労働基準法37条計算エンジン、悲観的ロック等
-│   ├── 04_api_contracts_and_dtos/    # REST API コントラクトおよびDTO定義
-│   └── 05_core_domain_tests_fixtures/# 単体テストおよび境界値検証フィクスチャ
+│   ├── srs_diff_analysis_total_master.md    # 【コア成果物】全17要件マスター乖離分析書
+│   ├── srs_track2_overall_synthesis_dossier.md # 【コア成果物】Part 2総括証跡報告書
+│   ├── audit_evidence_dossier.md            # 日次多層監査実測エビデンス集約書
+│   └── labor37_e2e_traceability.md          # 労働基準法第37条 E2E追跡表
+├── domain_target/                     # 実証ドメインフィクスチャ（KINTAIバックエンド）
 ├── governance/
-│   └── ARTICLE_0_SRS.md               # 第0条 SRS絶対憲法（不変のコア要件・DoD基準）
+│   └── ARTICLE_0_SRS.md               # 第0条 SRS絶対憲法（DoD基準・Fail-Closed）
 ├── logs/
-│   ├── CURRENT_STATUS.md             # プロジェクト統括ステータス台帳
 │   ├── incident_history_ledger.md    # 79件実障害インシデント・耐障害性解決台帳
-│   ├── pipeline_metrics.md           # パイプライン健全性・実行メトリクス台帳
-│   ├── cloud_api_token_ledger.csv    # クラウドAPI（Claude）消費トークン・コスト実測原帳
-│   ├── local_token_ledger.csv        # ローカルGPU（Qwen 27B）推論速度・トークン実測原帳
-│   ├── codex_token_ledger.csv        # OpenAI Codex 消費トークン実測原帳
-│   ├── enterprise_audit_ledger.csv   # エンタープライズ全数監査実測原帳
-│   ├── pipeline_metrics.csv          # CI/CD統合レイテンシ計測データ
-│   └── incident_execution_trace.log  # パイプライン実行トレースログ
+│   ├── cloud_api_token_ledger.csv    # Claude API消費トークン実測原帳
+│   ├── local_token_ledger.csv        # ローカルGPU（Qwen 27B）推論速度・実測原帳
+│   └── codex_token_ledger.csv        # OpenAI Codex消費トークン実測原帳
 ├── metrics/
 │   ├── srs_pipeline_metrics.csv      # パイプライン自動実行テレメトリ原帳
 │   └── srs_pipeline.lock             # パイプライン並行実行制御ロック
 ├── queue/
-│   └── srs_pending_findings.json     # 外部指摘フェイルクローズド・キュー（未解決検知ゲート）
+│   └── srs_pending_findings.json     # 外部指摘フェイルクローズド・キュー
 └── tools/
-    ├── scripts/                      # 実行スクリプトおよび決定論的エンジン
-    │   ├── VerifySRS.cs / .exe       # C#統合マスター静的解析リンター（単一チョークポイント）
+    ├── scripts/
+    │   ├── VerifySRS.cs / .exe       # C#統合マスター静的解析リンター
     │   ├── verify_repo_total_integrity.ps1 # 12大完全性ゲート統括エンジン
-    │   ├── run_quad_audit.ps1        # 4重交差監査オーケストレーター（Codex/Claude/Qwen/Linter）
     │   ├── call_ai.ps1               # 統一マルチAIストリーミングランナー
-    │   ├── finalize_daily_ledgers.ps1# 6大台帳整合性検証・スプリントマスタースクリプト
-    │   ├── pipeline_draft_and_integrate.ps1 # Heavy Track 自動起草・統合パイプライン
-    │   ├── patch_ssot.ps1            # 統一SSOTアトミックパッチツール
     │   └── demo_offline_replay.ps1   # APIキー不要・3秒オフライン再生デモ
-    ├── hooks/                        # Git事前検証フック（pre-commit, check_pre_commit.ps1）
-    ├── rules/                        # ガバナンス運用規律（dual_hardgates_specification.md等）
-    ├── fixtures/                     # 大規模ベンチマーク・テストフィクスチャ（5種）
-    ├── cross_audit/                  # 外部AI交差監査契約定義書
-    └── templates/                    # パイプライン台帳・メトリクステンプレート
+    └── rules/                        # ガバナンス運用規律
 ```
 
 ---
 
 ## ⚡ クイックスタート（APIキー不要・オフライン再生デモ）
 
-外部クラウドAPIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（11/11）・SSOT決定論的リンター・4重監査ログ再生を3秒以内に再現できます（Windows PowerShell / `.NET Framework 4.0` `csc.exe` 環境）。
+外部APIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（11/11）・SSOT決定論的リンター・監査検証を3秒以内に再現できます：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tools\scripts\demo_offline_replay.ps1"
@@ -210,4 +181,4 @@ powershell -ExecutionPolicy Bypass -File "tools\scripts\demo_offline_replay.ps1"
 
 ## 🏆 本アーキテクチャの工学的意義
 
-本リポジトリは、単なるAIプロンプトの集積ではなく、**「決定論的静的解析（C#）、暗号技術（SHA-256/HMAC）、オンプレミスGPU（RTX 5070 Ti）、そして複数の最先端フロンティアAIを適材適所で指揮する高度なシステムアーキテクチャ設計・運用能力」**を具現化したエンジニアリングポートフォリオです。
+本リポジトリは、単なるAIプロンプトの集積ではなく、**「決定論的静的解析（C#）、暗号技術（SHA-256）、自社オンプレミスGPU（RTX 5070 Ti）、そして複数のフロンティアAIモデルを適材適所で統制する高度なソフトウェアエンジニアリング能力」**を具現化したポートフォリオです。

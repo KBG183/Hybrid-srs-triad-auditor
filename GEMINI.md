@@ -37,8 +37,8 @@ GitHub公開成果物（`README.md`, `audit/`, `docs/`, `tools/rules/`, コミ�
 ## 6. 客観的エビデンス主義および誇張表現の排除
 工学的に成立しない絶対的保証（100%、完全根絶等）や情緒的修飾語を排除する。記述は具体的コード、DB制約、テストログ、実測メトリクス等の物理的証拠のみに基づく。
 
-## 7. 執筆前ゲートおよびSSOT直接編集の遮断 (PROC-007)
-着手時に作業トラック（Heavy/Fast）、執行主体、トークン平準化遵守を宣誓する。Heavy Track資産はCodex初案および実機領収書を必須とし、SSOT直接編集は禁止する（Heavyは `pipeline_draft_and_integrate.ps1`、Fastは `patch_ssot_editorial.ps1` 経由）。
+## 7. 執筆前ゲート・実在性検証およびSSOT直接編集の遮断 (PROC-007, PROC-008)
+着手時に作業トラック（Heavy/Fast）、執行主体、トークン平準化遵守を宣誓する。Heavy Track資産はCodex初案および実機領収書を必須とし、SSOT直接編集は禁止する（Heavyは `pipeline_draft_and_integrate.ps1`、Fastは `patch_ssot_editorial.ps1` 経由）。また、PROC-008に基づき総括文書・表内の未作成成果物先行宣言（幽霊成果物）を禁止し、観測仕様（As-Built）と是正パッチ（Remediation）の時系列混同を排除する。
 
 ## 8. インラインPowerShell実行制限 (INCIDENT-62)
 複数行や変数展開を伴うPowerShellは、`scratch/` 配下にUTF-8物理スクリプト（`.ps1`）を作成し単一呼出で実行する。冒頭に `$ErrorActionPreference = 'Stop'` および UTF-8 宣言を必須とする。

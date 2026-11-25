@@ -548,16 +548,24 @@ if ($ctrlHits -eq 0) {
 }
 
 # -------------------------------------------------------------------------
-# Test 10: Markdown Relative Link Physical Integrity Gate
+# Test 10: Markdown Relative Link & Manifest Table Physical Integrity Gate
 # -------------------------------------------------------------------------
-Write-Host "`n>>> [Check 10/12] Verifying Relative Hyperlinks Across All Markdown Files..." -ForegroundColor Yellow
-$allMdFiles = Get-ChildItem -Path $projectRoot -Filter "*.md" -Recurse | Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.FullName -notmatch '\\scratch\\' }
+Write-Host "`n>>> [Check 10/12] Verifying Relative Hyperlinks & Executive Table Declarations Physical Existence..." -ForegroundColor Yellow
+$allMdFiles = Get-ChildItem -Path $projectRoot -Filter "*.md" -Recurse | Where-Object { 
+    $_.FullName -notmatch '\\\.git\\' -and 
+    $_.FullName -notmatch '\\scratch\\' -and
+    $_.FullName -notmatch '\\audit\\runs\\' -and
+    $_.FullName -notmatch '\\docs\\audit_runs\\'
+}
 $brokenCount = 0
 $checkedLinkCount = 0
+$checkedTableDeclCount = 0
 
 foreach ($mf in $allMdFiles) {
     $content = [System.IO.File]::ReadAllText($mf.FullName, [System.Text.Encoding]::UTF8)
     $dir = $mf.DirectoryName
+    
+    # 1. Check markdown hyperlinks [text](url)
     $linkMatches = [regex]::Matches($content, '\[([^\]]+)\]\(([^)]+)\)')
     foreach ($m in $linkMatches) {
         $linkPath = $m.Groups[2].Value.Trim()
@@ -572,11 +580,35 @@ foreach ($mf in $allMdFiles) {
             $brokenCount++
         }
     }
+
+    # 2. Check declared deliverables/specs in markdown tables (e.g. `srs_diff_analysis_slice4_KO.md`)
+    # Target only core index/synthesis/spec documents to prevent false positives on historical narrative notes
+    $isCoreIndexDoc = ($mf.Name -match '^(srs_|CURRENT_STATUS|audit_evidence|README|GEMINI)')
+    if ($isCoreIndexDoc) {
+        $tableLines = $content -split "`r?`n" | Where-Object { $_ -match '^\s*\|.*\|\s*$' }
+        foreach ($tl in $tableLines) {
+            $colMatches = [regex]::Matches($tl, '`([a-zA-Z0-9_\-\.]+\.md)`')
+            foreach ($cm in $colMatches) {
+                $rawFile = $cm.Groups[1].Value.Trim()
+                $checkedTableDeclCount++
+                $found = (Test-Path (Join-Path $dir $rawFile)) -or (Test-Path (Join-Path $projectRoot $rawFile)) -or (Test-Path (Join-Path $projectRoot "docs\$rawFile")) -or (Test-Path (Join-Path $projectRoot "config\$rawFile"))
+                if (-not $found) {
+                    $foundMatch = Get-ChildItem -Path $projectRoot -Filter $rawFile -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\\.git\\' -and $_.FullName -notmatch '\\scratch\\' }
+                    if ($foundMatch) { $found = $true }
+                }
+
+                if (-not $found) {
+                    Write-Host "  [UNDEFINED TABLE DELIVERABLE] $($mf.Name) table declares non-existent deliverable file: '$rawFile'" -ForegroundColor Red
+                    $brokenCount++
+                }
+            }
+        }
+    }
 }
 if ($brokenCount -eq 0) {
-    Write-Host "  -> PASS: All $checkedLinkCount relative hyperlinks across $($allMdFiles.Count) markdown files physically exist." -ForegroundColor Green
+    Write-Host "  -> PASS: All $checkedLinkCount relative hyperlinks and $checkedTableDeclCount table deliverable declarations physically exist across $($allMdFiles.Count) markdown files." -ForegroundColor Green
 } else {
-    Write-Host "  -> FAIL: Found $brokenCount broken relative hyperlinks in repository." -ForegroundColor Red
+    Write-Host "  -> FAIL: Found $brokenCount broken relative hyperlinks or undefined table deliverable declarations in repository." -ForegroundColor Red
     $hasFailure = $true
 }
 

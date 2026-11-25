@@ -96,7 +96,22 @@ Target System: VerifySRS.exe v1.2 (C# Unified Linter), Git Pre-Commit Hook, Auto
 
 ---
 
-## 5. 保証水準および例外規定 (Assurance Level & Exceptions)
+## 5. PROC-008: 先物理生成・後宣言義務および成果物実在性ゲート (Deliverable Pre-Existence Gate)
+
+### 5.1 脅威モデルおよび発生機序
+エージェントが総括報告書やマニフェスト、比較表（Markdown Table）において、**未作成のファイルを「先走って記述・宣言」し、物理ファイルの作成を失念したままコミットする幽霊ファイル（Ghost Deliverable）の混入**を根絶する。
+
+### 5.2 2大物理統制線
+1. **先(先)物理生成・後(後)インデックス宣言の厳格順序**:
+   - いかなる総括報告書（`srs_track2_overall_synthesis_dossier.md`等）や比較表、マニフェストにおいても、対象ファイルがローカルディスク上に物理的に生成される前にテーブル行へ先行記述してはならない。
+   - `verify_repo_total_integrity.ps1` の Check 10 において、Markdownテーブル内に記述された成果物（`*.md`）がリポジトリ内に物理的に実在することを決定論的にFail-Closed検証する。
+2. **As-Built（観測実態）と Remediation（是正計画）の厳格な時系列分離**:
+   - 逆工学仕様書（`asbuilt_slice*.md`）は実装実態（Before）のみを純粋に記述し、パッチや解決策（After）を「反映済み（RESOLVED）」と混同して記述することを禁止する。
+   - 修正計画やパッチ検証結果は必ず「パッチ配備完了・Part 3反映待機（RESOLVED IN SPEC & PATCH READY）」と厳密に分離表記する。
+
+---
+
+## 6. 保証水準および例外規定 (Assurance Level & Exceptions)
 
 1. **オフライン自律性**: 本ゲートは外部ネットワークに依存せず、Gitインデックスとローカル追跡原帳のみで決定論的（100% Fail-Closed）に判定する。
 2. **監査証跡の永続性**: 生成された領収書およびトレースログはすべてGitリポジトリの正本としてコミットされ、事後監査可能性を完全に担保する。
