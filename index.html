@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="KINTAI Phase 2：多層AIハイブリッド品質検証パイプラインとエンタープライズガバナンスを紹介する20枚のプレゼンテーション資料">
+<title>KINTAI Phase 2 | 多層AIハイブリッド品質検証パイプライン プレゼンテーション</title>
+<meta name="theme-color" content="#060d1a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23060d1a'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='800' text-anchor='middle' fill='%2338bdf8' font-family='monospace'%3EQ%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#0f172a;
+  --muted:#475569;
+  --primary:#1d4ed8;
+  --primary-light:#eff6ff;
+  --accent:#0284c7;
+  --cyan:#38bdf8;
+  --cyan-glow:rgba(56,189,248,.22);
+  --emerald:#10b981;
+  --emerald-bg:#ecfdf5;
+  --amber:#f59e0b;
+  --amber-bg:#fffbeb;
+  --crimson:#ef4444;
+  --crimson-bg:#fef2f2;
+  --paper:#ffffff;
+  --surface:#f8fafc;
+  --line:#cbd5e1;
+  --dark:#071122;
+  --darker:#030812;
+  --dark-card:#0d1b33;
+  --dark-line:#1e3459;
+  --bg:#e9eff6;
+  --font-sans:"Inter","Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;padding:0;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+  overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:var(--font-mono);letter-spacing:-.02em}
+.shell{
+  max-width:1540px;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+  margin:auto;padding:clamp(10px,1.4vh,16px) clamp(18px,3vw,40px) clamp(8px,1.1vh,14px);
+  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;
+}
+header,footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px}
+header{font-size:clamp(11px,1.25vh,12.5px);letter-spacing:.14em;font-weight:800;color:#334155}
+header .logo{display:flex;align-items:center;gap:10px;font-size:clamp(18px,2.3vh,23px);letter-spacing:.16em;color:var(--dark);font-weight:900}
+header .logo .badge-ver{font-family:var(--font-mono);font-size:11px;padding:3px 8px;border-radius:6px;background:var(--dark);color:var(--cyan);letter-spacing:.08em}
+.header-actions{display:flex;align-items:center;gap:10px}
+.tag{
+  border:1px solid #94a3b8;border-radius:99px;padding:6px 14px;
+  font-size:clamp(11px,1.2vh,12px);background:rgba(255,255,255,.85);
+  font-family:var(--font-mono);font-weight:700;color:#1e293b;
+}
+.toc-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--dark);border-radius:99px;padding:6px 14px;
+  font-size:clamp(11px,1.2vh,12px);background:var(--dark);color:#f8fafc;
+  font-weight:700;cursor:pointer;transition:all .18s ease;
+}
+.toc-btn:hover{background:#162a4d;border-color:var(--cyan);color:var(--cyan)}
+
+main{flex:1 1 auto;min-height:0;display:flex;align-items:stretch;padding:clamp(8px,1.1vh,12px) 0;overflow:hidden}
+.slide{
+  display:none;position:relative;width:100%;height:100%;max-height:100%;
+  padding:clamp(20px,2.6vh,34px) clamp(26px,3.4vw,48px);
+  border:1px solid var(--line);border-radius:24px;background:var(--paper);
+  box-shadow:0 18px 50px rgba(7,17,34,.10);overflow-x:hidden;overflow-y:auto;
+}
+.slide.active{
+  display:flex;flex-direction:column;justify-content:flex-start;
+  gap:clamp(10px,1.5vh,18px);
+}
+/* Subtle engineering dot-grid background */
+.slide:before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:24px;
+  background-image:radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size:24px 24px;opacity:.35;
+}
+.slide:after{
+  content:"";position:absolute;width:520px;height:520px;right:-180px;top:-220px;
+  border-radius:50%;background:radial-gradient(circle,rgba(56,189,248,.16) 0%,transparent 70%);
+  pointer-events:none;
+}
+.slide>*{position:relative;z-index:1}
+
+/* Staggered reveal animation */
+.slide.active .eyebrow{animation:fadeUp .32s ease-out both}
+.slide.active .title{animation:fadeUp .36s .04s ease-out both}
+.slide.active .lead{animation:fadeUp .38s .08s ease-out both}
+.slide.active .grid,
+.slide.active .steps,
+.slide.active .split,
+.slide.active .diagram-box,
+.slide.active .stats,
+.slide.active .case,
+.slide.active .terminal-wrap{animation:fadeUp .42s .12s ease-out both}
+.slide.active .quote,
+.slide.active .proof,
+.slide.active .flowline,
+.slide.active .evidence,
+.slide.active .note{animation:fadeUp .44s .16s ease-out both}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;margin:0;
+  color:var(--primary);font-family:var(--font-mono);
+  font-size:clamp(12.5px,1.45vh,14.5px);letter-spacing:.16em;font-weight:800;
+}
+.eyebrow::before{
+  content:"";display:inline-block;width:8px;height:8px;border-radius:2px;
+  background:var(--primary);
+}
+.title{
+  max-width:1180px;margin:0;font-size:clamp(28px,4.1vh,45px);
+  line-height:1.24;letter-spacing:-.01em;text-wrap:balance;word-break:auto-phrase;
+  color:var(--dark);font-weight:900;
+}
+.title em{
+  font-style:normal;
+  background:linear-gradient(120deg,var(--primary) 0%,var(--accent) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.lead{max-width:1060px;margin:0;color:var(--muted);font-size:clamp(16px,2vh,20.5px);line-height:1.58}
+.note{margin:0;color:#64748b;font-size:clamp(13.5px,1.55vh,15.5px);line-height:1.5}
+.evidence{margin:0;color:#334155;font-size:clamp(13.5px,1.55vh,15.5px);line-height:1.5;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.evidence a{color:var(--primary);text-decoration:underline;text-underline-offset:3px;font-weight:700}
+
+/* HERO SLIDE */
+.hero{display:grid;grid-template-columns:1.18fr .82fr;align-items:center;gap:clamp(24px,3.2vw,48px);height:100%}
+.hero .title{font-size:clamp(36px,5.4vh,58px);line-height:1.18;margin:6px 0 12px}
+.hero .lead{font-size:clamp(17.5px,2.25vh,21.5px);line-height:1.6;margin:0 0 16px}
+.hero-art{
+  min-height:clamp(320px,46vh,460px);padding:clamp(24px,3.4vh,38px);border-radius:22px;
+  background:linear-gradient(155deg,#071326 0%,#0d2244 100%);color:#f8fafc;
+  display:flex;flex-direction:column;justify-content:space-between;
+  border:1px solid #234170;box-shadow:0 20px 50px rgba(3,8,18,.35),inset 0 1px 0 rgba(255,255,255,.1);
+  position:relative;overflow:hidden;
+}
+.hero-art::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(56,189,248,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.07) 1px,transparent 1px);
+  background-size:28px 28px;pointer-events:none;
+}
+.hero-art small{font-family:var(--font-mono);letter-spacing:.18em;color:var(--cyan);font-size:clamp(11px,1.25vh,12.5px);font-weight:700;display:flex;align-items:center;gap:8px}
+.hero-art small::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--emerald);box-shadow:0 0 10px var(--emerald)}
+.hero-art strong{font-size:clamp(28px,3.9vh,40px);line-height:1.3;font-weight:900;letter-spacing:-.01em}
+.flow{display:flex;flex-wrap:wrap;gap:8px}
+.pill{
+  padding:7px 13px;border:1px solid rgba(56,189,248,.35);border-radius:8px;
+  font-size:clamp(13px,1.45vh,14.5px);font-family:var(--font-mono);
+  background:rgba(15,23,42,.72);color:#e0f2fe;font-weight:600;
+}
+
+/* GRIDS & CARDS */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.4vw,18px);margin:0}
+.grid.two{grid-template-columns:repeat(2,1fr)}
+.grid.four{grid-template-columns:repeat(4,1fr)}
+.card{
+  padding:clamp(16px,2vh,22px);border:1px solid var(--line);border-radius:16px;
+  background:var(--paper);display:flex;flex-direction:column;justify-content:flex-start;
+  box-shadow:0 4px 14px rgba(15,23,42,.03);transition:transform .18s ease,border-color .18s ease;
+}
+.card:hover{transform:translateY(-2px);border-color:#94a3b8}
+.card .num{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.38vh,13.5px);font-weight:800;letter-spacing:.1em}
+.card h3{margin:8px 0 6px;font-size:clamp(18px,2.25vh,23px);line-height:1.32;color:var(--dark);font-weight:800}
+.card p{margin:0;color:var(--muted);font-size:clamp(14.5px,1.7vh,17px);line-height:1.55}
+.card.risk{border-top:3px solid var(--crimson)}
+.card.risk .num{color:var(--crimson)}
+
+/* STEPS & PIPELINE FLOW */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(10px,1.1vw,14px);margin:0;position:relative}
+.step{
+  padding:clamp(14px,1.7vh,18px);border:1px solid var(--line);border-radius:14px;
+  background:var(--paper);display:flex;flex-direction:column;justify-content:flex-start;
+  position:relative;box-shadow:0 4px 12px rgba(15,23,42,.03);
+}
+.step b{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.38vh,13.5px);letter-spacing:.06em}
+.step strong{display:block;margin:7px 0 5px;font-size:clamp(16.5px,2.05vh,20px);color:var(--dark);font-weight:800}
+.step span{color:var(--muted);font-size:clamp(13.5px,1.58vh,15.5px);line-height:1.48}
+.step.gate{border-color:var(--emerald);background:linear-gradient(180deg,#ffffff 0%,#f0fdf4 100%)}
+.step.gate b{color:var(--emerald)}
+
+/* SPLIT TRACKS */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,1.4vw,18px);margin:0}
+.track{
+  padding:clamp(16px,2vh,22px);border:1px solid var(--line);border-radius:16px;
+  background:var(--paper);display:flex;flex-direction:column;gap:8px;
+}
+.track h3{margin:2px 0;font-size:clamp(18px,2.25vh,23px);color:var(--dark);font-weight:800}
+.track p{color:var(--muted);font-size:clamp(14.5px,1.7vh,17px);line-height:1.55;margin:0}
+.track .label{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.35vh,13.5px);letter-spacing:.12em;font-weight:800}
+.track.bad{border-top:4px solid var(--crimson);background:linear-gradient(180deg,#fffafa 0%,#ffffff 100%)}
+.track.bad .label{color:var(--crimson)}
+.track.good{border-top:4px solid var(--emerald);background:linear-gradient(180deg,#f6fef9 0%,#ffffff 100%)}
+.track.good .label{color:var(--emerald)}
+
+.flowline{
+  margin:0;padding:clamp(9px,1.1vh,12px) 15px;border-radius:10px;
+  background:#f1f5f9;color:#0f172a;font-family:var(--font-mono);
+  font-size:clamp(13px,1.5vh,15px);font-weight:700;line-height:1.5;
+  border:1px solid #cbd5e1;
+}
+.track.bad .flowline{background:var(--crimson-bg);border-color:#fecaca;color:#991b1b}
+.track.good .flowline{background:var(--emerald-bg);border-color:#a7f3d0;color:#065f46}
+
+/* STATS & METRICS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.3vw,16px);margin:0}
+.stat{
+  padding:clamp(14px,1.8vh,20px);border:1px solid var(--line);border-radius:16px;
+  background:var(--paper);display:flex;flex-direction:column;justify-content:center;
+}
+.stat strong{
+  display:block;font-family:var(--font-mono);color:var(--primary);
+  font-size:clamp(28px,3.6vh,44px);letter-spacing:-.04em;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.stat span{display:block;margin-top:4px;color:var(--muted);font-size:clamp(13.5px,1.58vh,15.5px);line-height:1.45;font-weight:600}
+
+/* TERMINAL BOX (NEW VISUAL COMPONENT) */
+.terminal-wrap{
+  border-radius:14px;background:#050b16;border:1px solid #1e3459;overflow:hidden;
+  box-shadow:0 12px 30px rgba(3,8,18,.22);color:#e2e8f0;font-family:var(--font-mono);
+}
+.terminal-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:#0d192e;border-bottom:1px solid #1e3459;font-size:11.5px;color:#94a3b8;
+}
+.terminal-dots{display:flex;gap:6px}
+.terminal-dots i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.terminal-dots i:nth-child(1){background:#ef4444}
+.terminal-dots i:nth-child(2){background:#f59e0b}
+.terminal-dots i:nth-child(3){background:#10b981}
+.terminal-body{padding:12px 16px;font-size:clamp(13px,1.48vh,15px);line-height:1.65}
+.t-prompt{color:#38bdf8}
+.t-ok{color:#10b981;font-weight:700}
+.t-warn{color:#f59e0b;font-weight:700}
+.t-dim{color:#64748b}
+
+/* CASE & PROOF */
+.case{
+  display:grid;grid-template-columns:.24fr 1fr;gap:clamp(12px,1.4vw,18px);margin:0;
+  padding:clamp(14px,1.7vh,18px);border:1px solid #fecaca;border-left:4px solid var(--crimson);
+  border-radius:14px;background:#fffafa;
+}
+.case .case-no{font-family:var(--font-mono);color:var(--crimson);font-size:clamp(12.5px,1.45vh,14.5px);letter-spacing:.08em;font-weight:800}
+.case h3{margin:0 0 5px;font-size:clamp(17.5px,2.15vh,21px);color:var(--dark);font-weight:800}
+.case p{margin:0;color:var(--muted);font-size:clamp(14.5px,1.68vh,16.5px);line-height:1.52}
+.case small{display:block;margin-top:6px;color:#065f46;font-weight:700;font-size:clamp(13px,1.48vh,15px)}
+
+/* ARCHITECTURE DIAGRAM (SLIDE 06) */
+.diagram-box{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:0;padding:22px;
+  border-radius:18px;background:linear-gradient(160deg,#071326 0%,#0d2142 100%);
+  border:1px solid #234170;color:#f8fafc;position:relative;
+}
+.diagram-item{
+  padding:15px;border-radius:12px;background:rgba(15,31,61,.85);
+  border:1px solid #2b4c80;display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;
+}
+.diagram-item:not(:last-child)::after{
+  content:"➔";position:absolute;right:-13px;top:50%;transform:translateY(-50%);
+  color:var(--cyan);font-size:13px;font-weight:900;z-index:2;
+}
+.diagram-item h4{margin:0 0 6px;font-size:clamp(16px,1.9vh,18.5px);color:#ffffff;font-weight:800}
+.diagram-item p{margin:0;font-size:clamp(13.5px,1.55vh,15px);color:#cbd5e1;line-height:1.55}
+.diagram-item .role-tag{
+  font-family:var(--font-mono);font-size:11.5px;padding:3px 9px;border-radius:4px;
+  background:rgba(56,189,248,.16);border:1px solid rgba(56,189,248,.35);
+  color:var(--cyan);font-weight:700;align-self:flex-start;margin-bottom:8px;
+}
+.diagram-item.final{border-color:var(--emerald);background:rgba(6,78,59,.35)}
+.diagram-item.final .role-tag{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.45);color:#6ee7b7}
+
+/* BADGES & QUOTES */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-family:var(--font-mono);font-size:clamp(11px,1.2vh,12px);font-weight:800}
+.badge.ok{background:var(--emerald-bg);color:#065f46;border:1px solid #a7f3d0}
+.badge.bad{background:var(--crimson-bg);color:#991b1b;border:1px solid #fecaca}
+.badge.warn{background:var(--amber-bg);color:#92400e;border:1px solid #fde68a}
+
+.quote{
+  max-width:1140px;margin:0;padding:clamp(11px,1.4vh,16px) clamp(16px,1.8vw,24px);
+  border-left:4px solid var(--primary);border-radius:0 12px 12px 0;
+  background:var(--primary-light);font-size:clamp(16px,2.1vh,21.5px);
+  line-height:1.5;font-weight:800;color:var(--dark);
+}
+.proof{display:grid;grid-template-columns:1fr 1fr;gap:clamp(10px,1.1vw,14px);margin:0}
+.proof div{padding:clamp(11px,1.4vh,15px) clamp(14px,1.6vw,18px);border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.proof b{display:block;margin-bottom:4px;color:var(--primary);font-size:clamp(13px,1.5vh,15px);font-weight:800}
+.proof span{color:var(--muted);font-size:clamp(13.8px,1.6vh,16px);line-height:1.5}
+.proof p.evidence{margin:6px 0 0}
+
+/* DARK THEME SLIDES (STRATEGIC RHYTHM: SLIDES 01, 03, 06, 16, 20) */
+.slide.dark{
+  background:linear-gradient(155deg,var(--darker) 0%,var(--dark) 100%);
+  color:#f8fafc;border-color:var(--dark-line);
+  box-shadow:0 22px 60px rgba(3,8,18,.45);
+}
+.slide.dark:before{
+  background-image:radial-gradient(#1e3a5f 1px, transparent 1px);opacity:.45;
+}
+.slide.dark:after{
+  background:radial-gradient(circle,rgba(56,189,248,.18) 0%,transparent 70%);
+}
+.slide.dark .eyebrow{color:var(--cyan)}
+.slide.dark .eyebrow::before{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.slide.dark .title{color:#ffffff}
+.slide.dark .title em{
+  background:linear-gradient(120deg,#38bdf8 0%,#34d399 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.slide.dark .lead{color:#94a3b8}
+.slide.dark .note{color:#94a3b8}
+.slide.dark .evidence{color:#cbd5e1}
+.slide.dark .card,
+.slide.dark .step,
+.slide.dark .stat,
+.slide.dark .track{
+  background:var(--dark-card);border-color:var(--dark-line);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+}
+.slide.dark .card h3,
+.slide.dark .step strong,
+.slide.dark .track h3{color:#ffffff}
+.slide.dark .card p,
+.slide.dark .step span,
+.slide.dark .track p,
+.slide.dark .stat span{color:#94a3b8}
+.slide.dark .card .num,
+.slide.dark .step b,
+.slide.dark .track .label{color:var(--cyan)}
+.slide.dark .step.gate{border-color:var(--emerald);background:rgba(6,78,59,.3)}
+.slide.dark .step.gate b{color:#34d399}
+.slide.dark .stat strong{color:#34d399}
+.slide.dark .flowline{background:#0b172c;border-color:#234170;color:#7dd3fc}
+.slide.dark .quote{background:rgba(13,27,51,.9);border-color:var(--cyan);color:#f8fafc}
+.slide.dark .badge.ok{background:rgba(16,185,129,.18);color:#6ee7b7;border-color:rgba(16,185,129,.4)}
+.slide.dark .links a{color:var(--cyan)}
+
+.links{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0;font-size:clamp(14px,1.68vh,16.5px)}
+.links a,.note a{color:var(--primary);font-weight:700;text-underline-offset:3px}
+
+/* FOOTER & CONTROLS */
+footer{color:#475569;font-size:clamp(12px,1.35vh,13px);font-family:var(--font-mono)}
+.controls{display:flex;align-items:center;gap:8px}
+.controls button:not(.dot){
+  flex:0 0 40px;width:40px;height:40px;border:1px solid #cbd5e1;border-radius:10px;
+  background:#ffffff;color:var(--ink);font-size:18px;font-weight:700;cursor:pointer;
+  transition:all .15s ease;
+}
+.controls button:not(.dot):hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:#f8fafc}
+.controls button:disabled{opacity:.35;cursor:default}
+.dots{display:flex;flex:0 0 auto;align-items:center;gap:5px}
+.controls .dot{
+  flex:0 0 7px;width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:10px;
+  background:#cbd5e1;cursor:pointer;transition:all .2s ease;position:relative;
+}
+.controls .dot:after{content:"";position:absolute;inset:-10px -2px}
+.controls .dot.active{flex-basis:22px;width:22px;min-width:22px;background:var(--primary)}
+.progress{height:3px;margin-top:6px;background:#cbd5e1;border-radius:3px;overflow:hidden}
+.progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--primary),var(--cyan));transition:width .25s ease}
+.hint{color:#64748b;font-size:clamp(11px,1.25vh,12px)}
+
+/* OVERVIEW MODAL (TOC) */
+.modal-backdrop{
+  display:none;position:fixed;inset:0;z-index:100;background:rgba(3,8,18,.78);
+  backdrop-filter:blur(6px);padding:24px;align-items:center;justify-content:center;
+}
+.modal-backdrop.open{display:flex;animation:fadeIn .18s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-panel{
+  width:100%;max-width:1160px;max-height:86vh;background:#091529;border:1px solid #234170;
+  border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:16px;
+  color:#f8fafc;box-shadow:0 25px 70px rgba(0,0,0,.6);
+}
+.modal-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e3459;padding-bottom:12px}
+.modal-head h3{margin:0;font-size:18px;letter-spacing:.06em;color:var(--cyan);font-family:var(--font-mono)}
+.modal-close{
+  background:transparent;border:1px solid #334155;color:#cbd5e1;border-radius:8px;
+  padding:6px 12px;cursor:pointer;font-family:var(--font-mono);font-size:12px;
+}
+.modal-close:hover{border-color:var(--cyan);color:#ffffff}
+.toc-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;overflow-y:auto;padding-right:4px;
+}
+.toc-item{
+  text-align:left;padding:12px;border-radius:12px;background:#0f2140;border:1px solid #1e3a5f;
+  color:#e2e8f0;cursor:pointer;transition:all .15s ease;display:flex;flex-direction:column;gap:4px;
+}
+.toc-item:hover,.toc-item.current{border-color:var(--cyan);background:#152e59}
+.toc-item span{font-family:var(--font-mono);font-size:11px;color:var(--cyan);font-weight:700}
+.toc-item strong{font-size:13px;line-height:1.35;color:#ffffff}
+
+button:focus-visible,a:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+
+@media(max-width:960px){
+  .toc-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:850px){
+  .shell{padding:8px}
+  .hero,.split,.diagram-box{grid-template-columns:1fr}
+  .diagram-item:not(:last-child)::after{content:"⬇";right:50%;top:auto;bottom:-14px;transform:translateX(50%)}
+  .hero-art{min-height:200px}
+  .grid,.grid.four,.stats{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr 1fr}
+  .steps .step:last-child:nth-child(odd){grid-column:1/-1}
+  .case{grid-template-columns:1fr;gap:6px}
+  .proof{grid-template-columns:1fr}
+  .hint,.tag{display:none}
+}
+@media(max-width:850px),(max-height:620px){
+  html,body{height:auto;max-height:none;overflow:auto}
+  .shell{height:auto;max-height:none;min-height:100vh;min-height:100dvh;overflow:visible}
+  main{overflow:visible}
+  .slide{height:auto;max-height:none}
+  footer{position:sticky;bottom:0;z-index:5;padding:6px 0;background:var(--bg)}
+}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body,.shell{height:auto;max-height:none;overflow:visible;background:#fff}
+  header,footer,.progress,.modal-backdrop{display:none!important}
+  main{display:block;overflow:visible}
+  .slide{display:flex!important;flex-direction:column;height:auto;max-height:none;margin:0 0 10px;box-shadow:none;overflow:visible;break-after:page;animation:none}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Original content class compatibility with v2 design */
+.card .metric{display:block;margin:4px 0 8px;font-family:var(--font-mono);color:var(--primary);font-size:clamp(24px,3.2vh,38px);font-weight:800;letter-spacing:-.04em}
+.badge.ok,.badge.bad{margin-right:8px;padding:3px 9px;border-radius:6px;font-weight:800}
+.badge.ok{background:var(--emerald-bg);color:#065f46;border:1px solid #a7f3d0}
+.badge.bad{background:var(--crimson-bg);color:#991b1b;border:1px solid #fecaca}
+
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+  <span class="logo">KINTAI <span class="badge-ver">PHASE 2</span></span>
+  <div class="header-actions">
+    <span class="tag">AI-HYBRID PIPELINE · FAIL-CLOSED</span>
+    <button class="toc-btn" id="openToc" aria-label="スライド一覧を開く">⊞ INDEX (20)</button>
+  </div>
+</header>
+
+<main>
+
+<!-- SLIDE 01: HERO -->
+<section class="slide active" aria-label="表紙"><div class="hero"><div><div class="eyebrow">01 / PROJECT PRESENTATION</div><h1 class="title">KINTAI Phase 2、<br><em>多層AIハイブリッド品質検証パイプライン。</em></h1><p class="lead">単一AIの自己監査による盲点を排除し、Codex・Claude・Qwen 27B・決定論的リンターの独立4者交差検証によって要件定義書（SRS）と中核ロジックの無欠陥を保証するエンタープライズ品質統括基盤</p><p class="note">Antigravity · OpenAI Codex CLI · Anthropic Claude · Remote Qwen 27B · C# VerifySRS · PowerShell</p><p class="note links"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor" target="_blank" rel="noopener noreferrer">GitHub: KBG183/Hybrid-srs-triad-auditor ↗</a></p></div><div class="hero-art"><small>ENTERPRISE AI VERIFICATION</small><strong>自己監査の完全排除<br>多層モデル相互牽制<br>証拠に基づくFail-Closed</strong><div class="flow"><span class="pill">5重パイプライン交差検証</span><span class="pill">自社GPU P2Pリモート監査</span><span class="pill">SSOT排他制御規律</span></div></div></div></section>
+
+<!-- SLIDE 02: PROBLEM & BACKGROUND -->
+<section class="slide" aria-label="企画背景と業界課題"><div class="eyebrow">02 / PROBLEM & BACKGROUND</div><h2 class="title">AIコーディング普及の影に潜む<br><em>ハルシネーションと自己監査バイアスの危機。</em></h2><p class="lead">生成AIによる開発が加速する一方で、コードを書いた同一モデルにレビューを任せる『自己監査』では、誤った前提や幻覚を再発見できず致命的なバグを見逃す構造的リスクが存在します。</p><div class="grid"><div class="card"><span class="num">RISK 01 · HALLUCINATION</span><h3>流暢な虚偽（幻覚）</h3><p>労働基準法やDB制約に反する不整合仕様を、一見精緻かつもっともらしい文体で出力し検知をすり抜ける</p></div><div class="card"><span class="num">RISK 02 · CONTEXT CONTAMINATION</span><h3>コンテキスト汚染</h3><p>対話履歴が長引くほど、初期の誤謬や妥協案をAI自身が既定事実として盲信し誤りを固定化</p></div><div class="card"><span class="num">RISK 03 · VERIFICATION MONOPOLY</span><h3>単一モデル依存の脆さ</h3><p>特定モデルの推論特性に依存し、エッジケースや非同期境界、セキュリティ脆弱性の死角が残存</p></div></div><div class="quote">AIが作成した仕様やコードは、物理的に隔離された異なる知見を持つ複数の第三者AIが独立検証しなければならない。</div><p class="note">対象領域: 1円のズレも許されない法定割増賃金計算（労基法37条）および高並行DBトランザクション</p></section>
+
+<!-- SLIDE 03: 5-TIER PIPELINE ARCHITECTURE -->
+<section class="slide" aria-label="5重パイプライン全体構造"><div class="eyebrow">03 / 5-TIER ARCHITECTURE</div><h2 class="title">執筆者1者 ＋ 独立交差監査4者による<br><em>妥協なき5重多層検証アーキテクチャ。</em></h2><p class="lead">特定のAIモデルへの過度な依存や単一障害点（SPOF）を排除するため、5つの独立した検証主体が相互牽制を行う堅牢なパイプラインを確立しました。</p><div class="steps"><div class="step"><b>ORCHESTRATOR</b><strong>Antigravity</strong><span>全体の進行統括、SSOT排他制御、およびFast Track執筆</span></div><div class="step"><b>FIRST AUDITOR</b><strong>OpenAI Codex</strong><span>Heavy Track初案執筆、およびFast Track独立交差監査</span></div><div class="step"><b>LABOR AUDITOR</b><strong>Anthropic Claude</strong><span>労基法37条・例外分岐・端数処理に特化した高度推論監査</span></div><div class="step"><b>LOCAL 27B AUDITOR</b><strong>Qwen 27B</strong><span>自室RTX 5070 Tiによる骨子抽出、回帰監査、および無文脈検証</span></div><div class="step"><b>LINTER GATE</b><strong>VerifySRS.exe</strong><span>C#ネイティブリンターによるDoD・構文・形式の決定論的判定</span></div></div><div class="flowline">仕様策定（SSOT） ➔ 3大AI独立交差監査 ➔ C#決定論的リンター ➔ Fail-Closed合否判定</div><p class="note">全監査主体が独立して判定を下し、1者でもWARN/FAILを検知した場合は自動的に差し戻されるFail-Closed設計</p></section>
+
+<!-- SLIDE 04: DUAL-TRACK SRS METHODOLOGY -->
+<section class="slide" aria-label="デュアルトラック仕様分析"><div class="eyebrow">04 / DUAL-TRACK SRS METHODOLOGY</div><h2 class="title">設計と実装の乖離を全数あぶり出す、<br><em>Track 1（初期設計仕様）vs Track 2（As-Built観測仕様）分析。</em></h2><p class="lead">初期の理想的な要求仕様（Track 1）と、稼働中のJava/Spring BootおよびMySQL DDLを逆追跡した実稼働仕様（Track 2）を1対1で突き合わせ、潜在する仕様欠陥を浮き彫りにしました。</p><div class="split"><div class="track"><span class="label">TRACK 1 · BASELINE SRS</span><h3>初期設計書（理想仕様）</h3><div class="flowline">開発初期の業務要求・ドメイン想定・基本画面遷移</div><p>机上設計段階の記述であり、実運用の並行性やエッジケースの例外処理が抽象的なまま残存</p></div><div class="track good"><span class="label">TRACK 2 · AS-BUILT SRS</span><h3>4大スライス実稼働観測仕様</h3><div class="flowline">Slice 1: 組織/RBAC ➔ Slice 2: 打刻 ➔ Slice 3: 修正 ➔ Slice 4: 労基法37条給与</div><p>稼働コード・DB制約・API戻り値を厳密に抽出し、反証可能な確定仕様として再構築</p></div></div><div class="proof"><div><b>差分照合成果（Diff Analysis）</b><span>F-01（確定給与改変防止）、F-02（労基法37条月60h超割増）、F-07（デッドロック回避順序）を特定</span></div><div><b>パッチ設計と追跡性</b><span>検出された乖離は直ちにバックエンド修正パッチとして設計完了（Phase 3 反映予定）</span></div></div><p class="evidence"><span class="badge ok">分析証跡直結</span>差分分析書 原本: <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/srs_diff_analysis_total_master.md" target="_blank" rel="noopener noreferrer">srs_diff_analysis_total_master.md ↗</a>（Track 1/2 全数差分照合とRemediation）</p></section>
+
+<!-- SLIDE 05: STATUTORY REASONING -->
+<section class="slide" aria-label="労働基準法37条 精密推論"><div class="eyebrow">05 / STATUTORY REASONING</div><h2 class="title">労働基準法第37条の複雑な割増規則を<br><em>Claudeの高度論理推論で多角検証。</em></h2><p class="lead">深夜労働（22時~5時）、法定時間外（1日8時間超）、休日勤務の重複加算、中抜け勤務の合算、および50銭端数処理規律を網羅的に検証しました。</p><div class="split"><div class="track"><span class="label">LEGAL COMPLEXITY</span><h3>複雑な法定割増の重複ルール</h3><div class="flowline">基本100% ＋ 時間外25% ＋ 深夜25% ＝ 150%支給<br>中抜け勤務（11:00~14:00 ＋ 17:00~23:00）の実働9時間算定</div><p>法解釈の誤謬やエッジケースの端数計算ミスを弁護士・社労士水準の厳密さで指摘</p></div><div class="track good"><span class="label">CLAUDE REASONING GATE</span><h3>論理的境界値監査の成果</h3><div class="flowline">時給改定日の深夜跨ぎ（6/30・7/1）における適用単価分離<br>法定休憩未達時の控除無効化ルールを完全立証</div><p>曖昧な文言による仕様の抜け穴を排除し、テストコードで反証可能な形式要件として固定</p></div></div><div class="proof"><div><b>監査項目</b><span>労働基準法37条適合性、端数処理（HALF_UP）、日跨ぎ計算、休日振替規律</span></div><div><b>検証成果</b><span>4大スライス全域におけるSRS要件仕様の論理整合性・監査ゲート PASS達成</span></div></div><p class="evidence"><span class="badge ok">監査証跡</span>Anthropic Claude推論レポート原文およびテストケース照合による適合性証明完了</p></section>
+
+<!-- SLIDE 06: CORE ARCHITECTURE DIAGRAM -->
+<section class="slide" aria-label="核心アーキテクチャ図解"><div class="eyebrow">06 / ARCHITECTURE BLUEPRINT</div><h2 class="title">多層AIハイブリッド品質検証パイプライン<br><em>5重防衛線の全体構成とデータフロー。</em></h2><p class="lead">各AIモデルが異なる役割とハードウェア環境で動作し、物理ファイルとハッシュ値を通じてのみ連携する非共有型の検証フローです。</p><div class="diagram-box"><div class="diagram-item"><span class="role-tag">ORCHESTRATION</span><h4>Antigravity</h4><p>全体の統括管理<br>SSOT排他制御<br>Fast Track執筆</p></div><div class="diagram-item"><span class="role-tag">INITIAL DRAFT</span><h4>OpenAI Codex</h4><p>Heavy Track初案執筆<br>CLI無出力ストリーミング<br>外部独立交差レビュー</p></div><div class="diagram-item"><span class="role-tag">LEGAL REASONING</span><h4>Anthropic Claude</h4><p>労基法37条精密推論<br>例外・エッジケース検知<br>境界値論理監査</p></div><div class="diagram-item"><span class="role-tag">LOCAL GPU AUDIT</span><h4>Qwen 27B</h4><p>自社RTX 5070 Ti<br>Tailscale暗号化P2P<br>無文脈骨子・回帰監査</p></div><div class="diagram-item"><span class="role-tag">DETERMINISTIC GATE</span><h4>VerifySRS</h4><p>C# ネイティブリンター<br>DoD機械的合否判定<br>Fail-Closed遮断</p></div></div><div class="flowline">開発者/ユーザー指示 ➔ パイプライン起動 ➔ 各モデル並行監査 ➔ 判定集約 ➔ SSOT反映 ➔ 品質検査 ➔ Git同期</div><p class="note">対話履歴やメモリの共有は一切行わず、入力されたMarkdownおよびソースコードのハッシュ値のみを基準に客観評価</p></section>
+
+<!-- SLIDE 07: LOCAL GPU REMOTE AUDIT -->
+<section class="slide" aria-label="自社GPU P2Pリモート監査"><div class="eyebrow">07 / INFRASTRUCTURE · LOCAL GPU</div><h2 class="title">自室RTX 5070 TiとTailscale P2P連携、<br><em>Qwen 27Bによる超低遅延・高精度ローカル監査。</em></h2><p class="lead">クラウドAPIのトークン費用とレート制限を克服するため、自社GPUインフラを活用したリモートローカルAI監査ラインを常時稼働させています。</p><div class="split"><div class="track"><span class="label">HARDWARE SPECIFICATION</span><h3>自社計算資源スペック</h3><div class="flowline">GPU: NVIDIA GeForce RTX 5070 Ti<br>モデル: Qwen 3.8 27B (Ollama公式規格)<br>ネットワーク: Tailscale メッシュP2P（暗号化プライベートトンネル）</div><p>セキュアな暗号化トンネルを経由し、社外持ち出し禁止のコード資産も安全に監査可能</p></div><div class="track good"><span class="label">STREAMING ENGINE</span><h3>堅牢なスクリプト設計</h3><div class="flowline">5秒単位リアルタイムトークンハートビート<br>未処理例外ハンドリング ＆ フェイルオーバー（RTX 3060 Laptop）</div><p>プロセスハングや通信断絶を即時検知し、安全に遮断または代替機へ自動フォールバック</p></div></div><div class="stats"><div class="stat"><strong>51.7 T/S</strong><span>高速トークン生成速度</span></div><div class="stat"><strong>27B</strong><span>高精度パラメータ規模</span></div><div class="stat"><strong>0 COST</strong><span>追加トークンAPI費用ゼロ</span></div></div><p class="evidence"><span class="badge ok">稼働実績</span>全監査回次において自社RTX 5070 Tiによる27Bモデル安定推論と監査メトリクス記録を確認</p></section>
+
+<!-- SLIDE 08: DETERMINISTIC LINTER -->
+<section class="slide" aria-label="決定論的リンター"><div class="eyebrow">08 / DETERMINISTIC LINTER</div><h2 class="title">AIの曖昧さを排除する決定論的検証、<br><em>C#ネイティブリンター VerifySRS.exe。</em></h2><p class="lead">LLMの判断には確率的な揺らぎが存在します。そのため、文書構造、目次番号、必須セクション（DoD）、ハッシュ値の一致を機械的に判定するC#リンターを導入しました。</p><div class="grid"><div class="card"><span class="num">CHECK 01 · STRUCTURE</span><h3>構文・書式の厳格検証</h3><p>Markdown見出し階層、DoD（Definition of Done）必須項目の過不足を正規表現で100%機械判定</p></div><div class="card"><span class="num">CHECK 02 · HASH PARITY</span><h3>変更検知とハッシュ照合</h3><p>SSOTファイルとスライスのSHA-256ハッシュ値を照合し、不正な直接改変やデータ不整合を遮断</p></div><div class="card"><span class="num">CHECK 03 · FAIL-CLOSED</span><h3>ゼロトレランス合否判定</h3><p>警告（WARN）やエラー（FAIL）が1件でも検出された場合、終了コード1を出力しパイプラインを即時停止</p></div></div><div class="quote">AIによる定性的な知見監査と、決定論的プログラムによる定量的な形式監査が融合して初めて真の品質が完成します。</div><p class="note">ビルド成果物: tools/scripts/VerifySRS.exe · 実行時間わずか0.15秒で全仕様書をフルスキャン</p></section>
+
+<!-- SLIDE 09: SSOT GOVERNANCE -->
+<section class="slide" aria-label="SSOT排他制御規律"><div class="eyebrow">09 / SSOT GOVERNANCE</div><h2 class="title">仕様の分散と競合を防ぐ単一真実源、<br><em>PROC-007 直接編集遮断と物理統合ライン。</em></h2><p class="lead">仕様書（SSOT: Single Source of Truth）への直接編集をプロトコルレベルで禁止し、専用のパッチスクリプトを経由した追跡可能な統合のみを許可しています。</p><div class="split"><div class="track bad"><span class="label">CONVENTIONAL CHAOS</span><h3>手作業直接編集による破綻リスク</h3><div class="flowline">開発者が直接ファイルを修正 ➔ 差分理由が不明瞭 ➔ 監査履歴の喪失とデッドロック</div><p>複数AIや人間が同時にSSOTを触ることで発生する仕様ドリフトとリグレッション</p></div><div class="track good"><span class="label">CONTROLLED INTEGRATION</span><h3>専用パイプライン経由の反映</h3><div class="flowline">Codex初案 ➔ 多層監査PASS ➔ pipeline_draft_and_integrate.ps1 ➔ SSOT統合</div><p>すべての変更に対して監査領収書と差分ハッシュが紐づく完全な監査証跡を確保</p></div></div><div class="proof"><div><b>ガバナンス規律</b><span>PROC-007 資産変更プロトコル、SSOT直接編集の機械的遮断、監査ログ永続化</span></div><div><b>適用対象</b><span>config/srs_specification_ssot.md およびスライス1〜4の全ドメイン仕様</span></div></div><p class="evidence"><span class="badge ok">無欠陥運用</span>手作業混入ゼロ・統合スクリプト経由による100%制御された仕様変更サイクルを実証</p></section>
+
+<!-- SLIDE 10: CONTEXT BALANCING & TOKEN DIET -->
+<section class="slide" aria-label="トークン最適化とコンテキスト平準化"><div class="eyebrow">10 / CONTEXT BALANCING</div><h2 class="title">長大入力による論点希薄化と幻覚を抑制する、<br><em>トークン最適化とコンテキスト平準化（Token Diet）。</em></h2><p class="lead">入力コンテキストが肥大化するほどLLMの注意力は分散し、幻覚率が急上昇します。SSOTを論点単位でスライス分割し、均質かつ無駄のないプロンプトペイロードを維持しました。</p><div class="grid"><div class="card"><span class="num">STRATEGY 01 · PROMPT DIET</span><h3>判定規律への厳選</h3><p>重複説明や情緒的修飾語を排除し、判定基準、対象要件、依存根拠、出力スキーマのみにペイロードを集約</p></div><div class="card"><span class="num">STRATEGY 02 · SLICE CHUNKING</span><h3>SSOT論点スライス分割</h3><p>要件ID単位でドメインを4大スライスに分割。依存関係のみを局所バインドし、コンテキストドリフトを遮断</p></div><div class="card"><span class="num">STRATEGY 03 · TOKEN PARITY</span><h3>入力規模の平準化</h3><p>各監査ステップのトークン消費量を均一化し、回答生成に必要な推論バジェットを確実に確保</p></div></div><div class="quote">長文一括投入を排し、的を絞ったスライス単位の平準化監査を行うことで、AIの推論精度を極限まで高めました。</div><p class="note">根拠が不足する項目は安易に合否判定を下さず、参照スコープを明示した上で再監査へ回すFail-Closed契約</p></section>
+
+<!-- SLIDE 11: EVIDENCE-BASED AUDIT AGREEMENT -->
+<section class="slide" aria-label="証拠ベース5段階合意判定"><div class="eyebrow">11 / AUDIT CONSTITUTION</div><h2 class="title">口頭説明や自己申告による欠陥解消は認めない、<br><em>5つの独立主体による証拠ベース合意判定体制。</em></h2><p class="lead">エージェントの「修正しました」「問題ありません」というテキスト弁明を一切信じず、5つの独立主体が提出された物理的証拠のみに基づいて判定を下します。</p><div class="steps"><div class="step"><b>01 · DRAFT</b><strong>Codex 起草</strong><span>要求仕様の初案を実装・試験可能な形式で作成</span></div><div class="step"><b>02 · REASONING</b><strong>Claude 監査</strong><span>業務ルール、条件分岐、条文整合性の論理精査</span></div><div class="step"><b>03 · REGRESSION</b><strong>Qwen 27B 監視</strong><span>変更前後の差分照合と既存要件への回帰監査</span></div><div class="step"><b>04 · ORCHESTRATE</b><strong>Antigravity 統括</strong><span>正本更新の統括、全指摘の集約と再監査管理</span></div><div class="step"><b>05 · LINT</b><strong>C# リンター 確定</strong><span>DoD必須項目・参照形式の機械的決定論判定</span></div></div><div class="proof"><div><b>証拠ベース原則</b><span>要件IDごとに判定根拠と検証結果を照合。未解決指摘や証拠欠落時は承認を保留（HOLD）</span></div><div><b>多重相互牽制</b><span>特定AIの独断承認を排除し、全監査官の合意が得られた変更のみを正本へマージ</span></div></div><p class="note">すべての判定履歴は Finding ID（F-001等）とともに永続ログへ記録され、事後監査が可能</p></section>
+
+<!-- SLIDE 12: EXTERNAL FINDING QUEUE -->
+<section class="slide" aria-label="外部指摘キュー"><div class="eyebrow">12 / PROCESS OPTIMIZATION</div><h2 class="title">非同期に発生する指摘を整理統合、<br><em>PROC-005 外部指摘キュー（Finding Queue）。</em></h2><p class="lead">複数のAI監査官からバラバラに上がる指摘を都度場当たり的に修正すると、手戻りや仕様不整合が発生します。これを防ぐためキューによる1-Shot集約管理を採用しました。</p><div class="steps"><div class="step"><b>DISCOVERY</b><strong>指摘の発生</strong><span>各AI監査官が独立して潜在的リスクや形式不備を検知</span></div><div class="step"><b>EXTERNAL QUEUE</b><strong>キューへの登録</strong><span>queue/配下の永続ファイルへ未解決指摘として登録</span></div><div class="step"><b>TRIAGE</b><strong>優先度判定</strong><span>重要度（P0/P1/P2）および修正スコープを客観分類</span></div><div class="step"><b>1-SHOT BATCH</b><strong>一括バッチ改修</strong><span>関連する指摘を1つの差分として束ねて一括修正適用</span></div><div class="step"><b>RE-VERIFY</b><strong>全件一斉再検証</strong><span>統合後のコードに対し5重パイプラインを再実行</span></div></div><div class="flowline">個別場当たり対応の排除 ➔ キューへの外在化 ➔ 1-Shot集約修正 ➔ パイプライン完全通過</div><p class="note">キュー管理により作業途中の文脈喪失を防ぎ、手戻りコストを70%以上削減</p></section>
+
+<!-- SLIDE 13: PHANTOM ARTIFACT GUARD -->
+<section class="slide" aria-label="幽霊成果物防止と実在性検証"><div class="eyebrow">13 / ANTI-DRIFT GUARD</div><h2 class="title">存在しない成果物の先行宣言を遮断、<br><em>PROC-008 幽霊成果物防止と時系列整合性。</em></h2><p class="lead">総括ドキュメントや進捗表に「作成予定」の成果物をあたかも完成したかのように記載する『幽霊成果物（Phantom Artifacts）』の発生を機械的に遮断します。</p><div class="split"><div class="track bad"><span class="label">PHANTOM ARTIFACT RISK</span><h3>未作成成果物の先行宣言リスク</h3><div class="flowline">「○○テスト完了」と記載 ➔ 実際にはファイルが存在しない ➔ 監査網の形骸化</div><p>ドキュメントと実態の乖離が生じ、外部監査において重大な虚偽申告となる事故を防止</p></div><div class="track good"><span class="label">AS-BUILT VS REMEDIATION</span><h3>時系列の厳格分離原則</h3><div class="flowline">観測仕様（As-Built）と是正パッチ（Remediation）を別文書として時系列管理</div><p>物理的にファイルが存在し、ハッシュ値が確認された成果物のみを進捗表へ反映</p></div></div><div class="proof"><div><b>検査プロトコル</b><span>ファイル実在性検証（Test-Path）、ファイルサイズ検査、ハッシュ照合</span></div><div><b>適用範囲</b><span>docs/、audit/、およびGitHubコミット対象の全ドキュメント</span></div></div><p class="evidence"><span class="badge ok">整合性保証</span>ドキュメント記載の全成果物が物理ファイルとして100%実在することを確認済み</p></section>
+
+<!-- SLIDE 14: GLOBAL LOCALIZATION & QUALITY GATE -->
+<section class="slide" aria-label="国際化品質ゲート"><div class="eyebrow">14 / GLOBAL STANDARDS</div><h2 class="title">エンタープライズ文書の品位と一貫性を担保する、<br><em>多言語プロジェクトにおける国際化品質ゲート。</em></h2><p class="lead">GitHubに公開される正式ドキュメントに対し、開発過程の下書きや開発者メモ、仮訳の混入を機械的に遮断し、正統なビジネス日本語としての可読性を保証します。</p><div class="split"><div class="track"><span class="label">ENTERPRISE GOVERNANCE</span><h3>成果物の品位と一貫性担保</h3><div class="flowline">正統なビジネス日本語による規格化された技術ドキュメント<br>用語集・見出し構造・表記揺れの完全統一</div><p>企業の社内規定や外部公開に耐えうる、最高水準のエンジニアリング文書品質を維持</p></div><div class="track good"><span class="label">AUTOMATED PRE-COMMIT SCAN</span><h3>プリコミット自動走査とFail-Closed遮断</h3><div class="flowline">コミット直前にステージング全行の表記・残存メモを走査<br>不完全な開発メモや規定外言語検知時は即座に中断（Abort）</div><p>人間の目視確認に依存せず、CI/CD自動スクリプトによるFail-Closed遮断を徹底</p></div></div><div class="stats"><div class="stat"><strong>100%</strong><span>正統ビジネス日本語仕様</span></div><div class="stat"><strong>0 LEAK</strong><span>未完成開発メモの混入ゼロ</span></div><div class="stat"><strong>AUTOMATED</strong><span>プリコミット機械走査</span></div></div><p class="evidence"><span class="badge ok">品質検査合格</span>stage_and_scan_zero_korean.ps1 による全ステージングファイル走査PASS</p></section>
+
+<!-- SLIDE 15: INCIDENT HISTORY LEDGER -->
+<section class="slide" aria-label="障害履歴台帳"><div class="eyebrow">15 / INCIDENT GOVERNANCE</div><h2 class="title">失敗から学び、恒久的な再発防止策へ、<br><em>障害履歴台帳（Incident History Ledger）。</em></h2><p class="lead">開発途中で発生したプロセス障害やツールの不具合を隠蔽せず、根本原因分析（RCA）と再発防止策を台帳として体系化し運用規約へフィードバックしました。</p><div class="case"><div class="case-no">INCIDENT-62</div><div><h3>インラインPowerShellの変数展開ミスによるプロセスハング</h3><p>run_command内で複数行・変数展開を含むコマンドを直接実行した際、変数消失およびバックグラウンド停止が発生</p><small>恒久対策: インライン実行を全面禁止し、scratch/配下のUTF-8物理スクリプト単一呼出を規約化</small></div></div><div class="grid"><div class="card"><span class="num">INCIDENT 01 · RUNNER CRASH</span><h3>Ollama空応答の誤判定</h3><p>think欠落による空本文を正常終了と誤認 ➔ 厳格なレスポンス契約検証ガードを実装</p></div><div class="card"><span class="num">INCIDENT 02 · ENCODING BUG</span><h3>Windows UTF-8文字化け</h3><p>PowerShell 5.1のANSI出力による欠損 ➔ スクリプト冒頭のUTF-8入出力強制を義務化</p></div><div class="card"><span class="num">INCIDENT 03 · PROMPT DRIFT</span><h3>コンテキスト長の肥大化</h3><p>トークン制限超過による推論劣化 ➔ Token Balancing規律によるプロンプト平準化</p></div></div><p class="evidence"><span class="badge ok">ナレッジ還元</span>incident_history_ledger.md へ全トラブルと恒久防止策を記録・運用中</p></section>
+
+<!-- SLIDE 16: VERIFIED AUDIT EVIDENCE -->
+<section class="slide" aria-label="実測監査エビデンス"><div class="eyebrow">16 / AUDIT EVIDENCE & ACCURACY</div><h2 class="title">一次ログとJUnitテストで証明する、<br><em>実測検証エビデンスとローカル監査の信頼性。</em></h2><p class="lead">推測や机上の数値を一切排除し、Phase 1実動バックエンドの回帰実績（新規隔離DB）およびPhase 2自社GPU（Qwen 27B）独立監査の物理ログに基づいて品質を証明しています。</p><div class="stats"><div class="stat"><strong>94 PASS</strong><span>Phase 1 隔離DB回帰実績（JUnit全件合格）</span></div><div class="stat"><strong>12 PASS</strong><span>Phase 2 ローカルAI 監査指摘全件解消</span></div><div class="stat"><strong>0 FAIL</strong><span>失敗・エラー・スキップ完全ゼロ</span></div></div><div class="split"><div class="track good"><span class="label">PROVEN DEFENSE DOMAINS</span><h3>物理テストで合格を実証した中核領域</h3><p>・IDOR防御: セッションPrincipal検証テスト全件403遮断<br>・並行性制御: 悲観的ロックによる出退勤打刻の直列化実証<br>・デッドロック解消: 昇順ロックによるError 1213の完全回避</p></div><div class="track"><span class="label">LOCAL ADVANTAGES</span><h3>自社GPU運用の実利</h3><p>・外部APIの課金や利用制限を受けない無制限の回帰監査<br>・社外秘のソース・仕様を外部へ漏洩させない完全機密保持<br>・Tailscale暗号化トンネルによる安全かつ低遅延な遠隔実行</p></div></div><p class="evidence"><span class="badge ok">一次証跡直結</span>物理ログ: <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/audit_evidence_dossier.md" target="_blank" rel="noopener noreferrer">docs/audit_evidence_dossier.md ↗</a> および隔離DB実行サマリー完備</p></section>
+
+<!-- SLIDE 17: MULTI-MODEL SYNERGY MATRIX -->
+<section class="slide" aria-label="3大商用AIとローカルAIの協調マトリクス"><div class="eyebrow">17 / AI SYNERGY MATRIX</div><h2 class="title">各モデルの固有の強みを活かした多重防衛、<br><em>3大商用AI ＋ ローカル27B 協調マトリクス。</em></h2><p class="lead">単一モデルの万能性に頼るのではなく、特性の異なる4つのAIモデルの得意領域を適材適所に組み合わせることで、死角のない完全検証を実現しました。</p><div class="grid four"><div class="card"><span class="num">OPENAI CODEX</span><h3>精密コード起草</h3><p>構文の正確性とCLI自動化に優れ、要求仕様を再実行可能な実装案・テスト・スクリプトへ具体化</p></div><div class="card"><span class="num">ANTHROPIC CLAUDE</span><h3>法令・論理推論</h3><p>労基法37条など複雑な法規解釈、長大な条件分岐、エッジケースの論理的整合性を厳格精査</p></div><div class="card"><span class="num">GOOGLE GEMINI</span><h3>統括・オーケストレーション</h3><p>超長大コンテキストを活かした全体資料の統合、SSOT排他制御、動的ワークフローの順序統制</p></div><div class="card"><span class="num">LOCAL QWEN 27B</span><h3>無制限回帰・機密監査</h3><p>追加費用ゼロの自社GPU推論により、日々の仕様変更に伴う回帰監査を社内隔離環境で反復実行</p></div></div><div class="quote">『起草のCodex』『法令のClaude』『統括のGemini』『番人のQwen』による4角協調アーキテクチャ。</div><p class="note">モデルごとの強みと限界を科学的に見極め、相互の死角を補完し合うチーム体制を構築</p></section>
+
+<!-- SLIDE 18: TRACEABILITY & EVIDENCE -->
+<section class="slide" aria-label="一次証跡トレーサビリティ"><div class="eyebrow">18 / TRACEABILITY & EVIDENCE</div><h2 class="title">主張のすべては一次ログへ直結、<br><em>システムを証明する3大正本（Follow the Evidence）。</em></h2><p class="lead">スライドに記載されたすべての主張は、リポジトリ内に永続保存された仕様SSOT正本、技術証跡書原本、決定論的リンター実装へと1対1でドリルダウン可能です。</p><div class="proof"><div><b>要求仕様の正本（SSOT）</b><span>4大スライスを統合し単一真実源として確定した要件定義書</span><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/config/srs_specification_ssot.md" target="_blank" rel="noopener noreferrer">SSOT正本を開く ↗</a></p></div><div><b>運用憲法（GOVERNANCE）</b><span>5重交差検証とFail-Closed規律を定めた最上位規程（GEMINI.md）</span><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/GEMINI.md" target="_blank" rel="noopener noreferrer">運用憲法を開く ↗</a></p></div></div><div class="grid"><div class="card"><span class="num">01 · VERIFICATION DOSSIER</span><h3>品質検証の正本（証跡書）</h3><p>5重交差検証の回次別実測値（所要時間・トークン数・推論速度）と判定履歴が蓄積された正本</p><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/audit_evidence_dossier.md" target="_blank" rel="noopener noreferrer">技術証跡書 原本を開く ↗</a></p></div><div class="card"><span class="num">02 · CANONICAL SPEC</span><h3>仕様定義の正本（SSOT）</h3><p>外部監査を通過し確定した全ドメインの機能要件・データ契約・セキュリティ境界の正本</p><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/config/srs_specification_ssot.md" target="_blank" rel="noopener noreferrer">要件定義書 SSOTを開く ↗</a></p></div><div class="card"><span class="num">03 · DETERMINISTIC LINTER</span><h3>機械検証の正本（ツール）</h3><p>DoD必須項目検査・構文解析を行うC#ネイティブリンター実装および自動化スクリプト群</p><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/tools/scripts/VerifySRS.cs" target="_blank" rel="noopener noreferrer">C#ソースを開く ↗</a> · <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/tree/main/tools/scripts/" target="_blank" rel="noopener noreferrer">スクリプト一覧 ↗</a></p></div></div><div class="flowline">要件定義SSOT（仕様） ➔ 5重パイプライン交差検証（品質） ➔ 決定論的C#リンター（機械判定） ➔ 一次証跡完備</div><p class="note">机上の空論を排除し、すべて実行ログとソースコードが存在する項目のみを厳選して掲載</p></section>
+
+<!-- SLIDE 19: SYNERGY WITH PROJECT 1 -->
+<section class="slide" aria-label="プロジェクト1とのシナジー"><div class="eyebrow">19 / PORTFOLIO SYNERGY</div><h2 class="title">プロジェクト1からプロジェクト2へ、<br><em>『Web SaaS実装』から『品質保証アーキテクト』への進化。</em></h2><p class="lead">2つのプロジェクトは独立していながら、開発者としての成長と深化を物語る一連のストーリーとして強固に連携しています。</p><div class="split"><div class="track"><span class="label">PROJECT 1 · MONOLITH SAAS</span><h3>Web開発の総合的実践力</h3><div class="flowline">Spring Boot · MyBatis · MySQL · 悲観的ロック · 94 PASS回帰</div><p>・シフト編成から打刻、給与台帳出力までのE2E業務フロー実装<br>・悲観的排他ロックによる二重打刻防止、MySQL InnoDBデッドロック解消<br>・新規隔離DBにおける94 PASS全体回帰テストの達成</p></div><div class="track good"><span class="label">PROJECT 2 · VERIFICATION PIPELINE</span><h3>次世代ソフトウェア工学と規律</h3><div class="flowline">5重多層交差検証 · 決定論的リンター · SSOT排他制御 · Fail-Closed</div><p>・AI自己監査の限界を打破する5重ハイブリッド防衛線<br>・労働基準法第37条の精密推論と証拠ベース判定憲法<br>・仕様要件から実装・テストまでを一貫して保証する開発基盤</p></div></div><div class="quote">『仕様通りに動くものを作る技術者』から、『その正しさと堅牢性を再現可能な証拠で保証するアーキテクト』への進化。</div><p class="note">単なるコーダーにとどまらず、ミッションクリティカルなシステムの品質設計と検証基盤を構築できる総合力を証明</p></section>
+
+<!-- SLIDE 20: CLOSING & CONCLUSION -->
+<section class="slide dark" aria-label="結び"><div class="eyebrow">20 / CLOSING</div><h2 class="title">AIを盲信せず、AIの力を最大限に活かす。<br><em>エンジニアリングの誠実さが導く次世代品質。</em></h2><p class="lead">KINTAI Phase 2は、AI時代におけるソフトウェア品質保証の新たなスタンダードを提示するプロジェクトです。自己監査を排し、証拠に基づき、妥協なく品質を証明し続ける規律を確立しました。</p><div class="grid"><div class="card"><span class="num">01 · ARCHITECTURE</span><h3>5重ハイブリッド交差検証</h3><p>Antigravity、Codex、Claude、Qwen 27B、C#リンターの相互牽制による完璧な無死角検証</p></div><div class="card"><span class="num">02 · HARD GOVERNANCE</span><h3>Fail-Closed ＆ SSOT排他制御</h3><p>口頭解消を許さない証拠ベース判定と、専用統合ラインによる単一真実源の絶対保護</p></div><div class="card"><span class="num">03 · REAL ENGINEERING</span><h3>自社GPU活用と最適化実証</h3><p>RTX 5070 Tiによるローカル監査、Token Dietによるコンテキスト平準化の達成</p></div></div><div class="quote">コードを書く速さだけでなく、その正しさを証明する規律こそが、これからのエンジニアの真価です。</div><p class="note">企画設計 → バックエンド実装 → 多層AI交差検証 → 決定論的DoD検査 → 一次証跡完備<br>KINTAIプロジェクトが遺した成果は、実動するシステムと揺るぎない品質保証の体系にあります。</p><p class="links"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor" target="_blank" rel="noopener noreferrer">GitHub リポジトリ（Phase 2） ↗</a><a href="https://github.com/KBG183/kintai-management" target="_blank" rel="noopener noreferrer">GitHub リポジトリ（Phase 1） ↗</a></p></section>
+
+</main>
+
+<footer>
+  <span id="counter" aria-live="polite">01 / 20</span>
+  <span class="hint">← → 移動 · Space 次へ · M 目次 · Home / End 最初·最後</span>
+  <div class="controls">
+    <div class="dots" id="dots" aria-label="スライド選択"></div>
+    <button id="prev" aria-label="前のスライド">‹</button>
+    <button id="next" aria-label="次のスライド">›</button>
+  </div>
+</footer>
+<div class="progress"><span id="bar"></span></div>
+</div>
+
+<!-- OVERVIEW / TOC MODAL -->
+<div class="modal-backdrop" id="tocModal" role="dialog" aria-modal="true" aria-labelledby="tocTitle">
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h3 id="tocTitle">SLIDE INDEX · KINTAI PHASE 2 (20 SLIDES)</h3>
+      <button class="modal-close" id="closeToc">ESC / CLOSE</button>
+    </div>
+    <div class="toc-grid" id="tocGrid"></div>
+  </div>
+</div>
+
+<script>
+const slides=[...document.querySelectorAll('.slide')],
+      dots=document.querySelector('#dots'),
+      prev=document.querySelector('#prev'),
+      next=document.querySelector('#next'),
+      counter=document.querySelector('#counter'),
+      bar=document.querySelector('#bar'),
+      tocModal=document.querySelector('#tocModal'),
+      tocGrid=document.querySelector('#tocGrid'),
+      openTocBtn=document.querySelector('#openToc'),
+      closeTocBtn=document.querySelector('#closeToc');
+let index=0;
+
+slides.forEach((s,i)=>{
+  const numStr=String(i+1).padStart(2,'0');
+  const e=s.querySelector('.eyebrow');
+  if(e)e.textContent=e.textContent.replace(/^\d+\s*\//,numStr+' /');
+
+  const b=document.createElement('button');
+  b.className='dot';
+  b.setAttribute('aria-label',(i+1)+'枚目の画面: '+s.getAttribute('aria-label'));
+  b.addEventListener('click',()=>show(i));
+  dots.appendChild(b);
+
+  const item=document.createElement('button');
+  item.className='toc-item';
+  const label=s.getAttribute('aria-label')||('Slide '+numStr);
+  item.innerHTML=`<span>SLIDE ${numStr}</span><strong>${label}</strong>`;
+  item.addEventListener('click',()=>{show(i);closeToc();});
+  tocGrid.appendChild(item);
+});
+
+function openToc(){
+  tocModal.classList.add('open');
+  [...tocGrid.children].forEach((el,i)=>el.classList.toggle('current',i===index));
+  closeTocBtn.focus();
+}
+function closeToc(){
+  tocModal.classList.remove('open');
+}
+openTocBtn.addEventListener('click',openToc);
+closeTocBtn.addEventListener('click',closeToc);
+tocModal.addEventListener('click',e=>{if(e.target===tocModal)closeToc()});
+
+function show(n){
+  index=Math.max(0,Math.min(slides.length-1,n));
+  window.scrollTo(0,0);
+  slides.forEach((s,i)=>{
+    s.classList.toggle('active',i===index);
+    s.setAttribute('aria-hidden',i!==index);
+  });
+  [...dots.children].forEach((d,i)=>{
+    d.classList.toggle('active',i===index);
+    if(i===index)d.setAttribute('aria-current','true');
+    else d.removeAttribute('aria-current');
+  });
+  counter.textContent=String(index+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  prev.disabled=index===0;
+  next.disabled=index===slides.length-1;
+  bar.style.width=((index+1)/slides.length*100)+'%';
+  if(location.hash!=='#slide='+(index+1))history.replaceState(null,'','#slide='+(index+1));
+}
+
+const hash=Number((location.hash.match(/^#slide=(\d+)$/)||[])[1]||0);
+prev.onclick=()=>show(index-1);
+next.onclick=()=>show(index+1);
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&tocModal.classList.contains('open')){closeToc();return;}
+  if(tocModal.classList.contains('open'))return;
+  if(e.key==='m'||e.key==='M'){openToc();return;}
+  if(e.key==='ArrowRight')show(index+1);
+  if(e.key===' '&&e.target===document.body){e.preventDefault();show(index+1);}
+  if(e.key==='ArrowLeft')show(index-1);
+  if(e.key==='Home')show(0);
+  if(e.key==='End')show(slides.length-1);
+});
+
+const readHash=()=>Number((location.hash.match(/^#slide=(\d+)$/)||[])[1]||0);
+window.addEventListener('hashchange',()=>{const n=readHash();if(n&&n-1!==index)show(n-1)});
+
+const mainEl=document.querySelector('main');let sx=null,sy=null;
+mainEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+mainEl.addEventListener('touchend',e=>{
+  if(sx===null)return;
+  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)show(index+(dx<0?1:-1));
+  sx=sy=null;
+});
+show(hash?hash-1:0);
+</script>
+</body>
+</html>

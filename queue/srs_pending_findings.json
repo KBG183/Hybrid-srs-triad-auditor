@@ -230,7 +230,7 @@
                          "id":  "FINDING-RFC-005",
                          "status":  "VERIFIED",
                          "auditor":  "codex",
-                         "evidence":  "docs/powershell_scripts_manifest.csv (32種全数) および tools/scripts/finalize_daily_ledgers.ps1: 台帳追跡ファイルの完全同期",
+                         "evidence":  "docs/powershell_scripts_manifest.csv (30種全数) および tools/scripts/finalize_daily_ledgers.ps1: 台帳追跡ファイルの完全同期",
                          "severity":  "P2",
                          "category":  "MAINTENANCE",
                          "title":  "logs/台帳対応表の整備およびスクリプト一覧マニフェストとの同期"

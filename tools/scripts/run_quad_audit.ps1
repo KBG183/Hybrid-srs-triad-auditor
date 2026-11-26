@@ -144,18 +144,19 @@ if ($Track -eq "FAST") {
         Write-Host "  -> Codex cross-audit completed in $($sw.Elapsed.TotalSeconds.ToString('F2'))s." -ForegroundColor Green
     }
 } else {
-    Write-Host "`n>>> [Stage 2/5] Role-Swap Active: Antigravity acts as First Auditor (Codex Self-Audit Excluded)..." -ForegroundColor Yellow
+    Write-Host "`n>>> [Stage 2/5] Role-Swap Active: Antigravity designated as First Auditor (Direct CLI audit skipped)..." -ForegroundColor Yellow
     $destReport = Join-Path $runMasterDir "02_antigravity_first_audit.txt"
-    $antiLog = "Antigravity First-Auditor: SSOT and code architecture verification performed directly by orchestrator."
+    $antiLog = "Antigravity First-Auditor: Direct CLI execution skipped. Orchestrator operates as supervisory controller; independent external CLI audit not executed in this stage."
     [System.IO.File]::WriteAllText($destReport, $antiLog, [System.Text.Encoding]::UTF8)
     $auditSummary.stages += [ordered]@{
         stage = 2
         auditor = "Antigravity (Gemini)"
-        role = "First Auditor (Architecture & SSOT Integrity)"
-        verdict = "ACTIVE_MONITORING"
+        role = "First Auditor (Supervisory Orchestrator)"
+        verdict = "SKIPPED"
+        reason = "Direct external CLI audit skipped under Heavy Track role-swap; supervisory orchestrator verification only."
         artifact = $destReport
     }
-    Write-Host "  -> Role-Swap verified: Codex is Author; Antigravity designated as First Auditor." -ForegroundColor Green
+    Write-Host "  -> Stage 2 marked as SKIPPED (Supervisory orchestrator role-swap; no standalone CLI audit executed)." -ForegroundColor Yellow
 }
 
 # -------------------------------------------------------------------------

@@ -1,0 +1,31 @@
+Script_Name,Relative_Path,Category,Description
+archive_old_audit_runs.ps1,tools/scripts/archive_old_audit_runs.ps1,Audit,監査実行結果アーカイブ（25時間超ログ隔離）
+audit_srs.ps1,tools/scripts/audit_srs.ps1,Audit,SRS自動AI監査アダプタ
+bundle_diff_context.ps1,tools/scripts/bundle_diff_context.ps1,Context,差分コンテキスト抽出・集約
+call_ai.ps1,tools/scripts/call_ai.ps1,Core,統一マルチAIストリーミングランナー
+call_claude.ps1,tools/scripts/call_claude.ps1,AI-Wrapper,Anthropic Claude API呼出ラッパー
+call_codex.ps1,tools/scripts/call_codex.ps1,AI-Wrapper,OpenAI Codex CLI呼出ラッパー
+call_qwen.ps1,tools/scripts/call_qwen.ps1,AI-Wrapper,ローカル/リモートQwen 27B呼出ラッパー
+demo_offline_replay.ps1,tools/scripts/demo_offline_replay.ps1,Test,オフラインリプレイデモ実行
+extract_ddl_spec.ps1,tools/scripts/extract_ddl_spec.ps1,SSOT,DDLメタデータ決定論的抽出
+finalize_daily_ledgers.ps1,tools/scripts/finalize_daily_ledgers.ps1,Governance,日次ガバナンス台帳1-Shot同期・CSV-004検証
+gate_master_srs.ps1,tools/scripts/gate_master_srs.ps1,Gate,SRS統合プリフライト・事前検証ゲート
+gate_phase3.ps1,tools/scripts/gate_phase3.ps1,Gate,決定論的検証・事前書込ハードゲート
+generate_handoff.ps1,tools/scripts/generate_handoff.ps1,Maintenance,セッション引継ぎドキュメント自動生成
+hermes_controller.ps1,tools/scripts/hermes_controller.ps1,Audit,Hermesマルチエージェント品質監査コントローラ
+install_hooks.ps1,tools/scripts/install_hooks.ps1,Git,Git pre-commitフック自動配備
+patch_ssot.ps1,tools/scripts/patch_ssot.ps1,Core,統一決定論的SSOTパッチユーティリティ
+patch_ssot_editorial.ps1,tools/scripts/patch_ssot_editorial.ps1,Patch,Fast-Track編集パッチフォワーダー
+patch_ssot_literal.ps1,tools/scripts/patch_ssot_literal.ps1,Patch,決定論的完全一致テキストパッチフォワーダー
+pipeline_draft_and_integrate.ps1,tools/scripts/pipeline_draft_and_integrate.ps1,Pipeline,トークン平準化ハイブリッドパイプライン実行
+route_audit.ps1,tools/scripts/route_audit.ps1,Router,インテリジェントAI監査ルーター・トークン平準化
+run_lab_benchmark.ps1,tools/scripts/run_lab_benchmark.ps1,Benchmark,Local Auditor Benchmark (LAB) 自動実行
+run_quad_audit.ps1,tools/scripts/run_quad_audit.ps1,Orchestration,5層多層監査マスターオーケストレーター
+sync_all_mirrors.ps1,tools/scripts/sync_all_mirrors.ps1,Sync,全ミラー資産自動同期
+sync_daily_dossier.ps1,tools/scripts/sync_daily_dossier.ps1,Sync,トランザクショナル日次ドシエ同期
+sync_dashboard.ps1,tools/scripts/sync_dashboard.ps1,Sync,ダッシュボードSSOT同期
+sync_domain_mirror.ps1,tools/scripts/sync_domain_mirror.ps1,Sync,ドメインサービスミラー同期CLI
+test_git_hooks.ps1,tools/scripts/test_git_hooks.ps1,Git,Gitフック構文・ゲートテスト
+verify_integrity.ps1,tools/scripts/verify_integrity.ps1,Linter,VerifySRSリンター実行スクリプト
+verify_repo_total_integrity.ps1,tools/scripts/verify_repo_total_integrity.ps1,Integrity,リポジトリ総括無欠性マスター監査（Check 1-12）
+verify_srs.ps1,tools/scripts/verify_srs.ps1,Linter,SRS統一決定論的リンターラッパー
