@@ -1,0 +1,1063 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="KINTAI プロジェクト1 & プロジェクト2 統合ポートフォリオプレゼンテーション（全19枚・核心圧縮版）">
+<title>KINTAI Portfolio | Web SaaS実装 ＆ 多層AI品質検証パイプライン（統合版）</title>
+<meta name="theme-color" content="#173d34">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173d34'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='800' text-anchor='middle' fill='%23dfebce' font-family='monospace'%3EK%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#172d29;
+  --muted:#566860;
+  --primary:#286b58;
+  --primary-light:#f1f4ec;
+  --accent:#4f7a66;
+  --cyan:#c8dfa9;
+  --emerald:#286b58;
+  --emerald-bg:#e3ede2;
+  --amber:#d97706;
+  --amber-bg:#f5ead3;
+  --crimson:#a44d3b;
+  --crimson-bg:#fcedea;
+  --paper:#fbfaf3;
+  --surface:#f5f7f0;
+  --line:#d2ddd1;
+  --dark:#173d34;
+  --darker:#102b24;
+  --dark-card:#204b40;
+  --dark-line:#4a6c5c;
+  --bg:#e7ebe3;
+  --font-sans:"Inter","Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+/* Project 2 Scoped Palette (Deep Navy & Electric Cyan) */
+.theme-p2{
+  --ink:#0f172a;
+  --muted:#475569;
+  --primary:#1d4ed8;
+  --primary-light:#eff6ff;
+  --accent:#0284c7;
+  --cyan:#38bdf8;
+  --emerald:#10b981;
+  --emerald-text:#065f46;
+  --emerald-bg:#ecfdf5;
+  --crimson:#ef4444;
+  --crimson-bg:#fef2f2;
+  --paper:#ffffff;
+  --surface:#f8fafc;
+  --line:#cbd5e1;
+  --dark:#071122;
+  --darker:#030812;
+  --dark-card:#0d1b33;
+  --dark-line:#1e3459;
+}
+body.mode-p2{
+  background:#e9eff6;
+}
+
+*{box-sizing:border-box}
+html,body{
+  margin:0;padding:0;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+  overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;transition:background-color .25s ease;
+}
+.mono{font-family:var(--font-mono);letter-spacing:-.02em}
+.shell{
+  max-width:1540px;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;
+  margin:auto;padding:clamp(10px,1.4vh,16px) clamp(18px,3vw,40px) clamp(8px,1.1vh,14px);
+  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;
+}
+header,footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px}
+header{font-size:clamp(11px,1.25vh,12.5px);letter-spacing:.14em;font-weight:800;color:#52665c}
+body.mode-p2 header{color:#334155}
+header .logo{display:flex;align-items:center;gap:10px;font-size:clamp(18px,2.3vh,23px);letter-spacing:.16em;color:#172d29;font-weight:900}
+body.mode-p2 header .logo{color:#071122}
+header .logo .badge-ver{
+  font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:6px;
+  background:#173d34;color:#c8dfa9;letter-spacing:.08em;transition:all .2s ease;
+}
+body.mode-p2 header .logo .badge-ver{background:#071122;color:#38bdf8}
+
+.header-actions{display:flex;align-items:center;gap:8px}
+.part-pill{
+  border:1px solid #b9cbbd;border-radius:99px;padding:5px 12px;
+  font-size:clamp(11px,1.2vh,12px);background:rgba(255,255,255,.85);
+  font-family:var(--font-mono);font-weight:700;color:#286b58;cursor:pointer;transition:all .15s ease;
+}
+.part-pill:hover{border-color:#286b58;background:#ffffff}
+.part-pill.p2{color:#1d4ed8;border-color:#bfdbfe}
+.part-pill.p2:hover{border-color:#1d4ed8;background:#ffffff}
+
+.toc-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid #173d34;border-radius:99px;padding:6px 14px;
+  font-size:clamp(11px,1.2vh,12px);background:#173d34;color:#f8fafc;
+  font-weight:700;cursor:pointer;transition:all .18s ease;
+}
+body.mode-p2 .toc-btn{background:#071122;border-color:#071122}
+.toc-btn:hover{opacity:.9;transform:translateY(-1px)}
+
+main{flex:1 1 auto;min-height:0;display:flex;align-items:stretch;padding:clamp(8px,1.1vh,12px) 0;overflow:hidden}
+.slide{
+  display:none;position:relative;width:100%;height:100%;max-height:100%;
+  padding:clamp(20px,2.6vh,34px) clamp(26px,3.4vw,48px);
+  border:1px solid var(--line);border-radius:24px;background:var(--paper);color:var(--ink);
+  box-shadow:0 18px 50px rgba(15,23,42,.09);overflow-x:hidden;overflow-y:auto;
+}
+.slide.active{
+  display:flex;flex-direction:column;justify-content:flex-start;
+  gap:clamp(10px,1.5vh,18px);
+}
+.slide:before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:24px;
+  background-image:radial-gradient(#c5d1c3 1px, transparent 1px);
+  background-size:24px 24px;opacity:.35;
+}
+.theme-p2.slide:before{
+  background-image:radial-gradient(#cbd5e1 1px, transparent 1px);
+}
+.slide:after{
+  content:"";position:absolute;width:520px;height:520px;right:-180px;top:-220px;
+  border-radius:50%;background:radial-gradient(circle,rgba(223,235,206,.65) 0%,transparent 70%);
+  pointer-events:none;
+}
+.theme-p2.slide:after{
+  background:radial-gradient(circle,rgba(56,189,248,.16) 0%,transparent 70%);
+}
+.slide>*{position:relative;z-index:1}
+
+/* Staggered reveal animation */
+.slide.active .eyebrow{animation:fadeUp .32s ease-out both}
+.slide.active .title{animation:fadeUp .36s .04s ease-out both}
+.slide.active .lead{animation:fadeUp .38s .08s ease-out both}
+.slide.active .grid,
+.slide.active .steps,
+.slide.active .split,
+.slide.active .diagram-box,
+.slide.active .stats,
+.slide.active .case,
+.slide.active .video{animation:fadeUp .42s .12s ease-out both}
+.slide.active .quote,
+.slide.active .proof,
+.slide.active .flowline,
+.slide.active .evidence,
+.slide.active .note{animation:fadeUp .44s .16s ease-out both}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;margin:0;
+  color:var(--primary);font-family:var(--font-mono);
+  font-size:clamp(12.5px,1.45vh,14.5px);letter-spacing:.16em;font-weight:800;
+}
+.eyebrow::before{
+  content:"";display:inline-block;width:8px;height:8px;border-radius:2px;
+  background:var(--primary);
+}
+.title{
+  max-width:1180px;margin:0;font-size:clamp(28px,4.1vh,45px);
+  line-height:1.24;letter-spacing:-.01em;text-wrap:balance;word-break:auto-phrase;
+  color:var(--dark);font-weight:900;
+}
+.title em{
+  font-style:normal;
+  background:linear-gradient(120deg,var(--primary) 0%,var(--accent) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.lead{max-width:1060px;margin:0;color:var(--muted);font-size:clamp(16px,2vh,20.5px);line-height:1.58}
+.note{margin:0;color:var(--muted);font-size:clamp(13.5px,1.55vh,15.5px);line-height:1.5}
+.evidence{margin:0;color:var(--ink);font-size:clamp(13.5px,1.55vh,15.5px);line-height:1.5;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.evidence a{color:var(--primary);text-decoration:underline;text-underline-offset:3px;font-weight:700}
+
+/* HERO SLIDE */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;align-items:center;gap:clamp(24px,3.2vw,48px);height:100%}
+.hero .title{font-size:clamp(35px,5.2vh,56px);line-height:1.18;margin:6px 0 12px}
+.hero .lead{font-size:clamp(17.5px,2.2vh,21px);line-height:1.6;margin:0 0 16px}
+.hero-art{
+  min-height:clamp(330px,46vh,460px);padding:clamp(24px,3.4vh,38px);border-radius:22px;
+  background:linear-gradient(155deg,#13332b 0%,#0b192c 100%);color:#f1f6e9;
+  display:flex;flex-direction:column;justify-content:space-between;
+  border:1px solid #3c6356;box-shadow:0 20px 50px rgba(16,43,36,.28),inset 0 1px 0 rgba(255,255,255,.1);
+  position:relative;overflow:hidden;
+}
+.hero-art::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(200,223,169,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.08) 1px,transparent 1px);
+  background-size:28px 28px;pointer-events:none;
+}
+.hero-art small{font-family:var(--font-mono);letter-spacing:.18em;color:#c8dfa9;font-size:clamp(11px,1.25vh,12.5px);font-weight:700;display:flex;align-items:center;gap:8px}
+.hero-art small::before{content:"";width:8px;height:8px;border-radius:50%;background:#38bdf8;box-shadow:0 0 10px #38bdf8}
+.hero-art strong{font-size:clamp(27px,3.8vh,39px);line-height:1.32;font-weight:900;letter-spacing:-.01em}
+.flow-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:9px;
+}
+.pill{
+  padding:8px 12px;border:1px solid rgba(200,223,169,.38);border-radius:8px;
+  font-size:clamp(12px,1.35vh,13.5px);font-family:var(--font-mono);
+  background:rgba(16,43,36,.68);color:#eff5eb;font-weight:600;
+  white-space:nowrap;text-align:center;
+}
+.pill.p2{
+  border-color:rgba(56,189,248,.4);background:rgba(15,23,42,.78);color:#e0f2fe;
+}
+
+/* GRIDS & CARDS */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.4vw,18px);margin:0}
+.grid.two{grid-template-columns:repeat(2,1fr)}
+.grid.four{grid-template-columns:repeat(4,1fr)}
+.card{
+  padding:clamp(16px,2vh,22px);border:1px solid var(--line);border-radius:16px;
+  background:#ffffff;display:flex;flex-direction:column;justify-content:flex-start;
+  box-shadow:0 4px 14px rgba(15,23,42,.03);transition:transform .18s ease,border-color .18s ease;
+}
+.card:hover{transform:translateY(-2px);border-color:var(--primary)}
+.card .num{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.38vh,13.5px);font-weight:800;letter-spacing:.1em}
+.card h3{margin:8px 0 6px;font-size:clamp(18px,2.25vh,23px);line-height:1.32;color:var(--dark);font-weight:800}
+.card p{margin:0;color:var(--muted);font-size:clamp(14.5px,1.7vh,17px);line-height:1.55}
+
+/* STEPS & PIPELINE FLOW */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(10px,1.1vw,14px);margin:0;position:relative}
+.step{
+  padding:clamp(14px,1.7vh,18px);border:1px solid var(--line);border-radius:14px;
+  background:#ffffff;display:flex;flex-direction:column;justify-content:flex-start;
+  position:relative;box-shadow:0 4px 12px rgba(15,23,42,.03);
+}
+.step b{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.38vh,13.5px);letter-spacing:.06em}
+.step strong{display:block;margin:7px 0 5px;font-size:clamp(16.5px,2.05vh,20px);color:var(--dark);font-weight:800}
+.step span{color:var(--muted);font-size:clamp(13.5px,1.58vh,15.5px);line-height:1.48}
+
+/* SPLIT TRACKS */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,1.4vw,18px);margin:0}
+.track{
+  padding:clamp(16px,2vh,22px);border:1px solid var(--line);border-radius:16px;
+  background:#ffffff;display:flex;flex-direction:column;gap:8px;
+}
+.track h3{margin:2px 0;font-size:clamp(18px,2.25vh,23px);color:var(--dark);font-weight:800}
+.track p{color:var(--muted);font-size:clamp(14.5px,1.7vh,17px);line-height:1.55;margin:0}
+.track .label{font-family:var(--font-mono);color:var(--primary);font-size:clamp(12px,1.35vh,13.5px);letter-spacing:.12em;font-weight:800}
+.track.bad{border-top:4px solid var(--crimson);background:linear-gradient(180deg,#fdf6f5 0%,#ffffff 100%)}
+.theme-p2 .track.bad{background:linear-gradient(180deg,#fffafa 0%,#ffffff 100%)}
+.track.bad .label{color:var(--crimson)}
+.track.good{border-top:4px solid var(--emerald);background:linear-gradient(180deg,#f3f8f1 0%,#ffffff 100%)}
+.theme-p2 .track.good{background:linear-gradient(180deg,#f6fef9 0%,#ffffff 100%)}
+.track.good .label{color:var(--emerald)}
+
+.flowline{
+  margin:0;padding:clamp(9px,1.1vh,12px) 15px;border-radius:10px;
+  background:var(--primary-light);color:var(--dark);font-family:var(--font-mono);
+  font-size:clamp(13px,1.5vh,15px);font-weight:700;line-height:1.5;
+  border:1px solid var(--line);
+}
+.track.bad .flowline{background:var(--crimson-bg);border-color:#e9c8c2;color:var(--crimson)}
+.track.good .flowline{background:var(--emerald-bg);border-color:#c6d8c4;color:var(--emerald)}
+
+/* STATS & METRICS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.3vw,16px);margin:0}
+.stat{
+  padding:clamp(14px,1.8vh,20px);border:1px solid var(--line);border-radius:16px;
+  background:#ffffff;display:flex;flex-direction:column;justify-content:center;
+}
+.stat strong{
+  display:block;font-family:var(--font-mono);color:var(--primary);
+  font-size:clamp(28px,3.6vh,44px);letter-spacing:-.04em;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.stat span{display:block;margin-top:4px;color:var(--muted);font-size:clamp(13.5px,1.58vh,15.5px);line-height:1.45;font-weight:600}
+
+/* CASE & PROOF */
+.case{
+  display:grid;grid-template-columns:.24fr 1fr;gap:clamp(12px,1.4vw,18px);margin:0;
+  padding:clamp(14px,1.7vh,18px);border:1px solid #fecaca;border-left:4px solid var(--crimson);
+  border-radius:14px;background:#fffafa;
+}
+.case .case-no{font-family:var(--font-mono);color:var(--crimson);font-size:clamp(12.5px,1.45vh,14.5px);letter-spacing:.08em;font-weight:800}
+.case h3{margin:0 0 5px;font-size:clamp(17.5px,2.15vh,21px);color:var(--dark);font-weight:800}
+.case p{margin:0;color:var(--muted);font-size:clamp(14.5px,1.68vh,16.5px);line-height:1.52}
+.case small{display:block;margin-top:6px;color:var(--emerald);font-weight:700;font-size:clamp(13px,1.48vh,15px)}
+
+/* VIDEO FRAME */
+.video{display:grid;place-items:center;min-height:clamp(220px,34vh,360px);margin:0;border-radius:18px;background:var(--dark);color:#e2e8f0;text-align:center;border:1px solid var(--line)}
+.video-frame{display:block;width:min(100%,calc(46vh*16/9));aspect-ratio:16/9;min-height:clamp(220px,34vh,360px);margin:0 auto;padding:0;background:#000;overflow:hidden;box-shadow:0 12px 32px rgba(16,43,36,.18)}
+
+/* BADGES & QUOTES */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-family:var(--font-mono);font-size:clamp(11px,1.2vh,12px);font-weight:800;margin-right:8px}
+.badge.ok{background:var(--emerald-bg);color:var(--emerald);border:1px solid var(--line)}
+.badge.bad{background:var(--crimson-bg);color:var(--crimson);border:1px solid #e9c8c2}
+
+.quote{
+  max-width:1140px;margin:0;padding:clamp(11px,1.4vh,16px) clamp(16px,1.8vw,24px);
+  border-left:4px solid var(--primary);border-radius:0 12px 12px 0;
+  background:var(--primary-light);font-size:clamp(16px,2.1vh,21.5px);
+  line-height:1.5;font-weight:800;color:var(--dark);
+}
+.proof{display:grid;grid-template-columns:1fr 1fr;gap:clamp(10px,1.1vw,14px);margin:0}
+.proof div{padding:clamp(11px,1.4vh,15px) clamp(14px,1.6vw,18px);border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.proof b{display:block;margin-bottom:4px;color:var(--primary);font-size:clamp(13px,1.5vh,15px);font-weight:800}
+.proof span{color:var(--muted);font-size:clamp(13.8px,1.6vh,16px);line-height:1.5}
+.proof p.evidence{margin:6px 0 0}
+
+/* DARK THEME SLIDES */
+.slide.dark{
+  background:linear-gradient(155deg,var(--darker) 0%,var(--dark) 100%);
+  color:#f8fafc;border-color:var(--dark-line);
+  box-shadow:0 22px 60px rgba(3,8,18,.42);
+}
+.slide.dark:before{
+  background-image:radial-gradient(#476958 1px, transparent 1px);opacity:.38;
+}
+.theme-p2.slide.dark:before{
+  background-image:radial-gradient(#1e3a5f 1px, transparent 1px);opacity:.45;
+}
+.slide.dark .eyebrow{color:var(--cyan)}
+.slide.dark .eyebrow::before{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.slide.dark .title{color:#ffffff}
+.slide.dark .title em{
+  background:linear-gradient(120deg,#c8dfa9 0%,#e8c98c 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.theme-p2.slide.dark .title em{
+  background:linear-gradient(120deg,#38bdf8 0%,#34d399 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.slide.dark .lead,
+.slide.dark .note{color:#cfddd1}
+.theme-p2.slide.dark .lead,
+.theme-p2.slide.dark .note{color:#94a3b8}
+.slide.dark .evidence{color:#eff5eb}
+.slide.dark .card,
+.slide.dark .step,
+.slide.dark .stat,
+.slide.dark .track{
+  background:var(--dark-card);border-color:var(--dark-line);
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+}
+.slide.dark .card h3,
+.slide.dark .step strong,
+.slide.dark .track h3{color:#ffffff}
+.slide.dark .card p,
+.slide.dark .step span,
+.slide.dark .track p,
+.slide.dark .stat span{color:#c4d4c8}
+.theme-p2.slide.dark .card p,
+.theme-p2.slide.dark .step span,
+.theme-p2.slide.dark .track p,
+.theme-p2.slide.dark .stat span{color:#94a3b8}
+.slide.dark .card .num,
+.slide.dark .step b,
+.slide.dark .track .label{color:var(--cyan)}
+.slide.dark .stat strong{color:#34d399}
+.slide.dark .flowline{background:rgba(15,23,42,.55);border-color:var(--dark-line);color:var(--cyan)}
+.slide.dark .quote{background:var(--dark-card);border-color:var(--cyan);color:#f8fafc}
+.slide.dark .badge.ok{background:rgba(16,185,129,.18);color:#6ee7b7;border-color:rgba(16,185,129,.4)}
+.slide.dark .links a{color:var(--cyan)}
+
+.links{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0;font-size:clamp(14px,1.68vh,16.5px)}
+.links a,.note a{color:var(--primary);font-weight:700;text-underline-offset:3px}
+
+/* FOOTER & CONTROLS */
+footer{color:#566860;font-size:clamp(12px,1.35vh,13px);font-family:var(--font-mono)}
+body.mode-p2 footer{color:#475569}
+.controls{display:flex;align-items:center;gap:8px}
+.controls button:not(.dot){
+  flex:0 0 40px;width:40px;height:40px;border:1px solid #cbd5e1;border-radius:10px;
+  background:#ffffff;color:#0f172a;font-size:18px;font-weight:700;cursor:pointer;
+  transition:all .15s ease;
+}
+.controls button:not(.dot):hover:not(:disabled){border-color:#286b58;color:#286b58}
+body.mode-p2 .controls button:not(.dot):hover:not(:disabled){border-color:#1d4ed8;color:#1d4ed8}
+.controls button:disabled{opacity:.35;cursor:default}
+.dots{display:flex;flex:0 0 auto;align-items:center;gap:5px}
+.controls .dot{
+  flex:0 0 7px;width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:10px;
+  background:#bac8bb;cursor:pointer;transition:all .2s ease;position:relative;
+}
+.controls .dot.p2-dot{background:#cbd5e1}
+.controls .dot:after{content:"";position:absolute;inset:-10px -2px}
+.controls .dot.active{flex-basis:22px;width:22px;min-width:22px;background:#286b58}
+.controls .dot.p2-dot.active{background:#1d4ed8}
+.progress{height:3px;margin-top:6px;background:#cbd5e1;border-radius:3px;overflow:hidden}
+.progress span{display:block;width:0;height:100%;background:linear-gradient(90deg,#286b58,#1d4ed8);transition:width .25s ease}
+.hint{font-size:clamp(11px,1.25vh,12px)}
+
+/* OVERVIEW MODAL (TOC) */
+.modal-backdrop{
+  display:none;position:fixed;inset:0;z-index:100;background:rgba(3,8,18,.78);
+  backdrop-filter:blur(6px);padding:24px;align-items:center;justify-content:center;
+}
+.modal-backdrop.open{display:flex;animation:fadeIn .18s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-panel{
+  width:100%;max-width:1240px;max-height:88vh;background:#0b1324;border:1px solid #283548;
+  border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:14px;
+  color:#f8fafc;box-shadow:0 25px 70px rgba(0,0,0,.6);
+}
+.modal-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e293b;padding-bottom:12px}
+.modal-head h3{margin:0;font-size:17px;letter-spacing:.06em;color:#f8fafc;font-family:var(--font-mono)}
+.modal-close{
+  background:transparent;border:1px solid #334155;color:#cbd5e1;border-radius:8px;
+  padding:6px 12px;cursor:pointer;font-family:var(--font-mono);font-size:12px;
+}
+.modal-close:hover{border-color:#38bdf8;color:#ffffff}
+.toc-section-label{
+  font-family:var(--font-mono);font-size:12px;font-weight:800;letter-spacing:.12em;
+  color:#c8dfa9;margin:4px 0 2px;
+}
+.toc-section-label.p2{color:#38bdf8;margin-top:8px}
+.toc-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+}
+.toc-scroll{overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:8px}
+.toc-item{
+  text-align:left;padding:10px 12px;border-radius:10px;background:#142823;border:1px solid #2d5247;
+  color:#e2e8f0;cursor:pointer;transition:all .15s ease;display:flex;flex-direction:column;gap:3px;
+}
+.toc-item.p2{background:#111f38;border-color:#233b66}
+.toc-item:hover,.toc-item.current{border-color:#c8dfa9;background:#1e3d35}
+.toc-item.p2:hover,.toc-item.p2.current{border-color:#38bdf8;background:#192f54}
+.toc-item span{font-family:var(--font-mono);font-size:10.5px;color:#c8dfa9;font-weight:700}
+.toc-item.p2 span{color:#38bdf8}
+.toc-item strong{font-size:12.5px;line-height:1.35;color:#ffffff}
+
+button:focus-visible,a:focus-visible{outline:3px solid #38bdf8;outline-offset:2px}
+
+@media(max-width:960px){
+  .toc-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:850px){
+  .shell{padding:8px}
+  .hero,.split,.diagram-box,.flow-grid{grid-template-columns:1fr}
+  .hero-art{min-height:200px}
+  .grid,.grid.four,.stats{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr 1fr}
+  .steps .step:last-child:nth-child(odd){grid-column:1/-1}
+  .case{grid-template-columns:1fr;gap:6px}
+  .proof{grid-template-columns:1fr}
+  .hint,.part-pill{display:none}
+}
+@media(max-width:850px),(max-height:620px){
+  html,body{height:auto;max-height:none;overflow:auto}
+  .shell{height:auto;max-height:none;min-height:100vh;min-height:100dvh;overflow:visible}
+  main{overflow:visible}
+  .slide{height:auto;max-height:none}
+  footer{position:sticky;bottom:0;z-index:5;padding:6px 0;background:var(--bg)}
+}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body,.shell{height:auto;max-height:none;overflow:visible;background:#fff}
+  header,footer,.progress,.modal-backdrop{display:none!important}
+  main{display:block;overflow:visible}
+  .slide{display:flex!important;flex-direction:column;height:auto;max-height:none;margin:0 0 10px;box-shadow:none;overflow:visible;break-after:page;animation:none}
+  .video-frame{display:none}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* v7: intrinsic grid sizing and readable evidence layout */
+.hero>*{min-width:0}
+.cover-revised .hero{grid-template-columns:1.05fr .95fr}
+.cover-revised .hero-art{min-width:0;gap:24px;padding:clamp(22px,2.6vw,36px)}
+.cover-revised .hero-art small{letter-spacing:.1em;overflow-wrap:anywhere}
+.cover-revised .hero-art strong{font-size:clamp(25px,3.4vh,37px)}
+.cover-revised .flow-grid{grid-template-columns:minmax(0,1fr);gap:8px}
+.cover-revised .pill{white-space:normal;overflow-wrap:anywhere;text-align:left;line-height:1.45}
+.summary-entry{display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid var(--dark-line);padding-top:18px}
+.summary-entry b{font-size:20px;color:#fff}.summary-entry p{font-size:15px;color:#cbd5e1;margin:7px 0 0}
+.summary-entry button{cursor:pointer;background:#38bdf8;color:#071122;border:0;border-radius:8px;padding:14px 18px;font:700 16px var(--font-sans);flex-shrink:0}
+#evidenceSummary{width:min(920px,94vw);max-height:88dvh;overflow:auto;padding:clamp(22px,4vw,40px);border:1px solid #cbd5e1;border-radius:18px;background:#fff;color:#0f172a;font:16px/1.7 var(--font-sans)}
+#evidenceSummary::backdrop{background:#071122bb}
+#evidenceSummary h2{margin:0 0 12px;font-size:27px}#evidenceSummary h3{font-size:21px;margin:26px 0 8px}
+#evidenceSummary a{color:#1d4ed8;text-underline-offset:3px}#evidenceSummary li{margin:8px 0}
+#evidenceSummary .close-evidence{float:right;position:sticky;top:0;padding:8px 16px;cursor:pointer;background:#0f172a;color:white;border:0;border-radius:6px;font:700 15px var(--font-sans)}
+@media(max-width:850px){.cover-revised .hero{grid-template-columns:1fr}.summary-entry{align-items:flex-start;flex-direction:column}.cover-revised .hero-art{min-height:330px}}
+@media(max-width:500px){.cover-revised .hero .title{font-size:30px;line-height:1.25}.cover-revised .hero-art strong{font-size:24px}.eyebrow{overflow-wrap:anywhere;letter-spacing:.08em}.summary-entry button{max-width:100%;white-space:normal}}
+
+/* v8: project closure, observed review case, and evidence reading guide */
+.closing-columns{display:grid;grid-template-columns:1fr 1.12fr;gap:40px;min-height:0}
+.closing-columns>div{min-width:0}.closing-columns h3{font-size:clamp(19px,2.6vh,25px);margin:0 0 12px;color:var(--dark)}
+.closing-local{border-left:1px solid var(--line);padding-left:32px}
+.closing-columns dl{margin:0}.closing-columns dt{font-size:clamp(16px,2vh,20px);font-weight:800;margin:12px 0 4px;color:var(--primary)}
+.closing-columns dd{margin:0;font-size:clamp(15px,1.9vh,18px);line-height:1.55;color:var(--muted)}
+.result-inline{font-family:var(--font-mono);font-size:1.35em;color:var(--primary)}
+.closing-caveat{font-size:13px}.closing-takeaway{border-top:2px solid var(--primary);padding-top:14px;font-size:clamp(18px,2.4vh,23px);font-weight:800;color:var(--dark)}
+.review-record{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;list-style:none;margin:0;padding:16px 0;border-top:1px solid var(--dark-line);border-bottom:1px solid var(--dark-line)}
+.review-record li{min-width:0}.review-record span{display:block;font:700 13px var(--font-mono);color:var(--cyan);letter-spacing:.08em;margin-bottom:10px}
+.review-record b{display:block;font-size:clamp(21px,3vh,29px);color:#fff}.review-record p{margin:9px 0 0;font-size:16px;color:#cbd5e1;line-height:1.5}
+.case-example{padding:18px 0 0}.case-example .num{color:var(--cyan);font-size:13px;font-weight:800}.case-example h3{font-size:clamp(19px,2.5vh,24px);margin:8px 0 14px;color:#fff}
+.case-comparison{display:grid;grid-template-columns:1fr 1fr;gap:28px}.case-comparison p{margin:0;font-size:17px;color:#cbd5e1;line-height:1.7}.case-comparison span{display:block;color:var(--cyan);font-size:14px;font-weight:700}.case-comparison b{color:#fff}
+.evidence-directory .summary-entry{border-color:var(--line);padding:16px 0;border-bottom:1px solid var(--line)}
+.evidence-directory .summary-entry b{color:var(--ink)}.evidence-directory .summary-entry p{color:var(--muted)}
+.evidence-rows{display:grid;grid-template-columns:1fr 1fr;gap:40px}.evidence-rows>div{min-width:0;padding:12px 0}
+.evidence-rows>div>span{font:700 13px var(--font-mono);color:var(--primary)}.evidence-rows h3{font-size:23px;margin:9px 0;color:var(--ink)}.evidence-rows p{font-size:17px;line-height:1.65;color:var(--muted);margin:8px 0}
+@media(max-width:850px){.closing-columns,.review-record,.case-comparison,.evidence-rows{grid-template-columns:1fr;gap:20px}.closing-local{border-left:0;border-top:1px solid var(--line);padding:20px 0 0}.review-record li+li{border-top:1px solid var(--dark-line);padding-top:16px}.closing-caveat{font-size:13px}}
+
+/* Independent review flow */
+.review-flow .lead{max-width:1200px}.review-stage{display:grid;grid-template-columns:48px minmax(0,1fr);gap:16px;align-items:start;border-top:1px solid var(--dark-line);padding:10px 0}
+.review-stage .stage-no{font:800 19px var(--font-mono);color:var(--cyan)}.review-stage b{font-size:clamp(18px,2.4vh,24px);color:#fff}.review-stage p{font-size:clamp(14px,1.8vh,17px);line-height:1.5;color:#cbd5e1;margin:5px 0 0}
+.review-auditors{display:flex;gap:12px;flex-wrap:wrap;margin-top:9px}.review-auditors span{font-size:clamp(13px,1.6vh,15px);color:#dbeafe;border:1px solid var(--dark-line);border-radius:7px;padding:6px 10px}.review-auditors strong{color:var(--cyan)}
+.review-flow>.note{margin-top:2px}
+@media(max-width:850px){.review-stage{grid-template-columns:34px minmax(0,1fr)}.review-auditors{flex-direction:column;gap:5px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+  <span class="logo">KINTAI <span class="badge-ver" id="phaseBadge">プロジェクト1 · SaaS</span></span>
+  <div class="header-actions">
+    <button class="part-pill" id="jumpP1" title="プロジェクト1 (01~07) へ移動">プロジェクト1 (01-07)</button>
+    <button class="part-pill p2" id="jumpP2" title="プロジェクト2 (08~19) へ移動">プロジェクト2 (08-19)</button>
+    <button class="toc-btn" id="openToc" aria-label="スライド一覧を開く">⊞ INDEX (19)</button>
+  </div>
+</header>
+
+<main>
+
+<!-- 01: UNIFIED COVER -->
+<section class="slide theme-p1 active cover-revised" aria-label="統合表紙">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">01 / UNIFIED PORTFOLIO</div>
+      <h1 class="title">KINTAI<br><em>勤怠・給与SaaSと<br>多層AI品質検証</em></h1>
+      <p class="lead">プロジェクト1で勤怠・給与SaaSを構築し、開発時から自宅GPUのローカルLLMによる独立監査を併用。プロジェクト2では、その検証の考え方をSRS策定と多層AI品質検証へ広げました。</p>
+      <p class="note mono">Java 17 · Spring Boot · MySQL · Codex CLI · Claude · Local LLM · C# VerifySRS</p>
+      <p class="note links">
+        <a href="https://github.com/KBG183/kintai-management" target="_blank" rel="noopener noreferrer">プロジェクト1: kintai-management ↗</a>
+        <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor" target="_blank" rel="noopener noreferrer">プロジェクト2: Hybrid-srs-triad-auditor ↗</a>
+      </p>
+    </div>
+    <div class="hero-art">
+      <small>WEB SAAS × AI VERIFICATION</small>
+      <strong>現場重視の業務SaaS実装<br>並行性・DB難題の突破<br>多層AI点検と機械ゲートによる検証</strong>
+      <div class="flow-grid">
+        <span class="pill">プロジェクト1: 勤怠・給与SaaS (01-07)</span>
+        <span class="pill">プロジェクト1: 98 PASS 回帰検証</span>
+        <span class="pill p2">プロジェクト2: 多層AI品質検証 (08-19)</span>
+        <span class="pill p2">プロジェクト2: 整合性ゲート 12/12 PASS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02: PROBLEM & BACKGROUND -->
+<section class="slide theme-p1" aria-label="企画背景と現場課題">
+  <div class="eyebrow">02 / プロジェクト1 · PROBLEM &amp; BACKGROUND</div>
+  <h2 class="title">店長とアルバイト双方が直面する<br><em>アナログ手作業による勤怠・給与管理の限界。</em></h2>
+  <p class="lead">飲食・小売現場では口頭やSNSのシフト調整とExcel手計算に依存しており、人員配置ミス、不正打刻、法定割増計算の誤りが常態化していました。</p>
+  <div class="grid">
+    <div class="card"><span class="num">PAIN 01 · SHIFT</span><h3>シフト編成の混乱</h3><p>スタッフ毎の希望勤務日を手作業で集計するため、人員の過不足や二重割り当て、転記漏れが発生</p></div>
+    <div class="card"><span class="num">PAIN 02 · PUNCH</span><h3>打刻漏れと不正打刻</h3><p>紙のタイムカードやSNS報告では遅刻・退勤時刻の改ざんリスクがあり、客観的立証が困難</p></div>
+    <div class="card"><span class="num">PAIN 03 · PAYROLL</span><h3>複雑な割増賃金計算</h3><p>深夜(22時~5時)、1日8時間超の残業、休日勤務の重複割増を手計算するため、計算ミスや未払いリスクが発生</p></div>
+  </div>
+  <div class="quote">店舗オーナーには正確な締め処理と人件費管理を、スタッフには透明な勤務実績と適正な給与を保障します。</div>
+</section>
+
+<!-- 03: E2E WORKFLOW & ROLES -->
+<section class="slide theme-p1" aria-label="E2E業務フローと権限設計">
+  <div class="eyebrow">03 / プロジェクト1 · E2E WORKFLOW &amp; RBAC</div>
+  <h2 class="title">シフト提出から月末のExcel給与台帳まで<br><em>スタッフと店長の権限を分離した5段階E2E設計。</em></h2>
+  <p class="lead">モバイル対応のスタッフ打刻UIと、全店のシフト編成・修正承認・給与締めを担う店長コンソールをRBAC（ROLE_STAFF vs ROLE_OWNER）で厳格に統合しました。</p>
+  <div class="steps">
+    <div class="step"><b>01 · STAFF</b><strong>希望シフト提出</strong><span>スマホ画面から勤務可能日時を申請し、確定シフト・見込み給与を即時照会</span></div>
+    <div class="step"><b>02 · OWNER</b><strong>店長シフト編成</strong><span>希望シフトを集約し時間帯別の人員配置を確定・公開（店舗マルチテナント）</span></div>
+    <div class="step"><b>03 · STAFF</b><strong>リアルタイム打刻</strong><span>出勤・退勤・休憩の4状態遷移ワンクリック打刻とリアルタイム状態管理</span></div>
+    <div class="step"><b>04 · APPROVE</b><strong>打刻修正申請・承認</strong><span>理由付き修正申請を店長が過去実績と照合承認（未承認残存時は締めブロック）</span></div>
+    <div class="step"><b>05 · SETTLE</b><strong>給与締め &amp; Excel出力</strong><span>分単位の法定割増を自動集計し、公式Excel給与台帳をワンクリック出力</span></div>
+  </div>
+  <div class="flowline">希望申請 ➔ 店長確定 ➔ リアルタイム打刻 ➔ 修正承認 ➔ 分単位給与締め ➔ Excel台帳出力</div>
+</section>
+
+<!-- 04: LIVE PRODUCT DEMO -->
+<section class="slide theme-p1" aria-label="実演デモ動画">
+  <div class="eyebrow">04 / プロジェクト1 · LIVE WALKTHROUGH</div>
+  <h2 class="title">一連の店舗業務フローを通じて<br><em>実際に動作するKINTAIの実機動作を実証。</em></h2>
+  <div class="video video-frame"><iframe src="https://www.youtube-nocookie.com/embed/LepOoQU8LgI" referrerpolicy="strict-origin-when-cross-origin" title="KINTAI E2E Demo Walkthrough" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="display:block;width:100%;height:100%;border:0"></iframe></div>
+  <p class="note">UI操作からバックエンドトランザクション、DB反映、Apache POI Excel出力まで全経路を検証 · <a href="https://youtu.be/LepOoQU8LgI" target="_blank" rel="noopener noreferrer">YouTubeで直接視聴 ↗</a></p>
+</section>
+
+<!-- 05: BACKEND HARD ENGINEERING -->
+<section class="slide theme-p1" aria-label="バックエンド3大技術課題解決">
+  <div class="eyebrow">05 / プロジェクト1 · BACKEND ENGINEERING</div>
+  <h2 class="title">実運用で発生し得る3大バックエンド障害を<br><em>DBロック設計とセッション認証で根本解決。</em></h2>
+  <p class="lead">単なるCRUD実装にとどまらず、高並行アクセス時のデータ破損・セキュリティ侵害・デッドロックを物理テストで再現し解決しました。</p>
+  <div class="grid">
+    <div class="card">
+      <span class="num">01 · CONCURRENCY (6/6 PASS)</span>
+      <h3>悲観的ロックによる二重打刻防止</h3>
+      <p>ミリ秒単位の連打到達に対し親行(store_staff)へ<code>SELECT ... FOR UPDATE</code>を適用。トランザクションを直列化し後続リクエストを409 Conflictで遮断</p>
+    </div>
+    <div class="card">
+      <span class="num">02 · SECURITY (0 IDOR)</span>
+      <h3>セッションPrincipal身元認証</h3>
+      <p>リクエスト本文の<code>storeStaffId</code>改ざんを破棄し、Spring Securityの認証済みPrincipalとDB所有権を照合。他者勤怠の改ざんを全件403遮断</p>
+    </div>
+    <div class="card">
+      <span class="num">03 · DEADLOCK (ERROR 1213解消)</span>
+      <h3>2段階ID昇順ロック統一</h3>
+      <p>一括給与確定と個人再計算の逆順ロック競合に対し、確定対象スタッフをID昇順で先行ロックしてから子行(payroll)を処理しデッドロックを100%根絶</p>
+    </div>
+  </div>
+  <div class="flowline">開発時の検証：JUnitによる動作確認 ＋ Local Qwen 27Bによるコード・文書の独立監査</div>
+  <p class="note">作成時の対話履歴を共有せず、成果物を別モデルで点検。指摘は修正・再検証へつなげ、運用成果と選択理由は7枚目でまとめます。</p>
+</section>
+
+<!-- 06: PAYROLL ENGINE & EXCEL EXPORT -->
+<section class="slide theme-p1" aria-label="労基法37条給与エンジンとExcel帳票">
+  <div class="eyebrow">06 / プロジェクト1 · PAYROLL &amp; EXCEL</div>
+  <h2 class="title">労働基準法第37条に基づく分単位割増算定と<br><em>Apache POIによる公式Excel給与台帳出力。</em></h2>
+  <p class="lead">中抜けシフト合算や深夜・残業の重複割増を精密に計算し、日本の労務慣行に即した数式・書式付きExcel(.xlsx)帳票を動的生成します。</p>
+  <div class="split">
+    <div class="track good">
+      <span class="label">STATUTORY PAYROLL ENGINE</span>
+      <h3>中抜け合算・深夜×残業重複150%支給</h3>
+      <div class="flowline">1次(11~14時) + 2次(17~23時) ＝ 9h実働<br>日8h超過かつ22時以降の重複60分: 基本100% + 深夜25% + 残業25% ＝ 150%支給</div>
+      <p>時給改定日跨ぎ分離、法定休憩未達時の実労働全額支給（労基法24条・不当控除遮断）、HALF_UP端数処理を12ヶ月通年テストで検証</p>
+    </div>
+    <div class="track">
+      <span class="label">APACHE POI STREAMING EXPORT</span>
+      <h3>OOM回避ストリーミング帳票生成</h3>
+      <div class="flowline">SXSSFWorkbook最適化 ➔ 合計数式・罫線・書式自動生成 ➔ ワンクリックDL</div>
+      <p>Web画面の集計値とExcel各セルの計算値が1円の差異もなく100%一致することをJUnitで検証</p>
+    </div>
+  </div>
+  <p class="evidence"><span class="badge ok">検証実測値</span>12ヶ月通年シナリオ・法定境界結合テスト 6/6 PASS および POI帳票データ整合性検証完了</p>
+</section>
+
+<!-- 07: PROJECT 1 CLOSING (RESULTS & LESSONS) -->
+<section class="slide theme-p1 p1-closing" aria-label="プロジェクト1の成果とローカルAI活用">
+<div class="eyebrow">07 / PROJECT 1 · RESULTS &amp; LESSONS</div>
+<h2 class="title">業務SaaSの実装と、<br><em>検証を繰り返せる開発環境を構築</em></h2>
+<div class="closing-columns">
+  <div class="closing-results"><h3>プロジェクト1で実現したこと</h3>
+    <dl><dt>業務をつなぐ</dt><dd>シフト・打刻・承認・給与・Excel出力を一貫して実装</dd><dt>不具合の原因を解消</dt><dd>打刻の同時実行、給与確定のデッドロック、認可境界を改善</dd><dt>動作を証跡に残す</dt><dd><b class="result-inline">98 PASS</b> · 新規隔離DBで全体回帰<br>JUnit XML 39件、失敗・エラー・スキップ0</dd></dl>
+  </div>
+  <div class="closing-local"><h3>ローカルAIを使った理由</h3>
+    <dl><dt>追加のAPI従量課金を抑える</dt><dd>既存の自宅GPUを使い、修正のたびに監査を反復</dd><dt>自己バイアス・幻覚を別モデルで牽制</dt><dd>作成時の対話履歴を共有せず、成果物を別モデルで点検</dd><dt>実行条件を自分で調整できる</dt><dd>Thinking設定の比較で <b>206.88秒 → 32.72秒</b><br>同一ソース・同一モデルのA/B実測で約6.32倍</dd></dl>
+  </div>
+</div>
+<p class="note closing-caveat">既存GPUにも電力・処理時間は必要です。A/B比較の検出網羅性・一致率は未検証。98 PASSは2026-11-17の回帰結果です。</p>
+<div class="closing-takeaway">実装して終わらず、原因の修正と再検証までを開発の成果として残しました。</div>
+<p class="note">次のプロジェクトでは、この検証の考え方を要件定義・SRSの品質管理へ広げます。</p>
+</section>
+
+<!-- 08: TRANSITION -> PROJECT 1 TO PROJECT 2 (SRS & AUDIT) -->
+<section class="slide theme-p2 dark" aria-label="プロジェクト1からプロジェクト2へ：SRS作成と検収">
+  <div class="eyebrow">08 / プロジェクト1 → プロジェクト2 · SRS &amp; AUDIT</div>
+  <h2 class="title">プロジェクト1の「プログラム開発」から、<br><em>実稼働システムを基盤とする「SRS作成・検収」へ。</em></h2>
+  <p class="lead">プロジェクト1で構築した勤怠・シフト・給与SaaSの実装とDB/ロジックを土台に、プロジェクト2では要件定義書（SRS）の体系化と多層AIによる独立検収・検証パイプラインを確立しました。</p>
+  <div class="grid">
+    <div class="card">
+      <span class="num">01 · SRS FORMALIZATION</span>
+      <h3>実装と仕様の同期（SRS作成）</h3>
+      <p>稼働コード・DB制約・業務ルールを明文化し、曖昧さや暗黙の前提を排除</p>
+    </div>
+    <div class="card">
+      <span class="num">02 · INDEPENDENT AUDIT</span>
+      <h3>自己検収バイアスの遮断</h3>
+      <p>作成した同一AIにそのまま任せず、独立した複数AIとC#リンターで客観検収</p>
+    </div>
+    <div class="card">
+      <span class="num">03 · STATUTORY &amp; DB RIGOR</span>
+      <h3>労基法37条・排他制御の精査</h3>
+      <p>割増計算の境界条件やロック/SSOT規律を反証可能な要件として固定</p>
+    </div>
+  </div>
+  <div class="quote">プロジェクト1が「動くシステムを作る開発フェーズ」なら、プロジェクト2はそのシステムを基準にSRSを整備し、証拠に基づいて検収・保証するフェーズです。</div>
+</section>
+
+<!-- 09: INDEPENDENT REVIEW FLOW -->
+<section class="slide theme-p2 dark review-flow" aria-label="独立交差検証の実行フロー">
+  <div class="eyebrow">09 / プロジェクト2 · INDEPENDENT REVIEW FLOW</div>
+  <h2 class="title">同じ仕様を別々に点検し、<br><em>指摘を修正・再検証して正本へ反映</em></h2>
+  <p class="lead">モデルの役割と実際の処理順を一つの流れで示します。監査時は同じ版の対象ファイルとSHA-256を使い、作成時の対話履歴を共有しません。</p>
+  <div class="review-stage"><span class="stage-no">01</span><div><b>初案を作成・版を固定</b><p>Antigravityが進行とSSOTを管理。Fast TrackはAntigravity、Heavy TrackはCodexが初案を作成し、監査対象のファイルとハッシュを確定します。</p></div></div>
+  <div class="review-stage parallel-stage"><span class="stage-no">02</span><div><b>別の観点から独立して点検</b><p>担当・初案の経路に応じて監査者を分け、他モデルの結論を前提にせず対象版を確認します。</p><div class="review-auditors"><span><strong>Codex</strong> 技術・DB・並行性</span><span><strong>Claude</strong> 労基法・境界値</span><span><strong>Local Qwen</strong> 骨子・無文脈監査</span></div></div></div>
+  <div class="review-stage"><span class="stage-no">03</span><div><b>指摘を集約し、修正後に再検証</b><p>判定と根拠を記録し、指摘事項を統合して修正。対象版が変われば新しい版を再び点検します。</p></div></div>
+  <div class="review-stage"><span class="stage-no">04</span><div><b>機械検査からSSOT反映へ</b><p>VerifySRSが必須項目・形式・整合性を検査。必要なゲートを通過した変更だけを正本に統合し、結果を保存します。</p></div></div>
+  <p class="note">各監査の対象と深さは異なります。単一モデルのPASSを全体の無欠陥判定として扱いません。</p>
+</section>
+
+<!-- 10: DUAL-TRACK SRS METHODOLOGY -->
+<section class="slide theme-p2" aria-label="デュアルトラック仕様分析">
+  <div class="eyebrow">10 / プロジェクト2 · DUAL-TRACK SRS</div>
+  <h2 class="title">設計と実装の乖離を全数あぶり出す、<br><em>Track 1（初期設計仕様）vs Track 2（As-Built観測仕様）分析。</em></h2>
+  <p class="lead">初期要求仕様（Track 1）と、プロジェクト1で稼働するSpring Boot・MySQL DDLを逆追跡した実稼働仕様（Track 2）を1対1で照合しました。</p>
+  <div class="split">
+    <div class="track">
+      <span class="label">TRACK 1 · BASELINE SRS</span>
+      <h3>初期設計書（理想仕様）</h3>
+      <div class="flowline">開発初期の業務要求・ドメイン想定・基本画面遷移</div>
+      <p>机上設計段階の記述であり、実運用の並行性やエッジケースの例外処理が抽象的なまま残存</p>
+    </div>
+    <div class="track good">
+      <span class="label">TRACK 2 · AS-BUILT SRS</span>
+      <h3>4大スライス実稼働観測仕様</h3>
+      <div class="flowline">Slice 1: 組織/RBAC ➔ Slice 2: 打刻 ➔ Slice 3: 修正 ➔ Slice 4: 労基法37条給与</div>
+      <p>稼働コード・DB制約・API戻り値を厳密に抽出し、反証可能な確定仕様として再構築</p>
+    </div>
+  </div>
+  <div class="proof">
+    <div><b>差分照合成果（Diff Analysis）</b><span>F-01（確定給与改変防止）、F-02（労基法37条月60h超割増）、F-07（デッドロック回避順序）を特定・是正パッチ設計完了</span></div>
+    <div><b>分析証跡原本</b><span><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/srs_diff_analysis_total_master.md" target="_blank" rel="noopener noreferrer">srs_diff_analysis_total_master.md ↗</a>（Track 1/2 全数差分照合とRemediation）</span></div>
+  </div>
+</section>
+
+<!-- 11: STATUTORY REASONING (CLAUDE) -->
+<section class="slide theme-p2" aria-label="労働基準法37条 精密推論">
+  <div class="eyebrow">11 / プロジェクト2 · STATUTORY REASONING</div>
+  <h2 class="title">労働基準法第37条の複雑な割増規則を<br><em>Claudeの高度論理推論で多角検証。</em></h2>
+  <p class="lead">深夜労働、法定時間外、休日勤務の重複加算、中抜け合算、および50銭端数処理規律の論理的抜け穴を徹底精査しました。</p>
+  <div class="split">
+    <div class="track">
+      <span class="label">LEGAL COMPLEXITY</span>
+      <h3>複雑な法定割増の重複ルール</h3>
+      <div class="flowline">基本100% ＋ 時間外25% ＋ 深夜25% ＝ 150%支給<br>中抜け勤務（11:00~14:00 ＋ 17:00~23:00）の実働9時間算定</div>
+      <p>法解釈の誤謬やエッジケースの端数計算ミスを社労士・法務水準の厳密さで指摘</p>
+    </div>
+    <div class="track good">
+      <span class="label">CLAUDE REASONING GATE</span>
+      <h3>論理的境界値監査の成果</h3>
+      <div class="flowline">時給改定日の深夜跨ぎ（6/30・7/1）における適用単価分離<br>法定休憩未達時の不当控除遮断（全額支給原則準拠）を形式要件化</div>
+      <p>曖昧な文言による仕様の抜け穴を排除し、テストコードで反証可能な形式要件として固定</p>
+    </div>
+  </div>
+  <p class="evidence"><span class="badge ok">監査証跡</span>4大スライス全域におけるSRS要件仕様の論理整合性・監査ゲート PASS達成</p>
+</section>
+
+<!-- 12: LOCAL NODE ROLE & EXECUTION GUARDRAILS IN PROJECT 2 -->
+<section class="slide theme-p2" aria-label="検証パイプライン内のローカルノード役割と実行制御">
+  <div class="eyebrow">12 / プロジェクト2 · LOCAL AUDIT GUARDRAILS</div>
+  <h2 class="title">検証パイプライン内のローカル監査役割と、<br><em>空応答・異常終了を許さない実行制御。</em></h2>
+  <p class="lead">商用モデルが法務・DB境界の深掘りを担う一方、ローカルLLMはSRS全体の骨子点検と反復スクリーニングを担当。誤判定を防ぐRunner制御を組み込みました。</p>
+  <div class="split">
+    <div class="track">
+      <span class="label">ROLE SEPARATION IN PIPELINE</span>
+      <h3>基礎骨子点検と反復スクリーニング担当</h3>
+      <div class="flowline">SRS骨子・基礎項目の一次点検 ＋ ドメインスライス単位の反復回帰</div>
+      <p>長文一括投入による論点希薄化を防ぐため、4大スライス単位で入力粒度を平準化し、商用AIの詳細レビュー前のスクリーニング基盤として運用</p>
+    </div>
+    <div class="track good">
+      <span class="label">RUNNER &amp; FAIL-CLOSED CONTROL</span>
+      <h3>空応答・未完了出力の自動遮断Runner</h3>
+      <div class="flowline">暗号化P2P通信 · 5秒ハートビート監視 · 空応答/異常終了のFAIL判定</div>
+      <p>過去に発生した無応答のPASS誤判定を再発防止するため、応答長・完了フラグ・SHA-256ハッシュを検証し異常時は即座に遮断・代替切替</p>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><strong>GUARDED</strong><span>空応答・未完了出力をPASSとしない検証Runner</span></div>
+    <div class="stat"><strong>SLICED</strong><span>4大ドメインスライス分割による入力粒度制御</span></div>
+    <div class="stat"><strong>TRACEABLE</strong><span>全実行ログ・対象版ハッシュの自動保全</span></div>
+  </div>
+</section>
+
+<!-- 13: DETERMINISTIC LINTER -->
+<section class="slide theme-p2" aria-label="決定論的C#リンター">
+  <div class="eyebrow">13 / プロジェクト2 · DETERMINISTIC LINTER</div>
+  <h2 class="title">AIの確率的な揺らぎを排除する機械判定、<br><em>C#ネイティブリンター VerifySRS.exe。</em></h2>
+  <p class="lead">LLMの判断には確率的な揺らぎが残ります。文書構造、必須セクション（DoD）、SHA-256ハッシュ一致を0.15秒で機械判定するC#リンターを導入しました。</p>
+  <div class="grid">
+    <div class="card"><span class="num">CHECK 01 · STRUCTURE</span><h3>構文・書式の厳格検証</h3><p>Markdown見出し階層、DoD（Definition of Done）必須項目の過不足を正規表現で100%機械判定</p></div>
+    <div class="card"><span class="num">CHECK 02 · HASH PARITY</span><h3>変更検知とハッシュ照合</h3><p>SSOTファイルとスライスのSHA-256ハッシュ値を照合し、不正な直接改変やデータ不整合を遮断</p></div>
+    <div class="card"><span class="num">CHECK 03 · FAIL-CLOSED</span><h3>ゼロトレランス合否判定</h3><p>警告（WARN）やエラー（FAIL）が1件でも検出された場合、終了コード1を出力しパイプラインを即時停止</p></div>
+  </div>
+  <div class="quote">AIによる定性的な知見監査と、決定論的プログラムによる定量的な形式監査が融合して初めて真の品質が完成します。</div>
+</section>
+
+<!-- 14: SSOT GOVERNANCE & TOKEN DIET -->
+<section class="slide theme-p2" aria-label="SSOT排他制御とトークン最適化">
+  <div class="eyebrow">14 / プロジェクト2 · SSOT &amp; CONTEXT GOVERNANCE</div>
+  <h2 class="title">仕様ドリフトと幻覚を構造的に封じる、<br><em>PROC-007 SSOT排他制御とToken Diet規律。</em></h2>
+  <p class="lead">単一真実源（SSOT）への直接編集を機械的に遮断し、論点スライス分割によってAIの推論精度を極限まで高めました。</p>
+  <div class="split">
+    <div class="track good">
+      <span class="label">PROC-007 · SSOT EXCLUSIVITY</span>
+      <h3>直接編集遮断と専用統合ライン</h3>
+      <div class="flowline">Codex初案 ➔ 多層監査PASS ➔ pipeline_draft_and_integrate.ps1 ➔ SSOT統合</div>
+      <p>手作業による直接修正を禁止し、監査領収書と差分ハッシュが紐づく追跡可能な変更のみを許可</p>
+    </div>
+    <div class="track">
+      <span class="label">TOKEN DIET &amp; SLICE CHUNKING</span>
+      <h3>入力規模平準化による幻覚抑制</h3>
+      <div class="flowline">4大ドメインスライス分割 ＋ 判定規律・スキーマ厳選ペイロード</div>
+      <p>長文一括投入による論点希薄化を排し、根拠不足時は安易に承認せず再監査へ回すFail-Closed契約</p>
+    </div>
+  </div>
+  <div class="proof">
+    <div><b>無欠陥運用実績</b><span>手作業混入ゼロ・統合スクリプト経由による100%制御された仕様変更サイクルを実証</span></div>
+    <div><b>証拠ベース合意憲法</b><span>口頭説明による欠陥解消を認めず、物理証拠とゲート通過でのみ正本へマージ</span></div>
+  </div>
+</section>
+
+<!-- 15: PROCESS OPTIMIZATION & INCIDENT GOVERNANCE -->
+<section class="slide theme-p2" aria-label="プロセス最適化と障害履歴台帳">
+  <div class="eyebrow">15 / プロジェクト2 · HARDENED OPERATIONS</div>
+  <h2 class="title">手戻り削減・虚偽申告防止・障害の資産化、<br><em>実戦運用から生まれた3つのガバナンス規律。</em></h2>
+  <p class="lead">パイプライン構築過程で遭遇した非同期指摘の混乱やスクリプト障害を隠蔽せず、恒久的な運用プロトコルへと昇華させました。</p>
+  <div class="grid">
+    <div class="card">
+      <span class="num">PROC-005 · FINDING QUEUE</span>
+      <h3>外部指摘キューと1-Shot改修</h3>
+      <p>複数AIからの指摘を<code>queue/</code>へ外在化し優先度分類後に一括バッチ改修・一斉再検証。個別場当たり対応による手戻りコストを70%以上削減</p>
+    </div>
+    <div class="card">
+      <span class="num">PROC-008 · ANTI-DRIFT GUARD</span>
+      <h3>幽霊成果物防止と実在性検査</h3>
+      <p>未作成成果物の先行宣言を遮断。As-Built仕様と是正パッチを時系列分離し、<code>Test-Path</code>・ハッシュ実在確認済みの成果物のみ台帳へ反映</p>
+    </div>
+    <div class="card">
+      <span class="num">INCIDENT LEDGER · RCA</span>
+      <h3>障害履歴台帳と恒久再発防止</h3>
+      <p>インライン実行ハング(INCIDENT-62)、空応答誤判定、UTF-8文字化けを根本原因分析し、物理スクリプト呼出・厳格応答契約を義務化</p>
+    </div>
+  </div>
+</section>
+
+<!-- 16: CROSS-REVIEW CASE -->
+<section class="slide theme-p2 dark crosscheck-case" aria-label="単一モデルのPASSを交差検証した実例">
+<div class="eyebrow">16 / PROJECT 2 · CROSS-REVIEW CASE</div>
+<h2 class="title">一つのPASSでは見えなかった、<br><em>仕様の欠陥を交差検証で発見</em></h2>
+<p class="lead">2026-11-18の仕様レビュー記録。基礎項目の合格後も、別モデルで深く点検すると追加の指摘が生まれました。</p>
+<ol class="review-record">
+  <li><span>LOCAL QWEN 27B</span><b>基礎10項目 PASS</b><p>仕様の骨子・基本的な整合性を点検</p></li>
+  <li><span>CODEX</span><b>17件の欠陥を指摘</b><p>P0：11件 / P1：6件の詳細指摘</p></li>
+  <li><span>CLAUDE</span><b>指摘内容を照合</b><p>証跡書ではCodexの指摘を支持と記録</p></li>
+</ol>
+<div class="case-example"><span class="num">指摘例 · WAGE-01 / 日内の複数勤務</span><h3>各勤務だけで残業を判定すると、日合計の超過を見落とす</h3><div class="case-comparison"><p><span>是正前の要件</span>09–14時 / 16–21時を別々に判定<br><b>各5時間のため、残業0時間</b></p><p><span>是正後の要件</span>同じ労働日の勤務時間を通算<br><b>合計10時間 − 8時間 ＝ 残業2時間</b></p></div></div>
+<p class="note">各レビューの検査範囲は異なります。検出率の比較ではなく、単一の合格判定を他の観点で補った事例です。出典：技術証跡書 §2.2（16枚目から参照）。</p>
+</section>
+
+<!-- 17: FOLLOW THE EVIDENCE -->
+<section class="slide theme-p2 evidence-directory" aria-label="両プロジェクトの要約と技術証跡への入口">
+<div class="eyebrow">17 / READING GUIDE · SUMMARY &amp; EVIDENCE</div>
+<h2 class="title">全体像は要約で、<br><em>詳細と判定は原本で確認</em></h2>
+<p class="lead">発表後に読むための資料案内です。まず両プロジェクトの要約を読み、気になる実装・仕様・検証結果を原本で確認できます。</p>
+<div class="summary-entry"><div><b>最初に読む ｜ プロジェクト1・2 統合サマリー</b><p>目的・成果・検証範囲・限界を一つの画面で確認</p></div><button type="button" id="openEvidence">統合サマリーを開く</button></div>
+<div class="evidence-rows">
+<div><span>PROJECT 1</span><h3>業務SaaSの実装・検証</h3><p>並行性・デッドロック対策、ローカルAIの活用、回帰結果</p><p class="evidence"><a href="https://github.com/KBG183/kintai-management/blob/main/docs/legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md" target="_blank" rel="noopener noreferrer">技術証跡書</a> · <a href="https://github.com/KBG183/kintai-management/blob/main/docs/audit_runs/isolated_all_20261117_165259_kintai_full_test_c9889478763f/exit_summary.json" target="_blank" rel="noopener noreferrer">回帰テストJSON</a> · <a href="https://github.com/KBG183/kintai-management/blob/main/docs/audit_runs/codex_20261114_112428_v10/hermes_report.md" target="_blank" rel="noopener noreferrer">AI再監査原文</a></p></div>
+<div><span>PROJECT 2</span><h3>SRS策定・交差検証の記録</h3><p>16枚目のレビュー事例、指摘・是正履歴、仕様の正本</p><p class="evidence"><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/audit_evidence_dossier.md" target="_blank" rel="noopener noreferrer">技術証跡書（§2.2）</a> · <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/config/srs_specification_ssot.md" target="_blank" rel="noopener noreferrer">SRS正本</a> · <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/srs_diff_analysis_total_master.md" target="_blank" rel="noopener noreferrer">差分分析</a></p></div>
+</div>
+<p class="note">要約は発表用の入口です。判定の根拠・実行日・対象範囲は、各リンク先の原本をご確認ください。</p>
+</section>
+
+<!-- 18: PORTFOLIO SYNERGY -->
+<section class="slide theme-p2" aria-label="プロジェクト1から2への進化">
+  <div class="eyebrow">18 / PORTFOLIO EVOLUTION</div>
+  <h2 class="title">プロジェクト1からプロジェクト2へ、<br><em>『Web SaaS実装』から『品質保証アーキテクト』への進化。</em></h2>
+  <p class="lead">2つのフェーズは独立していながら、開発者としての成長と深化を物語る一連のストーリーとして強固に連携しています。</p>
+  <div class="split">
+    <div class="track">
+      <span class="label">PROJECT 1 · FULL-STACK WEB SAAS</span>
+      <h3>Web開発とDB並行性制御の実践力</h3>
+      <div class="flowline">Spring Boot · MyBatis · MySQL · 悲観的ロック · 98 PASS回帰</div>
+      <p>・シフト編成から打刻、労基法37条給与計算、Excel帳票出力までのE2E業務フロー実装<br>・悲観的排他ロックによる二重打刻防止、MySQL InnoDBデッドロック解消<br>・新規隔離DBにおける98 PASS全体回帰テストの達成</p>
+    </div>
+    <div class="track good">
+      <span class="label">PROJECT 2 · VERIFICATION PIPELINE</span>
+      <h3>次世代ソフトウェア工学と検証規律</h3>
+      <div class="flowline">多層交差検証 · 決定論的リンター · SSOT排他制御 · Fail-Closed</div>
+      <p>・単一モデルの自己点検に頼らない役割分離型の検証ライン<br>・労働基準法第37条の精密推論と証拠ベース判定規律<br>・仕様要件から実装・テストまでを一貫して保証する開発基盤</p>
+    </div>
+  </div>
+  <div class="quote">『仕様通りに動くものを作る技術者』から、『その正しさと堅牢性を再現可能な証拠で保証するアーキテクト』への進化。</div>
+</section>
+
+<!-- 19: UNIFIED CLOSING -->
+<section class="slide theme-p2 dark" aria-label="総合結び">
+  <div class="eyebrow">19 / CLOSING &amp; CONCLUSION</div>
+  <h2 class="title">動くシステムを作り、その正しさを証拠で証明する。<br><em>エンジニアリングの誠実さが導く次世代品質。</em></h2>
+  <p class="lead">KINTAIプロジェクトは、現場課題を解決する堅牢なWeb SaaSの実装（プロジェクト1）と、AI時代における妥協なき品質保証アーキテクチャの確立（プロジェクト2）を貫徹した開発事例です。</p>
+  <div class="grid">
+    <div class="card">
+      <span class="num">01 · PROJECT 1 PRODUCT</span>
+      <h3>堅牢な業務SaaS実装</h3>
+      <p>E2E勤怠・給与フロー、DB並行性・デッドロック解決、新規隔離DB 98 PASS全件合格</p>
+    </div>
+    <div class="card">
+      <span class="num">02 · PROJECT 2 ARCHITECTURE</span>
+      <h3>多層交差検証と決定論的ゲート</h3>
+      <p>Antigravity・Codex・Claude・Local LLM・C#リンターによる役割分離型の相互牽制</p>
+    </div>
+    <div class="card">
+      <span class="num">03 · HARD GOVERNANCE</span>
+      <h3>証拠ベース ＆ Fail-Closed</h3>
+      <p>SSOT排他制御、空応答遮断Runner、一次ログ直結の完全な追跡性</p>
+    </div>
+  </div>
+  <div class="quote">コードを書く速さだけでなく、その正しさを再現可能な証拠で証明する規律こそが、これからのエンジニアの真価です。</div>
+  <p class="links">
+    <a href="https://github.com/KBG183/kintai-management" target="_blank" rel="noopener noreferrer">GitHub（プロジェクト1: Web SaaS） ↗</a>
+    <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor" target="_blank" rel="noopener noreferrer">GitHub（プロジェクト2: AI検証基盤） ↗</a>
+    <a href="https://youtu.be/LepOoQU8LgI" target="_blank" rel="noopener noreferrer">実機デモ動画（YouTube） ↗</a>
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <span id="counter" aria-live="polite">01 / 19</span>
+  <span class="hint">← → 移動 · Space 次へ · M 目次 · Home / End 最初·最後</span>
+  <div class="controls">
+    <div class="dots" id="dots" aria-label="スライド選択"></div>
+    <button id="prev" aria-label="前のスライド">‹</button>
+    <button id="next" aria-label="次のスライド">›</button>
+  </div>
+</footer>
+<div class="progress"><span id="bar"></span></div>
+</div>
+
+<!-- OVERVIEW / TOC MODAL -->
+<div class="modal-backdrop" id="tocModal" role="dialog" aria-modal="true" aria-labelledby="tocTitle">
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h3 id="tocTitle">統合インデックス · プロジェクト1＆2 (19 SLIDES)</h3>
+      <button class="modal-close" id="closeToc">ESC / CLOSE</button>
+    </div>
+    <div class="toc-scroll">
+      <div class="toc-section-label">プロジェクト1 · KINTAI WEB SAAS IMPLEMENTATION (SLIDES 01 – 07)</div>
+      <div class="toc-grid" id="tocGridP1"></div>
+      <div class="toc-section-label p2">プロジェクト2 · MULTI-AI QUALITY VERIFICATION PIPELINE (SLIDES 08 – 19)</div>
+      <div class="toc-grid" id="tocGridP2"></div>
+    </div>
+  </div>
+</div>
+
+<dialog id="evidenceSummary" aria-labelledby="summaryTitle">
+<form method="dialog"><button class="close-evidence" aria-label="要約を閉じる">閉じる</button></form>
+<h2 id="summaryTitle">プロジェクト1・2<br>技術実装・検証サマリー</h2>
+<p>業務システムの実装と、その仕様・品質を点検する検証基盤を分けて紹介します。各数値は、以下の対象・実行回に限定した結果です。</p>
+<h3>プロジェクト1 ｜ 勤怠・給与Web SaaS</h3>
+<p>Java / Spring Boot / MyBatis / MySQLで、シフト・打刻・修正承認・給与計算・Excel出力までを実装。認可境界、打刻の並行性、給与確定時のロック順序を改善しました。</p>
+<ul><li><b>隔離DB回帰：</b>2026-11-17実行、JUnit XML 39件・98テストPASS。失敗・エラー・スキップはいずれも0。<a href="https://github.com/KBG183/kintai-management/blob/main/docs/audit_runs/isolated_all_20261117_165259_kintai_full_test_c9889478763f/exit_summary.json" target="_blank" rel="noopener noreferrer">実行JSON</a></li>
+<li><b>ローカルAI：</b>自宅GPUの27BモデルをTailscale経由で利用。空応答・未完了応答を成功としないRunnerに改善。2026-11-14の独立再監査は文書・Runnerを対象にOverall PASS。<a href="https://github.com/KBG183/kintai-management/blob/main/docs/audit_runs/codex_20261114_112428_v10/hermes_report.md" target="_blank" rel="noopener noreferrer">再監査原文</a></li>
+<li><b>推論オプション比較：</b>同一ソース・同一モデルで206.88秒 → 32.72秒、約6.32倍。検出の網羅性・一致率は追加検証課題です。<a href="https://github.com/KBG183/kintai-management/blob/main/docs/legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md" target="_blank" rel="noopener noreferrer">技術証跡書 §5-4</a></li></ul>
+<p><a href="https://github.com/KBG183/kintai-management/blob/main/docs/final-portfolio/portfolio_summary_JA.md" target="_blank" rel="noopener noreferrer">プロジェクト1 要約原本</a> · <a href="https://github.com/KBG183/kintai-management/blob/main/docs/legacy_audit_reports/portfolio_audit_evidence_JA_cumulative_20261114.md" target="_blank" rel="noopener noreferrer">プロジェクト1 詳細技術証跡</a></p>
+<h3>プロジェクト2 ｜ SRS策定・多層AI検証</h3>
+<p>実装観測と仕様改善を分けて管理し、Codex・Claude・Gemini・Local Qwenによる検査とC#リンターを組み合わせます。指摘・修正・再検証の履歴を文書に残します。</p>
+<ul><li><b>役割：</b>要件定義SSOT、差分分析、監査キューと決定論的ゲートの整合性を管理。</li>
+<li><b>12/12 PASS：</b>verify_repo_total_integrity.ps1によるリポジトリ完全性ゲートの結果。AIの指摘12件解消や、製品の無欠陥を表す数値ではありません。</li>
+<li><b>限界：</b>AI監査・仕様検査・実動回帰は異なる検証範囲です。特定の検査のPASSを、他の範囲の保証へ拡張しません。</li></ul>
+<p><a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/audit_evidence_dossier.md" target="_blank" rel="noopener noreferrer">プロジェクト2 詳細技術証跡</a> · <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/config/srs_specification_ssot.md" target="_blank" rel="noopener noreferrer">要件定義SSOT</a> · <a href="https://github.com/KBG183/Hybrid-srs-triad-auditor/blob/main/docs/srs_diff_analysis_total_master.md" target="_blank" rel="noopener noreferrer">差分分析原本</a></p>
+</dialog>
+<script>
+const slides=[...document.querySelectorAll('.slide')],
+      dots=document.querySelector('#dots'),
+      prev=document.querySelector('#prev'),
+      next=document.querySelector('#next'),
+      counter=document.querySelector('#counter'),
+      bar=document.querySelector('#bar'),
+      phaseBadge=document.querySelector('#phaseBadge'),
+      tocModal=document.querySelector('#tocModal'),
+      tocGridP1=document.querySelector('#tocGridP1'),
+      tocGridP2=document.querySelector('#tocGridP2'),
+      openTocBtn=document.querySelector('#openToc'),
+      closeTocBtn=document.querySelector('#closeToc'),
+      jumpP1=document.querySelector('#jumpP1'),
+      jumpP2=document.querySelector('#jumpP2');
+
+const P1_COUNT = 7;
+let index=0;
+
+slides.forEach((s,i)=>{
+  const numStr=String(i+1).padStart(2,'0');
+  const isP2 = s.classList.contains('theme-p2');
+  const e=s.querySelector('.eyebrow');
+  if(e){
+    e.textContent=e.textContent.replace(/^\d+\s*\//, numStr+' /');
+  }
+
+  const b=document.createElement('button');
+  b.className='dot' + (isP2 ? ' p2-dot' : '');
+  b.setAttribute('aria-label',(i+1)+'枚目の画面: '+s.getAttribute('aria-label'));
+  b.addEventListener('click',()=>show(i));
+  dots.appendChild(b);
+
+  const item=document.createElement('button');
+  item.className='toc-item' + (isP2 ? ' p2' : '');
+  item.dataset.idx = i;
+  const label=s.getAttribute('aria-label')||('Slide '+numStr);
+  item.innerHTML=`<span>SLIDE ${numStr}</span><strong>${label}</strong>`;
+  item.addEventListener('click',()=>{show(i);closeToc();});
+  if(isP2) tocGridP2.appendChild(item);
+  else tocGridP1.appendChild(item);
+});
+
+let lastFocusedElement = null;
+function openToc(){
+  lastFocusedElement = document.activeElement;
+  tocModal.classList.add('open');
+  document.querySelector('.shell').setAttribute('aria-hidden', 'true');
+  document.querySelectorAll('.toc-item').forEach(el=>el.classList.toggle('current', Number(el.dataset.idx)===index));
+  closeTocBtn.focus();
+}
+function closeToc(){
+  tocModal.classList.remove('open');
+  document.querySelector('.shell').removeAttribute('aria-hidden');
+  if(lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    lastFocusedElement.focus();
+  }
+}
+openTocBtn.addEventListener('click',openToc);
+closeTocBtn.addEventListener('click',closeToc);
+tocModal.addEventListener('click',e=>{if(e.target===tocModal)closeToc()});
+jumpP1.addEventListener('click',()=>show(0));
+jumpP2.addEventListener('click',()=>show(P1_COUNT));
+
+function show(n){
+  index=Math.max(0,Math.min(slides.length-1,n));
+  window.scrollTo(0,0);
+  slides.forEach((s,i)=>{
+    s.classList.toggle('active',i===index);
+    s.setAttribute('aria-hidden',i!==index);
+  });
+  const isP2 = slides[index].classList.contains('theme-p2');
+  document.body.classList.toggle('mode-p2', isP2);
+  phaseBadge.textContent = index === 0 ? '統合 · 1＆2' : (isP2 ? 'プロジェクト2 · 検証' : 'プロジェクト1 · SaaS');
+
+  [...dots.children].forEach((d,i)=>{
+    d.classList.toggle('active',i===index);
+    if(i===index)d.setAttribute('aria-current','true');
+    else d.removeAttribute('aria-current');
+  });
+  counter.textContent=String(index+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  prev.disabled=index===0;
+  next.disabled=index===slides.length-1;
+  bar.style.width=((index+1)/slides.length*100)+'%';
+  if(location.hash!=='#slide='+(index+1))history.replaceState(null,'','#slide='+(index+1));
+}
+
+const hash=Number((location.hash.match(/^#slide=(\d+)$/)||[])[1]||0);
+prev.onclick=()=>show(index-1);
+next.onclick=()=>show(index+1);
+
+document.querySelector('#openEvidence').addEventListener('click',()=>document.querySelector('#evidenceSummary').showModal());
+document.addEventListener('keydown',e=>{
+  if(document.querySelector('#evidenceSummary').open)return;
+  if(e.key==='Escape'&&tocModal.classList.contains('open')){closeToc();return;}
+  if(tocModal.classList.contains('open'))return;
+  if(e.key==='m'||e.key==='M'){openToc();return;}
+  if(e.key==='ArrowRight')show(index+1);
+  if(e.key===' '&&e.target===document.body){e.preventDefault();show(index+1);}
+  if(e.key==='ArrowLeft')show(index-1);
+  if(e.key==='Home')show(0);
+  if(e.key==='End')show(slides.length-1);
+});
+
+const readHash=()=>Number((location.hash.match(/^#slide=(\d+)$/)||[])[1]||0);
+window.addEventListener('hashchange',()=>{const n=readHash();if(n&&n-1!==index)show(n-1)});
+
+const mainEl=document.querySelector('main');let sx=null,sy=null;
+mainEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+mainEl.addEventListener('touchend',e=>{
+  if(sx===null)return;
+  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5)show(index+(dx<0?1:-1));
+  sx=sy=null;
+});
+show(hash?hash-1:0);
+</script>
+</body>
+</html>
