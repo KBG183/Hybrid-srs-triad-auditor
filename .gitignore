@@ -2,7 +2,6 @@
 scratch/
 docs/audit_runs/
 audit/historical_exploratory_runs/
-audit/runs/
 *.log
 !logs/incident_execution_trace.log
 *.tmp

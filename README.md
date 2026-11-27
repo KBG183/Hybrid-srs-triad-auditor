@@ -180,7 +180,7 @@ flowchart TD
 
 ## ⚡ クイックスタート（APIキー不要・オフライン再生デモ）
 
-外部APIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（12/12）・SSOT決定論的リンター・監査検証を3秒以内に再現できます：
+外部APIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（11/11）・SSOT決定論的リンター・監査検証を3秒以内に再現できます：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tools\scripts\demo_offline_replay.ps1"

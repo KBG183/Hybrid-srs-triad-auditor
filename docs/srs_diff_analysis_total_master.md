@@ -14,10 +14,10 @@
 
 | スライス | 要件ID (Track 1) | 実装仕様 (Track 2) | 設計と実装の主要乖離（Drift） | 解決状態 |
 |:---|:---|:---|:---|:---:|
-| **Slice 1**<br>(店舗・権限) | `REQ-STORE-001`〜`004` | `REQ-OBS-STORE-001`〜`004` | 多重店舗所属時の権限分離、契約時給履歴（`effective_from/to`）の物理整合性 | **RESOLVED** |
-| **Slice 2**<br>(シフト) | `REQ-SHIFT-001`〜`004` | `REQ-OBS-SHIFT-001`〜`004` | 店長確定APIにおける状態改ざん余地（ADV-ALL-004）、定員上限ガード | **RESOLVED** |
-| **Slice 3**<br>(勤怠・打刻) | `REQ-ATTEND-001`〜`005` | `REQ-OBS-ATTEND-001`〜`004` | 未退勤ゴースト打刻による給与締めデッドロック（ADV-001）、店舗IDデフォルト代入 | **RESOLVED** |
-| **Slice 4**<br>(給与・労基法) | `REQ-LABOR-001`〜`004` | `REQ-OBS-PAYROLL-001`〜`004` | 確定給与上書き脆弱性（F-01）、労基法37条6段階割増欠落（F-02）、最低賃金固定化 | **RESOLVED** |
+| **Slice 1**<br>(店舗・権限) | `REQ-STORE-001`, `REQ-MEMBER-001`,<br>`REQ-STAFF-001`〜`002` (計4要件) | `REQ-OBS-STORE-001`〜`004` | 多重店舗所属時の権限分離、契約時給履歴（`effective_from/to`）の物理整合性 | **RESOLVED** |
+| **Slice 2**<br>(シフト) | `REQ-SHIFT-001`〜`004` (計4要件) | `REQ-OBS-SHIFT-001`〜`004` | 店長確定APIにおける状態改ざん余地（ADV-ALL-004）、定員上限ガード | **RESOLVED** |
+| **Slice 3**<br>(勤怠・打刻) | `REQ-ATT-001`〜`003`,<br>`REQ-STORE-002`, `REQ-LABOR-005` (計5要件) | `REQ-OBS-ATTEND-001`〜`004` | 未退勤ゴースト打刻による給与締めデッドロック（ADV-001）、店舗IDデフォルト代入 | **RESOLVED** |
+| **Slice 4**<br>(給与・労基法) | `REQ-LABOR-001`〜`004` (計4要件) | `REQ-OBS-PAYROLL-001`〜`004` | 確定給与上書き脆弱性（F-01）、労基法37条6段階割増欠落（F-02）、最低賃金固定化 | **RESOLVED** |
 
 ---
 
