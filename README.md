@@ -12,6 +12,15 @@
 
 ---
 
+## 🌐 インタラクティブ・プレゼンテーション (Interactive Decks & GitHub Pages)
+
+本リポジトリのアーキテクチャ設計および検証実績は、GitHub Pages上でインタラクティブに閲覧可能です：
+
+- 🖥️ **[アーキテクチャ詳細解説スライド (全20スライド)](https://kbg183.github.io/Hybrid-srs-triad-auditor/)** (`index.html`)：5重多層検証、デュアルトラック逆工学、一次証跡トレーサビリティの完全解説。
+- 📊 **[エグゼクティブ要約プレゼンテーション](https://kbg183.github.io/Hybrid-srs-triad-auditor/presentation.html)** (`presentation.html`)：プロジェクト1（実動SaaS）とプロジェクト2（検証基盤）の実装・検証ハイライトサマリー。
+
+---
+
 ## 🧭 3段階エンジニアリング連携 (3-Phase Engineering Journey)
 
 本リポジトリは、実務システム開発から多層AI交差検証、欠陥是正リファクタリングに至る**「3段階エンジニアリング連携（3-Phase Engineering Journey）」の第2段階（Phase 2: Hybrid SRS Triad Auditor）**として位置づけられています。
@@ -105,9 +114,9 @@ flowchart TD
 
 ## 🏛️ 先行R&D工学系譜の実物資産 (Engineering Heritage Assets)
 
-本システムは、79件の実障害インシデント解決台帳や実測メトリクスを継承した決定論的エンジニアリング基盤です：
+本システムは、43件の実障害インシデント解決台帳（INCIDENT-01〜80）や実測メトリクスを継承した決定論的エンジニアリング基盤です：
 
-- **79件の実障害・耐障害性トラブルシューティング台帳**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
+- **43件の実障害・耐障害性トラブルシューティング台帳（INCIDENT-01〜80）**: [`logs/incident_history_ledger.md`](logs/incident_history_ledger.md)
 - **単一進入点直列マスターゲート**: [`tools/scripts/gate_master_srs.ps1`](tools/scripts/gate_master_srs.ps1)
 - **第0条 SRS 絶対憲法およびSHA-256整合性ロック**: [`governance/ARTICLE_0_SRS.md`](governance/ARTICLE_0_SRS.md)
 - **外部指摘事項追跡および1-Shot是正キュー**: [`queue/srs_pending_findings.json`](queue/srs_pending_findings.json)
@@ -115,7 +124,7 @@ flowchart TD
 - **Part 2 総括報告・証跡書**: [`docs/srs_track2_overall_synthesis_dossier.md`](docs/srs_track2_overall_synthesis_dossier.md)
 - **日次多層監査実測エビデンス集約書**: [`docs/audit_evidence_dossier.md`](docs/audit_evidence_dossier.md)
 - **C#統合マスター静的解析エンジン（VerifySRS.cs）**: [`tools/scripts/VerifySRS.cs`](tools/scripts/VerifySRS.cs)
-- **11/11全件通過・決定論的回帰テストスイート**: [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
+- **12/12全件通過・決定論的完全性検証および回帰スイート**: [`tools/scripts/verify_repo_total_integrity.ps1`](tools/scripts/verify_repo_total_integrity.ps1) · [`tools/scripts/TestV52Suite_Regression.cs`](tools/scripts/TestV52Suite_Regression.cs)
 
 ---
 
@@ -149,7 +158,7 @@ flowchart TD
 ├── governance/
 │   └── ARTICLE_0_SRS.md               # 第0条 SRS絶対憲法（DoD基準・Fail-Closed）
 ├── logs/
-│   ├── incident_history_ledger.md    # 79件実障害インシデント・耐障害性解決台帳
+│   ├── incident_history_ledger.md    # 43件実障害インシデント・耐障害性解決台帳（INCIDENT-01〜80）
 │   ├── cloud_api_token_ledger.csv    # Claude API消費トークン実測原帳
 │   ├── local_token_ledger.csv        # ローカルGPU（Qwen 27B）推論速度・実測原帳
 │   └── codex_token_ledger.csv        # OpenAI Codex消費トークン実測原帳
@@ -171,7 +180,7 @@ flowchart TD
 
 ## ⚡ クイックスタート（APIキー不要・オフライン再生デモ）
 
-外部APIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（11/11）・SSOT決定論的リンター・監査検証を3秒以内に再現できます：
+外部APIキーやローカルGPU環境がなくても、以下の1行コマンドで回帰テスト（12/12）・SSOT決定論的リンター・監査検証を3秒以内に再現できます：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "tools\scripts\demo_offline_replay.ps1"
